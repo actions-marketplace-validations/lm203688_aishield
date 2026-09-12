@@ -1,11 +1,11 @@
 {
   "domain": "data",
   "current": {
-    "total": 6,
-    "before": 6,
+    "total": 8,
+    "before": 8,
     "grew": false,
     "_source": "data-scan-flywheel",
-    "_ts": "2026-08-29T02:35:37.108277+00:00"
+    "_ts": "2026-09-04T07:56:50.676582+00:00"
   },
   "history": [
     {
@@ -115,8 +115,44 @@
         "before": 6,
         "grew": false
       }
+    },
+    {
+      "ts": "2026-09-01T04:49:08.281978+00:00",
+      "source": "data-scan-flywheel",
+      "state": {
+        "total": 7,
+        "before": 6,
+        "grew": true
+      }
+    },
+    {
+      "ts": "2026-09-01T04:57:16.706287+00:00",
+      "source": "data-scan-flywheel",
+      "state": {
+        "total": 7,
+        "before": 7,
+        "grew": false
+      }
+    },
+    {
+      "ts": "2026-09-03T08:00:31.987226+00:00",
+      "source": "data-scan-flywheel",
+      "state": {
+        "total": 8,
+        "before": 7,
+        "grew": true
+      }
+    },
+    {
+      "ts": "2026-09-04T07:56:50.676598+00:00",
+      "source": "data-scan-flywheel",
+      "state": {
+        "total": 8,
+        "before": 8,
+        "grew": false
+      }
     }
   ],
-  "updated": "2026-08-29T02:35:37.108297+00:00",
+  "updated": "2026-09-04T07:56:50.676603+00:00",
   "desc": ""
 }

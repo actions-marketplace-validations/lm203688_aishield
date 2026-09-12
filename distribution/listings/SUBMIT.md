@@ -3,7 +3,7 @@
 > 用途：把各平台的「去哪提交 / 贴什么」固化成可直接复制的文本，降低手动发布摩擦。
 > 维护节奏：由自动化 `AIShield 多渠道分发缺口巡检` 每周核对状态并刷新本文件。
 > 最后人工核对：2026-08-15（curl/WebFetch 实测）。
-> 最后自动巡检：**2026-08-22**（curl 实测；本次纠正 2 处长期误判，见下「核验方法铁律」）。
+> 最后自动巡检：**2026-09-12**（curl 实测；本域 drift 已随 4.3.0 发版消除；09-12 复测仍 4.3.0 无漂移，详见表内 aishield.tools 两行）。
 
 ---
 
@@ -56,11 +56,11 @@
   |---|---|
   | name | `io.github.lm203688/aishield` |
   | title | AIShield Security Scanner |
-  | version | **4.2.2** ✅ 与基线一致 |
+  | version | **4.3.0** ✅ 与基线一致 |
   | status | **active** |
   | isLatest | **true** |
   | publishedAt | 2026-08-07T12:54:18Z |
-  | packages | `aishield-mcp-server` 4.2.2 · transport **stdio** ✅ |
+  | packages | `aishield-mcp-server` 4.3.0 · transport **stdio** ✅ |
   | remotes | `streamable-http` → `https://aishield.tools/api/v1/mcp` |
 
 - **无需提 PR**：条目已在册（推测由 `.github/workflows/publish-mcp-registry.yml` 发布）。此前「fork + 提 PR」的指引**作废**，勿重复提交造成重复条目。
@@ -121,13 +121,13 @@
 
 ## 发布状态速查（每周由自动化刷新）
 
-> 状态截止 **2026-08-22** 自动巡检（全部经 curl 实测）。
+> 状态截止 **2026-09-12** 自动巡检（全部经 curl 实测）。
 
 | 渠道 | 状态 | 资产就绪 | 需用户手动 |
 |---|---|---|---|
-| Official MCP Registry | ✅ **已上架 active 4.2.2**（2026-08-22 纠正误判） | ✅ 在册 | 无（remote 元数据 stale 待决策） |
+| Official MCP Registry | ✅ **已上架 active 4.3.0**（2026-09-05 复测；remotes 已移除，stdio-only） | ✅ 在册 | 无（勿提 PR，已在册） |
 | Glama | ✅ 已上架（2026-08-22 复测 200） | ✅ README/llms.txt 已去云化(2026-08-15) | 后台短描述待用户登录改 |
-| npm | ✅ 4.2.2（2026-08-22 复测 latest=4.2.2） | — | — |
+| npm | ✅ 4.3.0（2026-09-06 复测 latest=4.3.0） | — | — |
 | LobeHub | ⚠️ 被 SaaS 占位 | ✅ 文案 | 登录发布开源版 |
 | Smithery | ❌ 未发布 | ✅ smithery.yaml | 登录发布 |
 | ClawHub | ❌ 缺位+squat | ✅ SKILL.md | clawhub publish |
@@ -138,14 +138,14 @@
 | HuggingFace | ❌ | ✅ README | 上传 |
 | A2A Registry | ❌ | ✅ agent-card | 注册 |
 | DSH | ❌ | ✅ 全套 | 投稿+npm |
-| aishield.tools 静态发现文件 | ⚠️ **stale 4.2.0/133/错工具名**（连续第 3 周未变） | ✅ main 已是 4.2.2 正确 | **CF Pages Retry** |
-| aishield.tools `/api/v1` 后端 | ⚠️ **活着但 stale**（health 报 4.2/133；工具名正确） | — | 后端重新部署 |
+| aishield.tools 静态发现文件 | ✅ **已修复 4.3.0**（2026-09-05 复测：227 MCP/233 skill、6 工具名正确） | ✅ main 已是 4.3.0 正确 | 无（drift 随 4.3.0 发版消除，CF Pages Retry 不再需要） |
+| aishield.tools `/api/v1` 后端 | ✅ **已修复 4.3.0/228**（2026-09-05 复测；commit 93fcd10c，deployed 2026-09-01） | — | 无（随 4.3.0 发版部署，元数据已新鲜） |
 | GitHub Pages（github.io） | ⛔ **死端表面**：301→aishield.tools，内容不可达 | — | 无（勿再修，见下） |
 
 ### 表面拓扑（2026-08-22 实测厘清）
 
 ```
-main 分支 (✅ 4.2.2 / 227 / aishield_*  ← 唯一正确的真相源)
+main 分支 (✅ 4.3.0 / 230 / aishield_*  ← 唯一正确的真相源)
   │
   ├── GitHub Pages ── pages.yml 构建成功 ──► github.io ──301(CNAME)──► aishield.tools
   │                                                                    （自身内容永不可达 = 死端）

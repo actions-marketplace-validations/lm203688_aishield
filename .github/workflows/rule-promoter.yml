@@ -10,8 +10,7 @@ name: AIShield Rule Auto-Promoter
 # 威胁情报流水线不会抹掉雷达晋升的规则。
 
 on:
-  schedule:
-    - cron: '40 3 * * *'   # 每日 03:40 UTC —— Tech Radar(02:00) 起草之后
+  workflow_call:
   workflow_dispatch:
 
 permissions:
@@ -33,8 +32,12 @@ jobs:
         with:
           python-version: '3.13'
 
-      - name: Gate report (--check，blocked 属正常待作者补全，不失败)
-        run: python scripts/promote_rule.py --check || true
+      - name: Gate report (--check；blocked=六道闸门未过，必须可见，不得吞)
+        # 铁律：禁止 `|| true` 吞门禁失败。blocked（校验未过，如良性语料误报）
+        # 必须红在 UI 上让人看见，而非静默全绿。用 continue-on-error 让红步
+        # 可见但不阻断健康候选的晋升（真正把关的是下面的 --promote-all）。
+        run: python scripts/promote_rule.py --check
+        continue-on-error: true
 
       - name: Promote all passing candidates
         id: promo
@@ -88,11 +91,19 @@ jobs:
           # 心跳：rules 域每周期刷新（数值不变则不刷 history）
           RADAR_N=$(python -c "import json;print(len(json.load(open('data/radar_rules.json')).get('rules',{})))" 2>/dev/null || echo 0)
           python scripts/state_bus.py set rules "{\"radar_rules\":$RADAR_N,\"last_promoted\":${{ steps.promo.outputs.promoted }}}" --source rule-promoter || true
-          git add data/radar_rules.json scanner/_proposed/ mcp-server/README.md data/state/ 2>/dev/null || true
+          # 注意：不要 git add data/state/ —— 整个状态目录是并发冲突磁铁（多个
+          # workflow 同时写并 push），把它并进本次提交会让 rebase 产生内容冲突。
+          # 晋升产物只涉及 radar_rules.json / _proposed / README，这些文件仅本
+          # workflow 接触，无冲突。radar_effect.json 是唯一例外：它仅由本 workflow
+          # 的 --promote-all（内部调用 radar_effect.evaluate）写入，单写者，无冲突，
+          # 且 meta-monitor M9 需要从 main 读取它来检查"晋升规则是否误报"。
+          git add data/radar_rules.json scanner/_proposed/ mcp-server/README.md data/state/radar_effect.json 2>/dev/null || true
           if ! git diff --cached --quiet; then
-            git commit -m "auto: 规则闸门自动晋升 ${{ steps.promo.outputs.promoted }} 条 [skip ci]" || true
-            git pull --rebase --autostash origin main || true
-            git push origin main || echo "push skipped"
+            git commit -m "auto: 规则闸门自动晋升 ${{ steps.promo.outputs.promoted }} 条 [skip ci]"
+            # 修复"只进不出"：并发 push 冲突曾被 `|| echo skipped` 静默吞掉，
+            # 晋升结果永远进不了仓库（靠人工补 13 条）。统一走共享脚本带重试，
+            # 重试耗尽才真 exit 1（触发 alert job），不再制造假绿门禁。
+            bash scripts/git_push_safe.sh
           else
             echo "本周期无可晋升候选或无实际变化"
           fi
@@ -103,10 +114,19 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NOTIFY_WEBHOOK: ${{ secrets.NOTIFY_WEBHOOK }}
         run: |
+          # 恢复即关闭：晋升成功必须同时清掉两条指纹，否则 alert job 在
+          # promote 崩溃时开的 "rule-promoter-crashed" 告警永远无人关闭
+          # （04 号态：告警有了、恢复通知没有 → 闭环断一半）。
+          # --resolve 在"无对应开启 Issue"时也返回 0，故无需吞失败（铁律：
+          # 不放过真失败）。
           python scripts/notify.py --resolve \
             --fingerprint rule-promotion-failed \
             --title "规则晋升恢复" \
-            --body "晋升后全量测试通过。" || true
+            --body "晋升后全量测试通过。"
+          python scripts/notify.py --resolve \
+            --fingerprint rule-promoter-crashed \
+            --title "规则晋升任务恢复" \
+            --body "promote job 本轮成功，历史崩溃告警关闭。"
 
   alert:
     name: Alert on Loop Failure

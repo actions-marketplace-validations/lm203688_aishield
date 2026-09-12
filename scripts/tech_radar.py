@@ -30,6 +30,8 @@ Usage:
   python scripts/tech_radar.py --dry-run            # local validation
   python scripts/tech_radar.py --once --dry-run     # single pass, no issues
   python scripts/tech_radar.py --once --live        # single pass + create issues
+  python scripts/tech_radar.py --publish            # + publish report/index/state to main
+  python scripts/tech_radar.py --migrate-drafts     # one-shot: fix legacy TODO drafts
 """
 from __future__ import annotations
 
@@ -85,6 +87,12 @@ USER_PLATFORMS = [
 
 # Severity thresholds
 CRITICAL_TAGS = {"new-cve", "protocol-vuln", "fundamental-bypass"}
+
+# Source-health thresholds
+# 单源连续失败 >= 3 次（约 3 天）才判 degraded，放过单次抖动。Reddit 实测
+# 连续 12 天 HTTP -1（本机出口不可达）却因聚合 errors=4 < 阈值而 Permanent 绿，
+# 正是"源挂了但流程全绿"的典型——逐源留痕后必须可单独判红。
+SOURCE_FAIL_THRESHOLD = 3
 
 
 # ---------------------------------------------------------------------------
@@ -676,6 +684,103 @@ ATTACK_PATTERNS = [
                                                               "adversarial-agent"),
 ]
 
+# First pattern per attack category -- used to auto-fill a first-pass detection
+# regex when drafting a candidate (see draft_rule_candidate). The radar's job is
+# to *propose*; the promotion gate (scripts/promote_rule.py) is the backstop that
+# refuses anything too broad or that fires on the benign corpus.
+CATEGORY_FIRST_PATTERN = {}
+for _cat_pat, _cat_name in ATTACK_PATTERNS:
+    CATEGORY_FIRST_PATTERN.setdefault(_cat_name, _cat_pat)
+
+
+def _is_specific(pattern):
+    """True only if a pattern encodes *structure*, not just a keyword phrase.
+
+    A detection rule that is a bare phrase (`jailbreak`, `prompt injection`,
+    `supply chain`) or a greedy co-occurrence (`mcp .* attack`) fires on any
+    *mention* of the threat. In this project that is fatal: the radar's own
+    daily reports discuss "prompt injection" / "MCP attack" by name, so a
+    keyword rule would flag our own repository on the nightly self-scan -- and
+    a rule that fires on benign input is worse than no rule (see promote_rule.py).
+    Only an alternation of distinct tokens (`credential (leak|theft|...)`) or a
+    bounded cross-token gap (`X .{0,40} Y`) qualifies; everything else stays a
+    `draft` for a human to tighten, exactly how the hand-authored live rules
+    were written.
+    """
+    if "|" in pattern:
+        return True
+    return bool(re.search(r"\.\{\d+,\d+\}", pattern))
+
+
+def _existing_patterns(live_only=False):
+    """Every pattern already promoted or queued, so we never draft a duplicate.
+
+    live_only=True returns only *live* patterns (promoted radar rules + scanner
+    rules), which is what migrate_drafts needs: it must not treat a sibling
+    queued candidate -- or the file's own current pattern -- as a duplicate of
+    itself.
+    """
+    pats = set()
+    try:
+        rr = os.path.join(ROOT, "data", "radar_rules.json")
+        if os.path.exists(rr):
+            with open(rr, encoding="utf-8") as f:
+                pats |= set(json.load(f).get("rules", {}))
+    except Exception:
+        pass
+    try:
+        sys.path.insert(0, ROOT)
+        from scanner import rules as _sr          # noqa: WPS433
+        pats |= set(getattr(_sr, "ALL_RULES", {}))
+    except Exception:
+        pass
+    if live_only:
+        return pats
+    for p in glob.glob(os.path.join(PROPOSED_DIR, "PROPOSED_*.json")):
+        try:
+            with open(p, encoding="utf-8") as f:
+                d = json.load(f)
+            for r in (d.get("rules") or []):
+                pat = (r.get("pattern") or "").strip()
+                if pat and not pat.upper().startswith("TODO"):
+                    pats.add(pat)
+        except Exception:
+            pass
+    return pats
+
+
+def _gate_precheck(pattern, existing):
+    """Mirror of promote_rule's six gates, so drafts are born promotable.
+
+    Returns (ok, reason). A draft that clears this will pass --promote-all;
+    one that does not is written with status=draft + a reason, not left to rot
+    silently. BENIGN_CORPUS is imported from the gate so the two never drift.
+    """
+    if not pattern or pattern.upper().startswith("TODO"):
+        return False, "pattern still a TODO placeholder"
+    if not _is_specific(pattern):
+        return False, "pattern too broad (bare keyword) -- needs a specific regex"
+    try:
+        compiled = re.compile(pattern, re.IGNORECASE)
+    except re.error as e:
+        return False, f"regex does not compile: {e}"
+    if len(pattern) < 6:
+        return False, "pattern suspiciously short"
+    if compiled.search("") or compiled.search("a"):
+        return False, "pattern matches empty/trivial input -- too broad"
+    if pattern in existing:
+        return False, "duplicate -- pattern already active or queued"
+    try:
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        import promote_rule                      # noqa: WPS433
+        corpus = promote_rule.BENIGN_CORPUS
+    except Exception:
+        corpus = []
+    for i, sample in enumerate(corpus):
+        if compiled.search(sample):
+            return False, f"false positive on benign sample #{i}"
+    return True, ""
+
 # Title cues that escalate severity.
 _SEV_CRITICAL = ["bypass", "exploit", "rce", "remote code", "unauthenticated",
                  "zero-day", "0-day", "wormable", "privilege escalation"]
@@ -683,26 +788,153 @@ _SEV_HIGH = ["new attack", "first", "novel", "breaking", "automated attack",
              "practical attack", "real-world attack", "in the wild"]
 
 
+# ---------------------------------------------------------------------------
+# Attack vs. defence side
+# ---------------------------------------------------------------------------
+# Root cause of the 49 rotting `_proposed/` drafts: the radar drafted *any*
+# signal matching an attack keyword as an attack-rule candidate, even when the
+# signal was itself a DEFENSIVE artefact (a guardrail tool, a detection paper,
+# a benchmark) or owner-level REPO SPAM. Defensive artefacts are not threats
+# AIShield needs to detect, so drafting them only produced unpromotable stubs.
+# We now tag every classified signal with a `side` (attack | defense | spam)
+# and the drafting/issue pipeline only acts on the attack side.
+
+# Defence vocabulary -- overwhelmingly appears in protective tools/papers, not
+# offensive techniques. A signal carrying any of these is treated as the
+# defence side unless it also uses explicit exploit language (see below).
+DEFENSE_INDICATORS = [
+    "defen",          # defend / defense / defensive
+    "guard",          # guardrail / guardian
+    "mitigat",        # mitigate / mitigation
+    "shield",         # shielding / shield
+    "firewall",
+    "protect",        # protection / protective
+    "safeguard",
+    "sandbox",
+    "harden",         # hardening
+    "benchmark",
+    "survey",
+    "detect",         # detection / detect (defensive research)
+    "countermeasure",
+    "prevention",
+    "adversarial training",
+    "robustness",     # robustness against attacks (defensive)
+    "neutraliz",      # neutralize
+    "quarantine",
+    "fuzz",           # fuzzing / fuzzer (security-testing tooling)
+    "sentinel",
+]
+
+# Owner-level repo spam: a single GitHub owner mass-producing similarly-named
+# repos (often defensive demos) that flood the radar with low-signal noise.
+# Keyed by owner login -> human note. Signalled repos are suppressed from
+# attack drafting entirely.
+REPO_SPAM_OWNERS = {
+    "alphaparkinc": "genpark-* mass-repo spam (defensive demos)",
+}
+REPO_SPAM_PREFIXES = ("genpark-",)
+
+# R4-capability (REJECTED-INDEX 2026-09-03): self-evolving / self-improving
+# agent *capability* papers cite attacks only as motivation ("是攻击前提，非攻击").
+# They match the `self[- ]evolving\s+agent` / `trajectory poison` attack patterns
+# yet are not draftable attack techniques — drafting them produced rotting,
+# non-promotable stubs (e.g. "Closing the Consistency Gap: Self-Evolving Agents").
+# We suppress such signals to "none" unless they carry explicit weaponisation
+# language proving a concrete technique is described.
+CAPABILITY_INDICATORS = [
+    "self-evolv",        # self-evolving / self-evolution
+    "self-improv",       # self-improving / self-improvement
+    "consistency gap",   # "Closing the Consistency Gap" capability paper
+    "autonomous improvement",
+    "emergent ability", "emergent capability",
+]
+# Strong exploit language: a signal carrying any of these is a real technique,
+# not mere capability research -> keep it on the attack side.
+_EXPLOIT_HARD = ["bypass", "exploit", "weaponiz", "rce",
+                 "arbitrary code", "remote code", "0day", "zero-day",
+                 "in the wild", "proof-of-concept", "poc"]
+
+
+def _is_capability_side(text, title):
+    """True if the signal is agent-capability / self-evolution research that
+    must NOT be drafted as an attack (R4-capability)."""
+    if not any(k in text for k in CAPABILITY_INDICATORS):
+        # broad "agent/llm capability" phrasing (R4 self-evolving capability)
+        if "capability" in text and any(
+                w in text for w in ("agent", "llm", "model", "foundation")):
+            pass
+        else:
+            return False
+    # explicit weaponisation / concrete attack technique -> keep as attack
+    return not any(k in text for k in _EXPLOIT_HARD)
+
+
+def _is_repo_spam(sig):
+    """True if the signal is owner-level repo spam that should be suppressed."""
+    low = (sig.get("title") or "").lower()
+    if any(owner.lower() in low for owner in REPO_SPAM_OWNERS):
+        return True
+    repo_part = low.split("/")[-1]          # owner/repo -> repo name
+    return any(repo_part.startswith(p) for p in REPO_SPAM_PREFIXES)
+
+
+def _is_defense_side(text, title):
+    """True if the signal describes a defensive artefact rather than an attack."""
+    return any(k in text for k in DEFENSE_INDICATORS)
+
+
 def classify_signal(sig):
-    """Return (category, severity) for a signal, or (None, None)."""
+    """Return (category, severity, side) for a signal, or (None, None, "none").
+
+    `side` is one of:
+      - "attack"  : an offensive technique / new threat -> draft a rule candidate
+      - "defense" : a protective tool/paper/benchmark -> tracked, NOT drafted
+      - "spam"    : owner-level repo spam -> suppressed from attack drafting
+      - "none"    : no attack pattern matched -> ignored
+    """
     text = " ".join(str(v) for v in sig.values() if isinstance(v, str)).lower()
+
+    # 1) owner-level repo spam: suppress entirely, before any pattern match
+    if _is_repo_spam(sig):
+        return None, None, "spam"
+
     cat = next((c for pat, c in ATTACK_PATTERNS if re.search(pat, text)), None)
     if not cat:
-        return None, None
+        return None, None, "none"
+
+    # R4-capability: self-evolution / agent-capability research that merely
+    # motivates with attack keywords is NOT a draftable attack technique.
+    # Suppress to "none" (never drafted) unless explicit exploit language proves
+    # a concrete technique is described. This stops the rotting-draft spiral
+    # (e.g. "Self-Evolving Agents … Trajectory Poisoning" → none, not attack).
+    _title = (sig.get("title") or "").lower()
+    if _is_capability_side(text, _title):
+        return None, None, "none"
+
     title = (sig.get("title") or "").lower()
+
+    # severity escalation (attacker language)
     if any(k in title for k in _SEV_CRITICAL):
-        return cat, "critical"
-    if any(k in title for k in _SEV_HIGH):
-        return cat, "high"
-    # A defence/benchmark paper describes an attack but is not itself a threat.
-    if any(k in title for k in ["defen", "guard", "mitigat", "survey", "benchmark",
-                                "detect", "safeguard", "certification"]):
-        return cat, "medium"
-    return cat, "high"
+        sev = "critical"
+    elif any(k in title for k in _SEV_HIGH):
+        sev = "high"
+    else:
+        sev = "high"
+
+    # attack vs. defence side
+    side = "defense" if _is_defense_side(text, title) else "attack"
+    if side == "defense":
+        if sev == "critical":
+            # explicit exploit language (bypass/exploit/rce/...) means this is a
+            # real attack technique that merely mentions defences -> keep attack
+            side = "attack"
+        else:
+            sev = "medium"          # defensive artefacts are not high-priority threats
+    return cat, sev, side
 
 
 def is_critical(sig):
-    cat, sev = classify_signal(sig)
+    cat, sev, _side = classify_signal(sig)
     return sev == "critical"
 
 
@@ -718,29 +950,50 @@ def draft_rule_candidate(sig):
     """Write a rule candidate for a high-severity signal. Return path or None.
 
     Candidates are JSON, matching how the scanner actually stores rules
-    (`{pattern: (description, severity)}` -- see scanner/rules.py). An earlier
-    version emitted Python stubs subclassing `Rule`/`RuleResult`; those classes
-    do not exist in this project, so every stub was unusable by construction.
+    (`{pattern: (description, severity)}` -- see scanner/rules.py).
+
+    2026-09-12: the radar now emits a **first-pass** regex derived from the
+    signal's attack category and, when that regex clears the promotion gate's
+    pre-check (compiles / not too broad / no duplicate / zero benign-corpus
+    false positives), marks the candidate `ready` so rule-promoter can promote
+    it unattended. This is what finally closes signal -> draft -> promote: 22
+    candidates had rotted in `draft` for a month because every one was a TODO
+    stub waiting for a human who never came. Anything the radar cannot make
+    specific enough stays a `draft` with an explicit `_auto_ready_blocked`
+    reason, so the queue is honest rather than silently un-promotable.
     """
-    cat, sev = classify_signal(sig)
-    if not cat:
+    cat, sev, side = classify_signal(sig)
+    if not cat or side != "attack":
         return None
+
+    pattern = CATEGORY_FIRST_PATTERN.get(cat)
+    if not pattern:
+        return None
+
+    existing = _existing_patterns()
+    if pattern in existing:
+        # Already promoted or queued -- do not accumulate a duplicate stub.
+        return None
+
+    ok, reason = _gate_precheck(pattern, existing)
+
     slug = _slugify(sig.get("title", "rule")) + "_" + sig.get("id", "x")[:6]
     date = _today_str()
     fname = f"PROPOSED_{date.replace('-', '')}_{slug}.json"
     fpath = os.path.join(PROPOSED_DIR, fname)
 
     candidate = {
-        "status": "draft",
+        "status": "ready" if ok else "draft",
+        "auto_ready": ok,
         "_instructions": [
-            "1. Read the source signal URL and understand the attack.",
-            "2. Fill in `rules`: each needs a real regex `pattern`, a Chinese "
-            "`description` and a `severity` (critical|high|medium|low).",
-            "3. Set `status` to `ready`.",
-            "4. Run: python scripts/promote_rule.py --check   (validates every "
-            "candidate: regex compiles, no false positives on benign corpus)",
-            "5. Run: python scripts/promote_rule.py --promote <file>",
-            "   Rejected? Fix or delete the file -- do not leave drafts to rot.",
+            "雷达自动起草（first-pass）：pattern 由 attack_category 的既有检测词表"
+            "推导，并已通过 promote_rule 的六道闸门预检。",
+            "status=ready 时会被 rule-promoter 自动晋升；若 --check 判 blocked，"
+            "请人工收紧 pattern 后再置 ready。",
+        ] if ok else [
+            "雷达未能自动给出足够具体的 pattern（见 _auto_ready_blocked）。",
+            "请人工填写 rules[].pattern（真实正则）+ 中文 description，再置 status=ready。",
+            "被 --promote-all 拒收的候选会一直卡在 draft —— 修好或删除，勿任其腐烂。",
         ],
         "drafted_at": date,
         "signal": {
@@ -753,16 +1006,75 @@ def draft_rule_candidate(sig):
         "severity": sev,
         "rules": [
             {
-                "pattern": "TODO: regex here",
-                "description": f"TODO: 中文描述 ({cat})",
+                "pattern": pattern,
+                "description": f"{cat} 检测（雷达自动起草，first-pass 正则，待人工复核）"
+                               if ok else f"{cat} 检测（pattern 待人工收紧）",
                 "severity": sev,
             }
         ],
         "review_notes": "",
     }
+    if not ok:
+        candidate["_auto_ready_blocked"] = reason
     with open(fpath, "w", encoding="utf-8") as f:
         json.dump(candidate, f, ensure_ascii=False, indent=2)
     return fpath
+
+
+def migrate_drafts():
+    """One-shot: bring every legacy queued candidate to a known, honest state.
+
+    Legacy drafts (pre-2026-09-12) are all TODO stubs. For each we derive a
+    first-pass pattern from its stored `attack_category` and either:
+      * mark it `ready`      -- pattern is specific and clears the gate, or
+      * mark it `rejected`   -- duplicate / too broad / no pattern for category,
+    rewriting the file in place (push-friendly: no moves, no deletes).
+    Idempotent: safe to re-run.
+    """
+    existing = _existing_patterns(live_only=True)   # only live rules count
+    assigned = set()                                # patterns claimed this run
+    n_ready = n_rejected = n_skip = 0
+    for p in sorted(glob.glob(os.path.join(PROPOSED_DIR, "PROPOSED_*.json"))):
+        try:
+            with open(p, encoding="utf-8") as f:
+                d = json.load(f)
+        except Exception:
+            continue
+        cat = d.get("attack_category") or ""
+        first = CATEGORY_FIRST_PATTERN.get(cat)
+        cur = {(r.get("pattern") or "").strip() for r in (d.get("rules") or [])}
+        radar_derived = ("auto_ready" in d) or (not cur) or cur == {"TODO: regex here"} \
+            or (first is not None and first in cur)
+        if not radar_derived:
+            n_skip += 1                    # leave hand-authored candidates alone
+            continue
+        if not first:
+            ok, reason = False, "no first-pass pattern for category"
+        else:
+            ok, reason = _gate_precheck(first, existing)
+        if ok and first in assigned:
+            ok, reason = False, "duplicate -- another queued candidate already covers this category"
+        if ok:
+            d["status"] = "ready"
+            d["auto_ready"] = True
+            d["rules"] = [{
+                "pattern": first,
+                "description": f"{cat} 检测（雷达自动起草，first-pass 正则，待人工复核）",
+                "severity": d.get("severity", "high"),
+            }]
+            d.pop("_rejected_reason", None)
+            d.pop("_auto_ready_blocked", None)
+            assigned.add(first)
+            n_ready += 1
+        else:
+            d["status"] = "rejected"
+            d["auto_ready"] = False
+            d["_rejected_reason"] = reason
+            n_rejected += 1
+        with open(p, "w", encoding="utf-8") as f:
+            json.dump(d, f, ensure_ascii=False, indent=2)
+    print(f"[migrate] ready={n_ready} rejected={n_rejected} left-alone={n_skip}")
+    return 0
 
 
 # ---------------------------------------------------------------------------
@@ -928,6 +1240,37 @@ def _publish(rel_paths, token, message):
 
 
 # ---------------------------------------------------------------------------
+# Per-source health (consecutive-failure visibility)
+# ---------------------------------------------------------------------------
+def _update_source_health(state, source_results, errors):
+    """逐源累计连续失败次数，让"某源死了多少天"可见、可告警。
+
+    根因同 fetch_vuln_feeds 的传输层假绿：旧版 `run()` 把崩溃源静默吞成 0 条、
+    不计入 errors，导致一个永久不可达的源在 digest 里永远 0 信号、全绿。
+    这里把每个源的本次成败落进 state["source_health"]，成功即归零、失败即 +1。
+    """
+    now_iso = _now_utc().isoformat()
+    err_by_src = {}
+    for e in errors:
+        src = e.split(" :: ")[0] if " :: " in e else "?"
+        err_by_src[src] = err_by_src.get(src, 0) + 1
+    health = state.get("source_health", {})
+    for name, res in source_results.items():
+        h = health.setdefault(name, {"consecutive_failures": 0,
+                                     "last_fail": None, "last_success": None})
+        failed = (not res.get("ok", False)) or (name in err_by_src)
+        if failed:
+            h["consecutive_failures"] = int(h.get("consecutive_failures", 0) or 0) + 1
+            h["last_fail"] = now_iso
+        else:
+            h["consecutive_failures"] = 0
+            h["last_success"] = now_iso
+        h["last_items"] = res.get("items", 0)
+    state["source_health"] = health
+    return health
+
+
+# ---------------------------------------------------------------------------
 # Report rendering
 # ---------------------------------------------------------------------------
 SECTION_HEADERS = {
@@ -940,7 +1283,7 @@ SECTION_HEADERS = {
 }
 
 
-def render_report(signals, drafted_rules, created_issues, errors):
+def render_report(signals, drafted_rules, created_issues, errors, source_health=None):
     today = _today_str()
     lines = [f"# AI Agent Ecosystem Tech Radar — {today}", ""]
     lines.append(f"_Auto-generated by `scripts/tech_radar.py` at "
@@ -960,6 +1303,30 @@ def render_report(signals, drafted_rules, created_issues, errors):
         lines.append(f"| {src} | {n} |")
     lines.append(f"| **errors** | **{len(errors)}** |")
     lines.append("")
+
+    # Source health (consecutive-failure visibility) —— 让"某源死了多少天"可见
+    if source_health:
+        degraded = {s: h for s, h in source_health.items()
+                    if int(h.get("consecutive_failures", 0) or 0) >= SOURCE_FAIL_THRESHOLD}
+        lines.append("## 🏥 Source health")
+        lines.append("")
+        lines.append("| Source | Consecutive failures | Last success |")
+        lines.append("|---|---|---|")
+        for s, h in sorted(source_health.items(),
+                            key=lambda kv: -int(kv[1].get("consecutive_failures", 0) or 0)):
+            cf = int(h.get("consecutive_failures", 0) or 0)
+            ls = (h.get("last_success") or "—")
+            flag = " ⚠️ DEGRADED" if cf >= SOURCE_FAIL_THRESHOLD else ""
+            lines.append(f"| {s} | {cf}{flag} | {ls} |")
+        lines.append("")
+        if degraded:
+            lines.append("> ⚠️ **"
+                         + str(len(degraded))
+                         + " source(s) degraded** (≥"
+                         + str(SOURCE_FAIL_THRESHOLD)
+                         + " consecutive failed runs). Likely permanently "
+                           "unreachable from this host — add a fallback or drop it.")
+            lines.append("")
 
     # Per-source sections
     grouped = {}
@@ -988,9 +1355,14 @@ def render_report(signals, drafted_rules, created_issues, errors):
             line = f"- [{title}]({url})" if url else f"- {title}"
             if extra:
                 line += "  " + " · ".join(extra)
-            cat, sev = classify_signal(it)
+            cat, sev, side = classify_signal(it)
             if cat:
-                line += f"  → **{cat}** / {sev}"
+                tag = f"**{cat}** / {sev}"
+                if side == "defense":
+                    tag += " _(defense-side, not drafted)_"
+                elif side == "spam":
+                    tag += " _(repo-spam, suppressed)_"
+                line += f"  → {tag}"
             lines.append(line)
         lines.append("")
 
@@ -1049,8 +1421,13 @@ def main():
                     default=["all"],
                     help="Which sources to scan")
     ap.add_argument("--publish", action="store_true",
-                    help="Auto-commit intel report + index to public main via Contents API")
+                    help="Auto-commit intel report + index + state to public main via Contents API")
+    ap.add_argument("--migrate-drafts", dest="migrate_drafts", action="store_true",
+                    help="One-shot: upgrade legacy TODO drafts to ready/rejected, then exit")
     args = ap.parse_args()
+
+    if args.migrate_drafts:
+        return migrate_drafts()
 
     dry_run = not args.live
     sources = set(args.sources) if "all" not in args.sources else {
@@ -1066,6 +1443,7 @@ def main():
 
     all_signals = []
     errors = []
+    source_results = {}   # name -> {"ok": bool, "items": int}  (用于每源健康)
 
     def run(name, fn):
         print(f"[scan] {name} ...", end=" ", flush=True)
@@ -1073,9 +1451,14 @@ def main():
         try:
             out = fn()
             print(f"OK ({len(out)} items, {time.time()-t0:.1f}s)")
+            source_results[name] = {"ok": True, "items": len(out)}
             return out
         except Exception as e:
             print(f"ERROR ({e})")
+            # 失败即暴露：崩溃的源此前被静默吞成 0 条、不计入 errors，
+            # 与 fetch_vuln_feeds 的传输层假绿同源。必须可见、可进 digest。
+            errors.append(f"{name} :: CRASH :: {type(e).__name__}: {e}")
+            source_results[name] = {"ok": False, "items": 0}
             return []
 
     if "github" in sources:
@@ -1108,12 +1491,15 @@ def main():
     # cap history to last 5000 ids
     state["seen_ids"] = list(seen_ids)[-5000:]
 
+    # ---- 每源健康：连续失败计数（让"某源死了多少天"可见、可告警）----
+    _update_source_health(state, source_results, errors)
+
     # auto-draft rule candidates for high-severity NEW signals
     drafted_rules = []
     if not dry_run or True:  # always draft in both modes; user reviews regardless
         for sig in new_signals:
-            cat, sev = classify_signal(sig)
-            if cat and sev in ("high", "critical"):
+            cat, sev, side = classify_signal(sig)
+            if cat and side == "attack" and sev in ("high", "critical"):
                 path = draft_rule_candidate(sig)
                 if path:
                     drafted_rules.append(path)
@@ -1123,8 +1509,8 @@ def main():
     created_issues = []
     if not dry_run:
         for sig in new_signals:
-            cat, sev = classify_signal(sig)
-            if cat and sev == "critical":
+            cat, sev, side = classify_signal(sig)
+            if cat and side == "attack" and sev == "critical":
                 url = create_github_issue(pat, sig, cat, sev)
                 if url:
                     created_issues.append(url)
@@ -1136,8 +1522,12 @@ def main():
     # render report -- use TODAY's full scan (valid), not the cross-run dedup
     # delta, so the public daily trail is always a faithful snapshot of what
     # the radar saw that day (dedup only gates issues/drafts, not the report).
-    report = render_report(valid, drafted_rules, created_issues, errors)
-    report_path = os.path.join(INTEL_DIR, f"{_today_str()}-tech-radar.md")
+    report = render_report(valid, drafted_rules, created_issues, errors,
+                           source_health=state.get("source_health", {}))
+    # 待办⑤ (2026-09-03 起挂起): 同 UTC 日多次重跑会覆盖同名报告导致早版丢失。
+    # 文件名加 HHMM 时间戳，保留每次完整快照（滚动索引按前缀解析日期，兼容）。
+    report_stamp = _now_utc().strftime("%Y-%m-%d-%H%M")
+    report_path = os.path.join(INTEL_DIR, f"{report_stamp}-tech-radar.md")
     with open(report_path, "w", encoding="utf-8") as f:
         f.write(report)
     print(f"[report] {report_path}")
@@ -1156,7 +1546,10 @@ def main():
         else:
             idx_rel = _build_index()
             report_rel = os.path.relpath(report_path, ROOT).replace(os.sep, "/")
-            targets = [report_rel, idx_rel]
+            # 一并推送状态文件，使逐源健康可被 meta_monitor M8（CI 内）读到；
+            # 该文件仅 tech_radar 单写，无并发冲突（与 data/state 其它域隔离）。
+            targets = [report_rel, idx_rel,
+                       os.path.relpath(STATE_FILE, ROOT).replace(os.sep, "/")]
             print(f"[publish] pushing {len(targets)} file(s) to {REPO}@main ...")
             for rel, ok, info in _publish(
                     targets, pat, f"chore(radar): publish {_today_str()} tech radar"):
@@ -1164,6 +1557,13 @@ def main():
 
     print(f"[done] new={len(new_signals)} drafted={len(drafted_rules)} "
           f"issues={len(created_issues)} errors={len(errors)}")
+
+    # 让"源挂了 N 天"在 stdout / 守夜 digest 里一眼可见（不再淹没在 errors 聚合里）
+    degraded = {s: h for s, h in state.get("source_health", {}).items()
+                if int(h.get("consecutive_failures", 0) or 0) >= SOURCE_FAIL_THRESHOLD}
+    if degraded:
+        print(f"[health] DEGRADED sources: " + ", ".join(
+            f"{s}({h['consecutive_failures']})" for s, h in degraded.items()))
     return 0
 
 

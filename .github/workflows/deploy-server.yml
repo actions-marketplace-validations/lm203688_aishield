@@ -1,18 +1,9 @@
 name: Deploy to Production Server
 
 on:
-  push:
-    branches: [ main ]
-    # self-heal-closed-loop 每次探测都会把 data/state/health.json 提交回 main，
-    # 状态回写不是代码变更，不该触发一次 20 分钟的 SSH 部署。
-    # diagnostics/ 与 automation/ 同理（都是 bot 写的元数据）。
-    paths-ignore:
-      - 'data/state/**'
-      - 'diagnostics/**'
-      - 'automation/**'
-      - 'docs/**'
-  schedule:
-    - cron: '17 */6 * * *'   # 加速期结束，回到可持续节奏 —— 投递安全网；健康驱动的修复由 self-heal 负责
+  # 部署严格由主干闭环（closed-loop-spine.yml）在「CI 验证通过」之后调用，
+  # 不再监听 push —— 避免未经验证的提交直接上线，也不与 spine 内其他 commit 重复触发。
+  workflow_call:
   workflow_dispatch:
 
 permissions:
@@ -34,15 +25,42 @@ jobs:
         # "监测"环节：定时任务先检查线上状态，健康则跳过重部署（避免无效重建）
         code=$(curl -sk -o /tmp/health.json -w '%{http_code}' --max-time 20 https://aishield.tools/api/v1/health || true)
         echo "health_http=$code"
-        if [ "$code" = "200" ]; then
-          if grep -q '"status": "ok"' /tmp/health.json; then
-            echo "Server healthy (HTTP $code). Skipping redeploy on this cycle."
-            echo "deploy_needed=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
+        # 【2026-09-07 修复】旧逻辑「健康即跳过部署」是代码陈旧的结构性根源：
+        # main 不断推进而服务一直健康 → 永不部署 → 线上/磁盘代码越落越远
+        # （09-01~09-05 停摆 82+ 提交即此因）；且第 5 条断言（磁盘 commit ==
+        # 触发 run 的 sha）在跳过路径下恒红（09-07 cron spine 实证）。
+        # 改为每次必部署：tarball 投递成本极低，重启在每日低峰（03:17），
+        # 代码新鲜度由流水线结构保证而非靠「服务恰好挂了」的运气。
+        if [ "$code" = "200" ] && grep -q '"status": "ok"' /tmp/health.json; then
+          echo "Server healthy (HTTP $code). Deploying anyway to pin latest commit."
+        else
+          echo "Server degraded (HTTP ${code:-unreachable}). Auto-repair deploy."
         fi
-        echo "Server degraded (HTTP ${code:-unreachable}). Triggering auto-repair deploy."
         echo "deploy_needed=true" >> "$GITHUB_OUTPUT"
+
+    # 【2026-09-06 修复】VPS 自行 git fetch 已实证失效（fetch 失败被吞掉后
+    # reset 到陈旧的本地 origin/main 引用，线上停在 09-01 代码），而
+    # runner -> VPS 的 SSH 通道是经年验证可用的。现在由 runner 把本次触发
+    # commit 的完整工作区（checkout 产物）打成 tarball 经 SSH 投递，
+    # VPS 不再依赖自身到 github.com 的网络。tarball 不含 .git 与任何
+    # gitignored 内容（.workbuddy 等本就不在 checkout 里）。
+    - name: Upload code tarball to VPS
+      if: steps.healthgate.outputs.deploy_needed != 'false'
+      env:
+        SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
+        SERVER_HOST: ${{ secrets.SERVER_HOST }}
+        SERVER_USER: ${{ secrets.SERVER_USER }}
+        SERVER_PORT: ${{ secrets.SERVER_PORT || 22 }}
+      run: |
+        mkdir -p ~/.ssh
+        echo "$SSH_KEY" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
+        ssh-keyscan -H "$SERVER_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+        tar czf /tmp/aishield-code.tgz --exclude=.git .
+        ls -la /tmp/aishield-code.tgz
+        scp -o StrictHostKeyChecking=no -P "${SERVER_PORT:-22}" \
+          /tmp/aishield-code.tgz "$SERVER_USER@$SERVER_HOST":/tmp/aishield-code.tgz
+        echo "tarball 上传完成"
 
     - name: Deploy via SSH
       id: deploy
@@ -56,34 +74,28 @@ jobs:
         command_timeout: 20m
         capture_stdout: true
         script: |
-          cd /opt/aishield 2>/dev/null || cd ~/aishield 2>/dev/null || true
+          TARGET_DIR=/opt/aishield
+          [ -d "$TARGET_DIR" ] || TARGET_DIR=$HOME/aishield
+          mkdir -p "$TARGET_DIR"
+          cd "$TARGET_DIR"
 
-          # 【2026-08-28 修复】本机访问 raw.githubusercontent.com 极慢（实测单次
-          # curl 挂起 5 分钟后失败），而 git 走 github.com 是通的且很快。
-          # 旧实现把「拿最新脚本」完全押在 raw 上：一旦超时，磁盘上仍是旧脚本，
-          # 于是每次部署都在跑旧逻辑 —— 这是线上长期停留在 4.2.0 的直接原因。
-          # 现改为：git 为主（保证拿到最新脚本），raw 仅作 best-effort 兜底且限时。
-          echo "Updating repo via git (primary)..."
-          git fetch --all 2>&1 | tail -2 || true
-          git reset --hard origin/main 2>&1 | tail -2 || git pull origin main 2>&1 | tail -3 || true
-
-          echo "Trying raw download (best-effort, 30s cap)..."
-          if curl -sL --max-time 30 --connect-timeout 10 \
-               "https://raw.githubusercontent.com/lm203688/aishield/main/scripts/deploy-named-tunnel.sh" \
-               -o /tmp/deploy-named-tunnel.sh && [ -s /tmp/deploy-named-tunnel.sh ]; then
-            mv /tmp/deploy-named-tunnel.sh scripts/deploy-named-tunnel.sh
-            echo "raw download OK"
+          # 【2026-09-06 修复】代码同步主通道 = runner tarball（见上一步）。
+          # tarball 未送达时才回退 git 同步；若 git 也失败，磁盘维持旧代码，
+          # 验证门第 5 条断言（磁盘 commit == 触发 run 的 sha）会如实判红。
+          echo "=== Unpacking code tarball (delivered by runner) ==="
+          if [ -s /tmp/aishield-code.tgz ]; then
+            tar xzf /tmp/aishield-code.tgz -C "$TARGET_DIR"
+            rm -f /tmp/aishield-code.tgz
+            echo "tarball unpacked OK"
           else
-            echo "raw download failed/skipped -> using git version"
-            rm -f /tmp/deploy-named-tunnel.sh
+            echo "WARN: tarball 未送达，回退 git 同步"
+            git fetch --all 2>&1 | tail -2 || true
+            git reset --hard origin/main 2>&1 | tail -2 || git pull origin main 2>&1 | tail -3 || true
           fi
           chmod +x scripts/deploy-named-tunnel.sh
 
-          echo "=== Script first 5 lines ==="
-          head -5 scripts/deploy-named-tunnel.sh
-          echo "=== Checking for DNS API fix ==="
-          grep -c "所有模式" scripts/deploy-named-tunnel.sh || echo "DNS API fix NOT found!"
-          echo "=== Running deploy ==="
+          echo "=== Running deploy (authoritative sha ${{ github.sha }}) ==="
+          export DEPLOY_SHA="${{ github.sha }}"
           bash scripts/deploy-named-tunnel.sh 2>&1
           echo "DEPLOY_EXIT_CODE=$?"
 
@@ -148,42 +160,45 @@ jobs:
         chmod 600 ~/.ssh/id_rsa
         ssh-keyscan -H "$SERVER_HOST" >> ~/.ssh/known_hosts 2>/dev/null
 
-        # 【2026-08-29】部署验证门之前只判断「服务活着」，于是恒绿：
-        # 进程活着但跑的是旧代码、规则文件没部署上去，门禁一样全过。
-        # 要让门有约束力，必须让 VPS 自己报出「磁盘上的真实状态」，
-        # 再和「线上自报的运行状态」逐字段比对。这里抓的就是磁盘侧真相。
-        ssh -o StrictHostKeyChecking=no -p "${SERVER_PORT:-22}" "$SERVER_USER@$SERVER_HOST" '
-          cd /opt/aishield 2>/dev/null || cd ~/aishield 2>/dev/null || exit 3
-          python3 - <<PYSTATE
-          import json, os, subprocess
-          def sh(cmd):
-              try:
-                  return subprocess.check_output(cmd, shell=True,
-                         stderr=subprocess.DEVNULL, timeout=15).decode().strip()
-              except Exception:
-                  return ""
-          disk_commit = sh("git rev-parse --short HEAD") or None
-          try:
-              from scanner.rules import get_rule_count, get_rule_breakdown
-              disk_rules, breakdown = get_rule_count("mcp"), get_rule_breakdown()
-          except Exception as exc:
-              disk_rules, breakdown = None, {"error": str(exc)}
-          try:
-              meta = json.load(open(".deploy_meta.json"))
-          except Exception:
-              meta = {}
-          print(json.dumps({
-              "disk_commit": disk_commit,
-              "disk_rules_count": disk_rules,
-              "disk_rules_breakdown": breakdown,
-              "deploy_meta": meta,
-              "data_files": sorted(os.listdir("data")) if os.path.isdir("data") else [],
-          }, ensure_ascii=False))
-          PYSTATE
-        ' > diagnostics/deploy-state.json 2>/dev/null || echo '{"disk_commit": null}' > diagnostics/deploy-state.json
+        # 【2026-08-30 重写】上一版把采集脚本内联成嵌套 heredoc 传给 ssh，
+        # 但 heredoc 结束符必须顶格，而 YAML 块标量里每一行都必须比 run: 多缩进
+        # —— 两者不可调和。结果 ssh 命令畸形失败，又被 `2>/dev/null || echo '{}'`
+        # 吞掉，磁盘侧状态恒为 null，验证门的两条核心断言被**静默跳过**，
+        # 门禁退化成又一个橡皮图章（实测 deploy-state.json 内容就是
+        # {"disk_commit": null}，而门禁照样报绿）。
+        #
+        # 现改为：采集逻辑放进仓库里的独立脚本 scripts/deploy_state_probe.py，
+        # 经 stdin 喂给远端 python3。缩进问题从根上消失，脚本还能在本地单测。
+        #
+        # 失败语义刻意保留为「写入 capture_failed 标记」而不是让本步骤失败：
+        # 步骤一失败后面的验证门就跑不到了，反而丢掉一次明确的判定机会。
+        # 由验证门把「抓不到磁盘状态」判为失败 —— 无法验证 ≠ 验证通过。
+        set -o pipefail
+        if ! ssh -o StrictHostKeyChecking=no -p "${SERVER_PORT:-22}" \
+              "$SERVER_USER@$SERVER_HOST" \
+              "cd /opt/aishield 2>/dev/null || cd ~/aishield 2>/dev/null; python3 -" \
+              < scripts/deploy_state_probe.py > diagnostics/deploy-state.json; then
+          echo "::error::无法经 SSH 采集 VPS 磁盘状态"
+          echo '{"disk_commit": null, "capture_failed": true}' > diagnostics/deploy-state.json
+        fi
 
         echo "=== deploy-state.json ==="
         cat diagnostics/deploy-state.json
+
+    # 【2026-08-30】把刚采集的磁盘状态传给验证门 job。
+    # 两个 job 的 workspace 不共享，而验证门的 actions/checkout 检出的是
+    # **触发本次 run 的那个 commit** —— 它永远拿不到本 job 新写的文件，
+    # 只能读到仓库里上一次提交留下的旧值。实测验证门读到的就是
+    # {"disk_commit": null}，于是「无法验证」被误判成「验证通过」的反面：
+    # 它拿到了假数据，还以为是真的。用 artifact 传递才能跨 job 对齐。
+    - name: Upload deploy state for verification
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: deploy-state
+        path: diagnostics/deploy-state.json
+        if-no-files-found: error
+        retention-days: 7
 
     - name: Test HTTPS from runner
       if: always()
@@ -208,10 +223,9 @@ jobs:
       run: |
         git config user.name "github-actions[bot]"
         git config user.email "github-actions[bot]@users.noreply.github.com"
-        git add diagnostics/deploy-result.md diagnostics/deploy-state.json data/state/ 2>/dev/null || true
+        git add diagnostics/deploy-result.md diagnostics/deploy-state.json data/state/deploy.json  2>/dev/null || true
         git commit -m "chore: update deploy diagnostics [skip ci]" || echo "No changes to commit"
-        git pull --rebase --autostash origin main || true
-        git push || echo "Push failed"
+        bash scripts/git_push_safe.sh
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -228,6 +242,17 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
+    # 取 deploy job 刚采集的磁盘状态。必须走 artifact —— checkout 检出的是
+    # 触发本次 run 的 commit，读不到同一次 run 里另一个 job 新写的文件。
+    # 取不到就判失败：拿旧数据做比对，比不做比对更危险。
+    - name: Download deploy state captured this run
+      id: getstate
+      continue-on-error: true
+      uses: actions/download-artifact@v4
+      with:
+        name: deploy-state
+        path: diagnostics
+
     - uses: actions/setup-python@v5
       with:
         python-version: '3.13'
@@ -242,13 +267,29 @@ jobs:
         #   进程活着但跑旧代码     -> 通过
         #   规则数据文件没部署上去 -> 通过
         # 这个门从建成起就没拦下任何东西。恒定输出的门禁 = 没门禁。
-        # 现在改成四条硬断言，任一不满足即 exit 1（阻断部署判定为成功）：
+        # 现在改成五条硬断言，任一不满足即 exit 1（阻断部署判定为成功）：
         #   1) 线上服务健康
         #   2) 线上 commit  == VPS 磁盘 commit      —— 部署是否真的落地
         #   3) 线上 rules  == VPS 磁盘 rules        —— 规则数据是否同步
         #   4) 线上 deployed_at 非空               —— .deploy_meta.json 是否写成功
+        #   5) VPS 磁盘 commit == 触发 run 的 GitHub sha —— 磁盘自身是否陈旧
+        # 【2026-09-05 实测的结构性假绿】断言 2 的参照物是 VPS 磁盘，而磁盘
+        # 自身会整体漂移：磁盘越陈旧，线上与磁盘越一致，断言 2 越绿。
+        # 线上 commit 停在 09-01(93fcd10c)、main 已到 09-04(e4ffd347)，
+        # 落后 82 提交而四条断言每天全绿。第 5 条把磁盘钉在触发 run 的 sha
+        # 上 —— 磁盘陈旧必红，P0 告警随验证门触发。
         # 磁盘侧真相来自上一步从 VPS 抓回的 diagnostics/deploy-state.json，
         # 与线上侧同一时刻读，因此不存在「部署与验证之间被 bot 提交插队」的竞态。
+        # 该文件由 deploy job 通过 artifact 传来（两个 job 的 workspace 不共享）。
+
+        # 取不到本次 run 的磁盘状态就直接判失败。
+        # 不能退回读仓库里的旧文件：checkout 检出的是触发本次 run 的 commit，
+        # 那里躺着的是**上一次运行留下的** deploy-state.json，用旧数据做比对
+        # 会把「看起来验证过了」当成「验证通过了」，比不做比对更危险。
+        if [ "${{ steps.getstate.outcome }}" != "success" ]; then
+          echo "::error::未能取得本次 run 的磁盘状态（artifact 下载失败），拒绝用旧数据判定"
+          exit 1
+        fi
 
         # ── 线上侧：多重试（部署后进程可能需要几秒才起来）──
         LIVE_JSON=""
@@ -284,12 +325,23 @@ jobs:
             failures.append("线上服务不健康（9 次探测后仍未就绪）")
         else:
             # 2) commit 一致性
+            # 两侧长度不同是常态：线上读的是 .deploy_meta.json 里部署脚本写入的
+            # 完整 sha，磁盘侧是 git rev-parse --short 的短 sha。直接 == 比较
+            # 会永远不等，这个断言就变成又一个恒红的假门禁。
+            # 用前缀匹配：短的是长的真前缀即视为一致。
             lc = live.get("commit") or ""
             dc = disk.get("disk_commit") or ""
             print(f"commit     : 线上={lc or '—'}  磁盘={dc or '—'}")
             if not dc:
-                print("⚠️  未取到磁盘 commit（SSH 抓取失败），该断言跳过")
-            elif lc != dc:
+                # 刻意判失败而不是跳过。上一版写成「未取到就跳过」，结果
+                # 采集步骤一挂，这条最重要的断言就永久失效，而门禁照样报绿
+                # —— 实测 deploy-state.json 就是 {"disk_commit": null}。
+                # 无法验证就是不能判定成功。
+                failures.append(
+                    f"无法取得 VPS 磁盘 commit（capture_failed=%s），部署是否落地"
+                    f"无从判定。检查 SSH 连通性与 scripts/deploy_state_probe.py。"
+                    % disk.get("capture_failed", False))
+            elif not lc.startswith(dc):
                 failures.append(
                     f"部署未落地：线上 commit={lc or '空'}，VPS 磁盘 commit={dc}。"
                     f"通常意味着进程未重启（仍在跑旧代码）。")
@@ -298,7 +350,9 @@ jobs:
             lr, dr = live.get("rules_count"), disk.get("disk_rules_count")
             print(f"rules_count: 线上={lr}  磁盘={dr}")
             if dr is None:
-                print("⚠️  未取到磁盘规则数，该断言跳过")
+                failures.append(
+                    "无法取得 VPS 磁盘规则数，规则数据是否同步无从判定。"
+                    "（远端执行 scripts/deploy_state_probe.py 失败）")
             elif lr != dr:
                 failures.append(
                     f"规则数据未同步：线上={lr}，VPS 磁盘={dr}。"
@@ -313,6 +367,22 @@ jobs:
                     "deployed_at 为空：.deploy_meta.json 未写入仓库根。"
                     "commit 判据正在退化为 git 实时回退值，部署陈旧性无法可靠判定。")
 
+            # 5) 磁盘 commit == 触发 run 的 GitHub sha（磁盘陈旧性断言）
+            # 双向前缀匹配兼容长/短 sha；"tarball" 等非 sha 标记两边都匹配
+            # 不上，会如实判红 —— 那种情况下代码虽新，但主同步通道已退化，
+            # 值得一次 P0 提醒。
+            expect = "${{ github.sha }}"
+            print(f"期望 HEAD  : {expect[:8]}（触发 run 的 GitHub sha）")
+            if not dc:
+                failures.append(
+                    "断言 5 无法执行：磁盘 commit 为空（与断言 2 的失败同因）。")
+            elif not (expect.startswith(dc) or dc.startswith(expect)):
+                failures.append(
+                    f"VPS 磁盘代码陈旧：磁盘={dc[:8]}，触发 run 的 GitHub "
+                    f"sha={expect[:8]}。代码同步通道失效（VPS git fetch 失败"
+                    f"且 runner tarball / 兜底均未生效），磁盘越旧断言 2 越"
+                    f"绿的结构性假绿已由本断言封堵。")
+
             # 规则构成明细（信息性输出，便于事后对照）
             print(f"线上规则构成: {live.get('rules_breakdown')}")
 
@@ -320,7 +390,7 @@ jobs:
             print("❌ " + msg)
         if failures:
             sys.exit(1)
-        print("✅ 四项断言全部通过：线上与磁盘一致")
+        print("✅ 五项断言全部通过：线上与磁盘一致，且磁盘与触发 commit 一致")
         PYVERDICT
         verdict=$?
 
@@ -339,12 +409,13 @@ jobs:
     - name: Record deploy state
       if: always()
       run: |
-        python scripts/state_bus.py set selfheal '{"last_deploy_verify":"${{ steps.verify.outcome }}","deploy_run_id":"${{ github.run_id }}"}' --source deploy-server
+        # deploy 域独占：过去与 self-heal-closed-loop 共用 selfheal 域，两个
+        # workflow 同时重写同一 JSON 文件会触发 rebase 内容冲突。
+        python scripts/state_bus.py set deploy '{"last_deploy_verify":"${{ steps.verify.outcome }}","deploy_run_id":"${{ github.run_id }}"}' --source deploy-server
         git config user.name "github-actions[bot]"
         git config user.email "github-actions[bot]@users.noreply.github.com"
-        git add data/state/ 2>/dev/null || true
+        git add data/state/deploy.json  2>/dev/null || true
         if ! git diff --cached --quiet; then
           git commit -m "auto: 部署验证状态回写 [skip ci]" || true
-          git pull --rebase --autostash origin main || true
-          git push || echo "push skipped"
+          bash scripts/git_push_safe.sh
         fi

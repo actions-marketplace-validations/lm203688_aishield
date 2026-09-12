@@ -1,6 +1,1344 @@
 {
   "intel": [
     {
+      "id": "GHSA-8wqc-v2q8-vff2",
+      "source": "github-advisory",
+      "severity": "medium",
+      "cvss": 6.5,
+      "title": "@Mockoon/commons-server: Path traversal in templated `filePath` lets a request escape the served directory (prefix-only base check)",
+      "summary": "## Summary\n\nA `FILE` response whose `filePath` embeds request data (e.g. `\"/srv/public/{{queryParam 'name'}}\"`, the documented way to let the client pick a file) is confined by `getSafeFilePath` with `resolvedPath.startsWith(staticBaseDir)`. That prefix test has no path-separator boundary, so a `../`-escaped path whose absolute form string-prefixes the base directory passes. An unauthenticated client reads files from sibling paths outside the served directory.\n\n## Details\n\n`packages/commons-serv",
+      "affected": "npm:@mockoon/commons-server, npm:@mockoon/cli",
+      "references": [
+        "https://github.com/advisories/GHSA-8wqc-v2q8-vff2"
+      ],
+      "published": "2026-09-11T22:04:32Z",
+      "fetched": "2026-09-12T07:54:22.469406+00:00"
+    },
+    {
+      "id": "GHSA-65h7-9wrw-629c",
+      "source": "github-advisory",
+      "severity": "high",
+      "cvss": 8.5,
+      "title": "FrontMCP and mcp-from-openapi have bypass of OpenAPI external $ref SSRF fix",
+      "summary": "## Summary\n\nThe published fix for GHSA-v6ph-xcq9-qxxj / CVE-2026-39885 added a direct hostname denylist for OpenAPI external `$ref` dereferencing, but the latest patched dependency `mcp-from-openapi` 2.3.0 still makes backend-origin requests to loopback when the target is reached through hostname resolution, redirects, or IPv4-mapped IPv6 syntax.\n\nFrontMCP latest release v1.2.1 and current main still call `OpenAPIToolGenerator.fromURL()` and `OpenAPIToolGenerator.fromJSON()` from `mcp-from-opena",
+      "affected": "npm:mcp-from-openapi, npm:@frontmcp/adapters, npm:frontmcp",
+      "references": [
+        "https://github.com/advisories/GHSA-65h7-9wrw-629c"
+      ],
+      "published": "2026-09-11T22:02:04Z",
+      "fetched": "2026-09-12T07:54:22.469442+00:00"
+    },
+    {
+      "id": "GHSA-h8m9-jgf8-vwvp",
+      "source": "github-advisory",
+      "severity": "critical",
+      "cvss": 9.6,
+      "title": "Prowler: SAML Domain Claiming Enables Cross-Tenant Account Takeover",
+      "summary": "## SAML Tenant Binding Enables Cross-Tenant Account Takeover\n\n### Summary\n\nProwler's SAML authentication flow trusted the email domain asserted in a SAMLResponse when deciding which tenant should receive the final token. A malicious tenant with its own SAML configuration and a self-controlled IdP could complete a valid SAML flow for its own configured domain, while asserting an email address from another configured domain.\n\nIn the vulnerable flow, the ACS finish logic later derived the tenant fr",
+      "affected": "pip:prowler-cloud",
+      "references": [
+        "https://github.com/advisories/GHSA-h8m9-jgf8-vwvp"
+      ],
+      "published": "2026-09-11T21:38:24Z",
+      "fetched": "2026-09-12T07:54:23.445790+00:00"
+    },
+    {
+      "id": "GHSA-rqfv-2mw9-78g2",
+      "source": "github-advisory",
+      "severity": "critical",
+      "cvss": 10.0,
+      "title": "MySQL MCP Server: Missing Origin/Host Validation in SSE Transport Enables Unauthenticated SQL Execution (DNS Rebinding / Direct Exposure)",
+      "summary": "## Summary\n\nIn SSE/HTTP transport mode, `mysql_mcp_server` constructs `SseServerTransport` without passing `security_settings`. As a result, the MCP Python SDK's DNS-rebinding protection (Origin/Host header validation) is disabled; the Starlette application has no CORS or TrustedHost middleware; and the service binds to `0.0.0.0` by default with no authentication on any route.\n\n**Trigger condition:** `MCP_TRANSPORT=sse`. The default stdio mode is not affected.\n\n## Attack Scenarios\n\n**Scenario A ",
+      "affected": "pip:mysql-mcp-server",
+      "references": [
+        "https://github.com/advisories/GHSA-rqfv-2mw9-78g2"
+      ],
+      "published": "2026-09-11T20:35:42Z",
+      "fetched": "2026-09-12T07:54:23.445865+00:00"
+    },
+    {
+      "id": "GHSA-p78m-89r6-pgf7",
+      "source": "github-advisory",
+      "severity": "medium",
+      "cvss": 6.8,
+      "title": "Open WebUI: A user's session cookies are sent to tool servers configured for bearer authentication",
+      "summary": "## Summary\n\nWhen more than one external tool server is reachable in the same request, a tool call to a server configured for bearer authentication can arrive carrying the calling user's Open WebUI session cookies alongside that server's own key. The cookie jar is built per connection, but the callable that performs the request reads it late instead of per connection, so every tool callable built in the same pass sends the cookies belonging to whichever connection was processed last. An administr",
+      "affected": "pip:open-webui",
+      "references": [
+        "https://github.com/advisories/GHSA-p78m-89r6-pgf7"
+      ],
+      "published": "2026-09-10T21:23:44Z",
+      "fetched": "2026-09-11T08:01:30.085262+00:00"
+    },
+    {
+      "id": "GHSA-hf57-cqmx-p4gr",
+      "source": "github-advisory",
+      "severity": "critical",
+      "cvss": null,
+      "title": " OmniRoute ACP Custom-Agent Remote Code Execution (RCE)",
+      "summary": "## 2. Summary\n\n`POST /api/acp/agents` registers a custom ACP agent. The endpoint accepts user-controlled\n`binary` and `versionCommand` values. After saving the custom agent, the same request calls\n`refreshAgentCache()`, which triggers agent version detection. The version probe eventually runs:\n\n```ts\nexecFileSync(probe.command, probe.args, ...)\n```\n\nThe only validation is `resolveVersionProbe(binary, versionCommand, true)`, which checks that the\nfirst token of `versionCommand` matches the reques",
+      "affected": "npm:omniroute",
+      "references": [
+        "https://github.com/advisories/GHSA-hf57-cqmx-p4gr"
+      ],
+      "published": "2026-09-10T21:22:12Z",
+      "fetched": "2026-09-11T08:01:28.757722+00:00"
+    },
+    {
+      "id": "GHSA-cw9w-vv67-hf73",
+      "source": "github-advisory",
+      "severity": "medium",
+      "cvss": null,
+      "title": "n8n: Per-Resource OAuth Consent Bypass via Unbound Refresh Token Resource Substitution",
+      "summary": "## Impact\n\nThe OAuth token endpoint bound an authorization code's first access token to the consented resource, but not its refresh token. Refreshing only checked that the requested resource was registered, not that it matched the original grant. An OAuth client approved for one workflow could refresh with a different workflow's URL and get a valid, unapproved token for it. The patch binds refresh tokens to the granted resource and rejects mismatches.\n\nExploitation requires the attacker to regis",
+      "affected": "npm:n8n, npm:n8n",
+      "references": [
+        "https://github.com/advisories/GHSA-cw9w-vv67-hf73"
+      ],
+      "published": "2026-09-10T21:21:49Z",
+      "fetched": "2026-09-11T08:01:28.757747+00:00"
+    },
+    {
+      "id": "GHSA-q5wm-mgqx-fv2f",
+      "source": "github-advisory",
+      "severity": "medium",
+      "cvss": null,
+      "title": "n8n: Instance AI Credential Setup Accepts Unvalidated Probe URL from Fetched Content",
+      "summary": "## Impact\n\nInstance AI credential setup accepted a credential test/verification URL without checking it matched the workflow node's origin. Exfiltration required the user to actively inject an attacker-controlled URL into the setup flow. The patch derives the credential destination from the node's own URL and confines authenticated requests, redirects and probes to that origin.\n\n## Patches\n\nThe issue has been fixed in n8n versions 2.38.2 and 2.37.7. Users should upgrade to one of these versions ",
+      "affected": "npm:n8n, npm:n8n",
+      "references": [
+        "https://github.com/advisories/GHSA-q5wm-mgqx-fv2f"
+      ],
+      "published": "2026-09-10T21:18:48Z",
+      "fetched": "2026-09-11T08:01:28.757760+00:00"
+    },
+    {
+      "id": "GHSA-qgpw-8g46-w95v",
+      "source": "github-advisory",
+      "severity": "medium",
+      "cvss": null,
+      "title": "n8n: Git Node branch.<name>.remote Config Key Bypasses Sandbox Path Restriction, Enabling Local Git Repository Read",
+      "summary": "## Impact\n\nThe Git node validated the repository that a fetch or pull targeted, but `setUpstream` wrote a `branch.<name>.remote` value into the repository's own configuration without validating it. A subsequent fetch or pull resolved the remote from that configuration rather than from the checked parameter, so an authenticated user with workflow-edit permission could point it at any local repository the n8n process could read and receive its contents. The patch validates the branch remote config",
+      "affected": "npm:n8n, npm:n8n, npm:n8n",
+      "references": [
+        "https://github.com/advisories/GHSA-qgpw-8g46-w95v"
+      ],
+      "published": "2026-09-10T21:16:36Z",
+      "fetched": "2026-09-11T08:01:28.757775+00:00"
+    },
+    {
+      "id": "GHSA-679f-58pq-4v2c",
+      "source": "github-advisory",
+      "severity": "medium",
+      "cvss": null,
+      "title": "n8n: Prototype Pollution via Workflow Structure Summary Can Lead to Denial of Service",
+      "summary": "## Impact\n\nThe Instance AI workflow summary built its result with get-or-create-then-nested-write idioms keyed by node names and connection keys taken from the stored workflow. Those are arbitrary strings: the restricted-name guard n8n shows in the editor is client-side and is bypassed by posting the workflow to the REST API directly. So a reserved key such as `__proto__` resolved up the prototype chain instead of creating an own key, and the write landed on `Object.prototype` in the main n8n pr",
+      "affected": "npm:n8n, npm:n8n",
+      "references": [
+        "https://github.com/advisories/GHSA-679f-58pq-4v2c"
+      ],
+      "published": "2026-09-10T21:05:24Z",
+      "fetched": "2026-09-11T08:01:28.757837+00:00"
+    },
+    {
+      "id": "GHSA-6xcw-7xm6-48c6",
+      "source": "github-advisory",
+      "severity": "high",
+      "cvss": null,
+      "title": "n8n: Expression Sandbox Escape via Shared Builtin Tampering and Code-Printer Injection Leads to Code Execution",
+      "summary": "## Impact\n\nTwo stages of expression code generation built source text by calling the global `JSON.stringify` at generation time: the compiler when printing synthetic string literals, and the isolate bridge when interpolating a timezone value into its per-evaluation wrapper. An expression that replaced that global therefore changed the code that was subsequently generated and executed, turning literal data into executable source. The patch renders both code-generation stages through a reference c",
+      "affected": "npm:n8n, npm:n8n, npm:n8n",
+      "references": [
+        "https://github.com/advisories/GHSA-6xcw-7xm6-48c6"
+      ],
+      "published": "2026-09-10T20:37:21Z",
+      "fetched": "2026-09-11T08:01:28.757859+00:00"
+    },
+    {
+      "id": "GHSA-34ff-336r-5q23",
+      "source": "github-advisory",
+      "severity": "high",
+      "cvss": null,
+      "title": "n8n: Domain-Restriction Bypass via Unguarded Model-Search Endpoint in OpenAI Chat Model Node",
+      "summary": "## Impact\n\nThe OpenAI Chat Model node checked a custom base URL against the credential's allowed-domains configuration before sending a request, but the model-search dropdown did not. A request setting `options.baseURL` on that path reached an arbitrary host with the credential attached, so the domain restriction an administrator configured did not hold for every route the node offered. The patch routes every OpenAI call site, including model listing, through one shared allowed-domains check.\n\n#",
+      "affected": "npm:n8n, npm:n8n, npm:n8n",
+      "references": [
+        "https://github.com/advisories/GHSA-34ff-336r-5q23"
+      ],
+      "published": "2026-09-10T15:12:14Z",
+      "fetched": "2026-09-10T15:50:44.902730+00:00"
+    },
+    {
+      "id": "GHSA-hw8v-xxg5-vvvx",
+      "source": "github-advisory",
+      "severity": "high",
+      "cvss": null,
+      "title": "n8n: Expression Sandbox Escape via Class-Field Sanitizer Rebinding Can Lead to Code Execution",
+      "summary": "## Impact\n\nThe expression compiler's sanitizer resolved through a dynamically-scoped `this`, so a class field named `__sanitize` rebound it and reached the `Function` constructor. On the backend, any expression author could run code in the n8n process; in the editor preview, a member's expression could run as JavaScript in the session of whoever opened the workflow. The patch rejects reserved class-member names.\n\n## Patches\n\nThe issue has been fixed in n8n versions 1.123.76, 2.37.7, and 2.38.2. ",
+      "affected": "npm:n8n, npm:n8n, npm:n8n",
+      "references": [
+        "https://github.com/advisories/GHSA-hw8v-xxg5-vvvx"
+      ],
+      "published": "2026-09-10T15:11:07Z",
+      "fetched": "2026-09-10T15:50:44.902786+00:00"
+    },
+    {
+      "id": "GHSA-pcvc-8vrv-8q6w",
+      "source": "github-advisory",
+      "severity": "medium",
+      "cvss": 4.3,
+      "title": "Open WebUI: Inaccessible knowledge bases are exposed through the built-in knowledge tool on most vector backends",
+      "summary": "## Summary\nThe built-in knowledge search tool returns knowledge bases the calling user has no access to. The tool works out which knowledge bases the caller may read and hands that set to the vector store as a search filter, and that filter is the only access control on the path. Most of the shipped vector backends accept the filter argument on their search method and never apply it, so the search returns matches from every knowledge base in the shared collection. The sibling query method on tho",
+      "affected": "pip:open-webui",
+      "references": [
+        "https://github.com/advisories/GHSA-pcvc-8vrv-8q6w"
+      ],
+      "published": "2026-09-10T15:10:41Z",
+      "fetched": "2026-09-10T15:50:46.121813+00:00"
+    },
+    {
+      "id": "GHSA-fmqh-xp37-5hr8",
+      "source": "github-advisory",
+      "severity": "medium",
+      "cvss": 4.3,
+      "title": "Open WebUI: Channel members can overwrite another member's message via the chat completions endpoint",
+      "summary": "## Summary\nAny member of a channel who can post to it could also replace the text of a message written by a different member. The channel branch of the chat completions endpoint checked that the caller may write to the channel, and that the targeted message belongs to that channel, but never checked that the caller actually wrote the message being edited. The message kept its original author, so the replacement text was displayed and stored as though the victim had written it. The dedicated chan",
+      "affected": "pip:open-webui",
+      "references": [
+        "https://github.com/advisories/GHSA-fmqh-xp37-5hr8"
+      ],
+      "published": "2026-09-10T15:10:29Z",
+      "fetched": "2026-09-10T15:50:46.121867+00:00"
+    },
+    {
+      "id": "GHSA-jmc6-2wr8-h3wj",
+      "source": "github-advisory",
+      "severity": "high",
+      "cvss": 8.7,
+      "title": "Open WebUI: Same-origin XSS to account takeover via terminal port-preview iframe hardcoding allow-same-origin",
+      "summary": "## Summary\nAny authenticated user with access to a shared terminal server could get script of their choosing to run in the Open WebUI origin itself. The in-app port preview rendered the content of a previewed port in an iframe whose sandbox always granted `allow-same-origin` alongside `allow-scripts`, and that content is served from a path on the application's own origin, so the sandbox provided no isolation at all. Script served on a previewed port could read the victim's session token and take",
+      "affected": "pip:open-webui",
+      "references": [
+        "https://github.com/advisories/GHSA-jmc6-2wr8-h3wj"
+      ],
+      "published": "2026-09-10T15:10:20Z",
+      "fetched": "2026-09-10T15:50:46.121903+00:00"
+    },
+    {
+      "id": "GHSA-5x7x-4c3c-qf5w",
+      "source": "github-advisory",
+      "severity": "medium",
+      "cvss": 5.0,
+      "title": "Open WebUI: Server-side fetches reach blocked and internal hosts via unvalidated HTTP redirect targets",
+      "summary": "## Summary\n\nOpen WebUI protects server-side web fetches with two controls: the operator's list of excluded hosts, and a check that refuses private and internal addresses. Neither control was applied to the destination of an HTTP redirect. On a deployment where redirect following is enabled, any authenticated user who can cause the server to fetch a URL could submit a page that redirects, and the server would fetch the redirect destination without either control being applied to it. The server th",
+      "affected": "pip:open-webui",
+      "references": [
+        "https://github.com/advisories/GHSA-5x7x-4c3c-qf5w"
+      ],
+      "published": "2026-09-09T23:54:08Z",
+      "fetched": "2026-09-10T08:06:30.123152+00:00"
+    },
+    {
+      "id": "GHSA-jqhh-cjmq-vmv6",
+      "source": "github-advisory",
+      "severity": "medium",
+      "cvss": 6.5,
+      "title": "Open WebUI: Any authenticated user can hang the server via a cyclic chat message history",
+      "summary": "## Summary\nChat histories are stored as an unvalidated JSON object. The walk that reconstructs a chat's message chain detected repeats using each message's own `id` field while moving through the history by map key, so a message that simply omitted `id` was never recorded as visited. A history whose messages referenced each other in a parent cycle therefore made the walk run forever. Any account with the default `user` role could store such a chat and trigger the walk, blocking the server for ev",
+      "affected": "pip:open-webui",
+      "references": [
+        "https://github.com/advisories/GHSA-jqhh-cjmq-vmv6"
+      ],
+      "published": "2026-09-09T23:53:59Z",
+      "fetched": "2026-09-10T08:06:30.123175+00:00"
+    },
+    {
+      "id": "GHSA-wcjj-9m6g-2fr2",
+      "source": "github-advisory",
+      "severity": "high",
+      "cvss": 7.8,
+      "title": "functype-mcp-server: MCP `set_functype_version` Package Alias RCE via Unsanitized pnpm install + Dynamic Import",
+      "summary": "## MCP `set_functype_version` Package Alias RCE via Unsanitized pnpm install + Dynamic Import\n\n### Summary\n\nThe `set_functype_version` MCP tool in `functype-mcp-server` accepts an unconstrained `version` string, interpolates it directly into an npm package specifier (`functype@<version>`), and installs it via `pnpm add` without any validation. Because npm/pnpm package specifiers support `file:`, `npm:`, and other alias syntaxes, an attacker who can send an MCP `tools/call` request to this tool c",
+      "affected": "npm:functype-mcp-server",
+      "references": [
+        "https://github.com/advisories/GHSA-wcjj-9m6g-2fr2"
+      ],
+      "published": "2026-09-09T23:49:20Z",
+      "fetched": "2026-09-10T08:06:29.160799+00:00"
+    },
+    {
+      "id": "GHSA-2r5q-h53f-9rp3",
+      "source": "github-advisory",
+      "severity": "high",
+      "cvss": 8.8,
+      "title": "@yeger/turbo-graph: Unauthenticated Network-Exposed Task Execution via /api/run",
+      "summary": "## Unauthenticated Network-Exposed Turborepo Task Execution via /api/run\n\n### Summary\n\n`@yeger/turbo-graph` starts its embedded Next.js server without binding to the loopback interface, causing it to listen on all network interfaces (`0.0.0.0:29312` by default). The `/api/run` HTTP endpoint exposed by this server performs no authentication, authorization, CSRF protection, or task allowlist check before executing attacker-supplied Turborepo task names via `spawn()`. Any adjacent-network attacker ",
+      "affected": "npm:@yeger/turbo-graph",
+      "references": [
+        "https://github.com/advisories/GHSA-2r5q-h53f-9rp3"
+      ],
+      "published": "2026-09-09T23:47:55Z",
+      "fetched": "2026-09-10T08:06:29.161071+00:00"
+    },
+    {
+      "id": "GHSA-fxg7-897c-57mp",
+      "source": "github-advisory",
+      "severity": "high",
+      "cvss": 7.5,
+      "title": "Nuxt Ollama: Public Runtime Config Exposes Ollama API Key to Browser Clients",
+      "summary": "## Public Runtime Config Exposes Ollama API Key to Browser Clients\n\n### Summary\n\n`nuxt-ollama@1.2.26` unconditionally merges all module options — including `api_key` — into Nuxt's **public** runtime config (`runtimeConfig.public.ollama`). Nuxt serializes `runtimeConfig.public` into the SSR HTML response inside a `<script>` payload block (`window.__NUXT__`), making the API key visible in plaintext to any unauthenticated HTTP client that fetches the page. An attacker with no credentials can steal ",
+      "affected": "npm:nuxt-ollama",
+      "references": [
+        "https://github.com/advisories/GHSA-fxg7-897c-57mp"
+      ],
+      "published": "2026-09-09T23:47:44Z",
+      "fetched": "2026-09-10T08:06:29.161275+00:00"
+    },
+    {
+      "id": "CVE-2026-53937",
+      "source": "nvd",
+      "severity": "medium",
+      "cvss": 6.2,
+      "title": "MCP Kotlin SDK is the Kotlin Multiplatform software development kit for the Model Context Protocol. In versions 0.7.0 through 0.12.0, `ReadBuffer.append` in `kotlin-sdk-core/src/commonMain/kotlin/io/m",
+      "summary": "MCP Kotlin SDK is the Kotlin Multiplatform software development kit for the Model Context Protocol. In versions 0.7.0 through 0.12.0, `ReadBuffer.append` in `kotlin-sdk-core/src/commonMain/kotlin/io/modelcontextprotocol/kotlin/sdk/shared/ReadBuffer.kt` writes every chunk of bytes received from the stdio transport into a `kotlinx.io.Buffer` with no size cap. Frames are extracted from that buffer only when a `\\n` (0x0a) byte is observed. A peer that streams bytes without ever sending a newline cau",
+      "affected": "model context protocol",
+      "references": [
+        "https://github.com/modelcontextprotocol/kotlin-sdk/blob/6d5bac1/kotlin-sdk-core/src/commonMain/kotlin/io/modelcontextprotocol/kotlin/sdk/shared/ReadBuffer.kt",
+        "https://github.com/modelcontextprotocol/kotlin-sdk/commit/6e6f80512fb8fcc9f3c031cfd693ccbcf9c4aaab",
+        "https://github.com/modelcontextprotocol/kotlin-sdk/releases/tag/0.13.0",
+        "https://github.com/modelcontextprotocol/kotlin-sdk/security/advisories/GHSA-74gp-qhv5-v493"
+      ],
+      "published": "2026-09-09T00:17:31.407",
+      "fetched": "2026-09-09T08:06:35.559633+00:00"
+    },
+    {
+      "id": "GHSA-7hgx-277f-7vmg",
+      "source": "github-advisory",
+      "severity": "medium",
+      "cvss": null,
+      "title": "n8n: Agent Workflow Tool Bypasses Sub-Workflow Caller Policy",
+      "summary": "## Impact\n\nA workflow's \"_This workflow can be called by_\" setting was enforced by the Execute Workflow node but was not consulted when the same workflow was attached to an Agent as a tool. A user who could build an Agent could therefore call a workflow that its owner had restricted, and read back what it returned. The patch applies the sub-workflow caller policy on the Agent tool path.\n\n## Patches\n\nThe issue has been fixed in n8n versions 2.37.7 and 2.38.2. Users should upgrade to one of these ",
+      "affected": "npm:n8n, npm:n8n",
+      "references": [
+        "https://github.com/advisories/GHSA-7hgx-277f-7vmg"
+      ],
+      "published": "2026-09-08T21:33:47Z",
+      "fetched": "2026-09-09T08:06:48.875133+00:00"
+    },
+    {
+      "id": "GHSA-jxfw-x594-9x9m",
+      "source": "github-advisory",
+      "severity": "medium",
+      "cvss": 5.3,
+      "title": "morgan vulnerable to Log Forging via unescaped Unicode line separators",
+      "summary": "### Impact\n\nMorgan writes attacker-controlled request data to the access log through its tokens. The 1.11.0 fix neutralizes C0 control characters, DEL, and backslash, but it does not escape the Unicode line separators `U+0085` (NEL), `U+2028` (LINE SEPARATOR), or `U+2029` (PARAGRAPH SEPARATOR). These code points are reachable through several tokens, including the request URL (`:url`), request headers such as `:user-agent` and `:referrer`, arbitrary `:req[header]` values, and the Basic auth usern",
+      "affected": "npm:morgan",
+      "references": [
+        "https://github.com/advisories/GHSA-jxfw-x594-9x9m"
+      ],
+      "published": "2026-09-08T21:28:26Z",
+      "fetched": "2026-09-09T08:06:48.875540+00:00"
+    },
+    {
+      "id": "GHSA-w27v-7q3p-w38r",
+      "source": "github-advisory",
+      "severity": "high",
+      "cvss": 8.2,
+      "title": "SVGO: removeScripts allows executable links through namespace and control-character bypasses",
+      "summary": "## Summary\n\nSVGO's opt-in `removeScripts` plugin failed to remove some executable links. Namespace-prefixed SVG anchors and URL schemes containing ASCII tabs or newlines could bypass its checks. Applications that used this plugin as their only protection for untrusted SVG input could expose users to cross-site scripting (XSS).\n\nSVGO is an optimizer rather than a comprehensive sanitization library, but `removeScripts` is maintained for consumers that already rely on it to remove common script exe",
+      "affected": "npm:svgo, npm:svgo, npm:svgo",
+      "references": [
+        "https://github.com/advisories/GHSA-w27v-7q3p-w38r"
+      ],
+      "published": "2026-09-08T21:20:28Z",
+      "fetched": "2026-09-09T08:06:48.875698+00:00"
+    },
+    {
+      "id": "GHSA-4vpr-x523-8j87",
+      "source": "github-advisory",
+      "severity": "medium",
+      "cvss": 6.1,
+      "title": "SVGO: removeScripts incompletely sanitizes executable HTML in SVG foreignObject elements",
+      "summary": "## Summary\n\nSVGO's opt-in `removeScripts` plugin did not inspect executable HTML content inside SVG `<foreignObject>` elements. Applications that used this plugin as their only protection for untrusted SVG input could produce SVGs containing active HTML and expose users to cross-site scripting (XSS).\n\nSVGO is an optimizer rather than a comprehensive sanitization library, but `removeScripts` is maintained for consumers that already rely on it to remove common script execution paths.\n\n## Details\n\n",
+      "affected": "npm:svgo, npm:svgo, npm:svgo",
+      "references": [
+        "https://github.com/advisories/GHSA-4vpr-x523-8j87"
+      ],
+      "published": "2026-09-08T21:20:05Z",
+      "fetched": "2026-09-09T08:06:48.875719+00:00"
+    },
+    {
+      "id": "GHSA-8m3c-c648-2xjj",
+      "source": "github-advisory",
+      "severity": "medium",
+      "cvss": 5.9,
+      "title": "Nodemailer: resolveContent() on a MailMessage bypasses disableFileAccess/disableUrlAccess when called with the legacy signature",
+      "summary": "### Summary\n\nNodemailer's `disableFileAccess` / `disableUrlAccess` options are a security sandbox that lets an application forbid untrusted message content (`html`/`text`/attachment `path`/`href`) from reading local files or making outbound HTTP(S) requests. The fix for GHSA-wqvq-jvpq-h66f (commit `5f69497`) threaded these flags through the library's internal resolution paths (`MailMessage.resolveAll()` and `_convertDataImages()`), but the public plugin API `MailMessage.resolveContent(...args)` ",
+      "affected": "npm:nodemailer",
+      "references": [
+        "https://github.com/advisories/GHSA-8m3c-c648-2xjj"
+      ],
+      "published": "2026-09-08T21:16:00Z",
+      "fetched": "2026-09-09T08:06:48.875799+00:00"
+    },
+    {
+      "id": "GHSA-4hhp-h66f-j5j7",
+      "source": "github-advisory",
+      "severity": "medium",
+      "cvss": 6.5,
+      "title": "vLLM: SSRF + arbitrary local file read in MiMoV2OmniMultiModalProcessor `_fetch_image` and audio loader bypass MediaConnector protections",
+      "summary": "### Summary\n\n`vllm/transformers_utils/processors/mimo_v2_omni.py` — the multimodal processor for `MiMoV2OmniForCausalLM` — issues `requests.get(...)` directly on user-supplied image and audio URL strings and `Image.open(...)` on user-supplied local paths, **without** the SSRF / `allowed_local_media_path` checks that `vllm.multimodal.utils.MediaConnector` was hardened with in **GHSA-qh4c-xf7m-gxfc**, **GHSA-v359-jj2v-j536**, and **GHSA-pf3h-qjgv-vcpr**.\n\nThis is the same bug class as those three ",
+      "affected": "pip:vllm",
+      "references": [
+        "https://github.com/advisories/GHSA-4hhp-h66f-j5j7"
+      ],
+      "published": "2026-09-08T20:42:00Z",
+      "fetched": "2026-09-09T08:06:50.018804+00:00"
+    },
+    {
+      "id": "GHSA-4w3w-2rp5-g8jm",
+      "source": "github-advisory",
+      "severity": "high",
+      "cvss": null,
+      "title": "xmldom: Attribute name injection via setAttribute() bypasses requireWellFormed",
+      "summary": "## Summary\n\n`Element.setAttribute()` in `@xmldom/xmldom` bypasses attribute name validation by calling the private `_createAttribute(name)` method, which performs no validation. The public `createAttribute()` method correctly validates names against an anchored `QName` pattern, but `setAttribute()` never uses it. The serializer escapes attribute *values* but trusts attribute *names*, allowing an attacker to inject additional attributes (including event handlers) into serialized output. The `requ",
+      "affected": "npm:@xmldom/xmldom, npm:@xmldom/xmldom, npm:xmldom",
+      "references": [
+        "https://github.com/advisories/GHSA-4w3w-2rp5-g8jm"
+      ],
+      "published": "2026-09-08T20:30:51Z",
+      "fetched": "2026-09-09T08:06:48.876934+00:00"
+    },
+    {
+      "id": "GHSA-w3v8-gmh9-3wv7",
+      "source": "github-advisory",
+      "severity": "high",
+      "cvss": null,
+      "title": "NLTK: ReDoS in nltk.tgrep via unvalidated user-supplied regular expressions",
+      "summary": "### Summary\nThe NLTK `tgrep` module accepts user-supplied regular expressions and passes them to the Python `re` engine without a timeout or validation, enabling catastrophic backtracking (ReDoS). Applications that expose the `tgrep` API to external input are vulnerable to a single-request denial of service that blocks the Python process indefinitely.\n\n### Affected Code\n`nltk/tgrep.py` — `_tgrep_node_action()` (around line 320)\n\nWhen a tgrep pattern contains a `/regex/` node, `_tgrep_node_action",
+      "affected": "pip:nltk",
+      "references": [
+        "https://github.com/advisories/GHSA-w3v8-gmh9-3wv7"
+      ],
+      "published": "2026-09-08T20:28:28Z",
+      "fetched": "2026-09-09T08:06:50.018883+00:00"
+    },
+    {
+      "id": "GHSA-rrv8-h7p8-rx55",
+      "source": "github-advisory",
+      "severity": "high",
+      "cvss": 7.5,
+      "title": " NLTK: ReDoS in nltk.text.Text.findall() via unvalidated user-supplied regular expressions",
+      "summary": "### Summary\nNLTK's `Text.findall()` and `TokenSearcher.findall()` methods accept user-supplied regular expressions and pass them to the Python `re` engine without timeout or validation, enabling catastrophic backtracking (ReDoS). This issue is isolated to the `nltk.text` module and was resolved in a prior commit.\n\n### Affected Code\n`nltk/text.py` — `TokenSearcher.findall()` (line 255) / `Text.findall()` (line 620)\n\n`TokenSearcher.__init__` builds an internal string by wrapping each token in angl",
+      "affected": "pip:nltk",
+      "references": [
+        "https://github.com/advisories/GHSA-rrv8-h7p8-rx55"
+      ],
+      "published": "2026-09-08T20:28:13Z",
+      "fetched": "2026-09-09T08:06:50.018915+00:00"
+    },
+    {
+      "id": "GHSA-7m6h-x95x-82q5",
+      "source": "github-advisory",
+      "severity": "medium",
+      "cvss": 5.3,
+      "title": "vLLM: Cross-User Data Leak Vulnerability",
+      "summary": "### Summary\nAn integer overflow in the act_and_mul_kernel kernel can cause the output of one user request to be incorporated into the response of another request within the same inference batch. Under certain conditions, the last request in a batch can receive a partial or complete copy of the first user's inference result, resulting in cross-user data leakage.\n\n\n### Details\nThe root cause is an integer overflow in the expression blockIdx.x * 2 * d at https://github.com/vllm-project/vllm/blob/ff",
+      "affected": "pip:vllm",
+      "references": [
+        "https://github.com/advisories/GHSA-7m6h-x95x-82q5"
+      ],
+      "published": "2026-09-08T20:24:49Z",
+      "fetched": "2026-09-09T08:06:50.018923+00:00"
+    },
+    {
+      "id": "GHSA-8mcc-hrx5-hvxc",
+      "source": "github-advisory",
+      "severity": "high",
+      "cvss": 7.5,
+      "title": "GitPython: clone_from()/clone() omit --separate-git-dir from unsafe_git_clone_options, enabling arbitrary git-directory creation outside the destination",
+      "summary": "- **CWE:** CWE-73 (External Control of File Name or Path) / CWE-22 (Path Traversal, in the \"escapes intended base directory\" sense)\n- **Affected component:** `git/repo/base.py`, `Repo.unsafe_git_clone_options` (class attribute, lines 153-165) and `Repo._clone()` (lines 1477-1520), reached via the public `Repo.clone_from()` (line 1626) and `Repo.clone()` (line 1567) APIs.\n- **Affected version:** GitPython at HEAD (`9729ed3b948f2bde09f1f188c5311e172212b67e`, 2026-08-05, VERSION `3.1.58`)\n\n## Reach",
+      "affected": "pip:GitPython",
+      "references": [
+        "https://github.com/advisories/GHSA-8mcc-hrx5-hvxc"
+      ],
+      "published": "2026-09-08T18:41:52Z",
+      "fetched": "2026-09-09T08:06:50.019104+00:00"
+    },
+    {
+      "id": "GHSA-284h-m62q-gf8w",
+      "source": "github-advisory",
+      "severity": "critical",
+      "cvss": 9.8,
+      "title": "GitPython: Dormant multi-line git-config values are corrupted into live injected directives (e.g. core.hooksPath) on any unrelated GitConfigParser write, enabling RCE",
+      "summary": "- **CWE:** CWE-88 (Argument Injection) / CWE-94 (Code Injection) — via a read-then-corrupt-on-rewrite config round trip, not a direct setter argument\n- **Affected component:** `git/config.py` — `GitConfigParser._read()` (multi-line value decoding, lines 444-541, esp. `string_decode()` at line 460 and its call sites at 519/541) and `GitConfigParser._write()`/`write_section()` (serialization, lines ~694-712, esp. line 708)\n- **Affected version:** GitPython at HEAD (`9729ed3b948f2bde09f1f188c5311e1",
+      "affected": "pip:GitPython",
+      "references": [
+        "https://github.com/advisories/GHSA-284h-m62q-gf8w"
+      ],
+      "published": "2026-09-08T18:39:40Z",
+      "fetched": "2026-09-09T08:06:50.019325+00:00"
+    },
+    {
+      "id": "GHSA-7833-fr7j-v32q",
+      "source": "github-advisory",
+      "severity": "high",
+      "cvss": 8.4,
+      "title": "GitPython: Arbitrary local file content disclosure via [include] directive in untrusted .gitmodules (SubmoduleConfigParser never disables merge_includes)",
+      "summary": "# [HIGH] Arbitrary local file content disclosure via `[include]` directive in untrusted `.gitmodules` (`SubmoduleConfigParser` never disables `merge_includes`)\n\n- **CWE:** CWE-200 (Exposure of Sensitive Information) / CWE-73 (External Control of File Name or Path)\n- **Affected component:** `git/objects/submodule/base.py`, `Submodule._config_parser()` (~line 273) constructing `SubmoduleConfigParser(fp_module, read_only=read_only)`; `git/config.py`, `GitConfigParser.__init__` (`merge_includes` def",
+      "affected": "pip:GitPython",
+      "references": [
+        "https://github.com/advisories/GHSA-7833-fr7j-v32q"
+      ],
+      "published": "2026-09-08T18:38:51Z",
+      "fetched": "2026-09-09T08:06:50.019497+00:00"
+    },
+    {
+      "id": "GHSA-3gq4-3j92-5w49",
+      "source": "github-advisory",
+      "severity": "high",
+      "cvss": null,
+      "title": "NLTK: Corpus Reader Sandbox Bypass",
+      "summary": "## Summary\n\nNLTK corpus-reader constructors can still reach outside-root file and database reads before the `nltk.pathsec` sandbox boundary is enforced.\n\nThe PoC shows the safe path blocked by `pathsec.open`, then `LinThesaurusCorpusReader` and `PanLexLiteCorpusReader` succeeding in the same process.\n\n## Affected Product\n\n- Product: NLTK\n- Asset / component: `nltk.corpus.reader` constructors\n- Version tested: `3.10.2`\n- Deployment / package / tag: commit `474af1f5a94b1b8d53fc2b6defec3a2ce7633b74",
+      "affected": "pip:nltk",
+      "references": [
+        "https://github.com/advisories/GHSA-3gq4-3j92-5w49"
+      ],
+      "published": "2026-09-08T16:57:08Z",
+      "fetched": "2026-09-09T08:06:50.019565+00:00"
+    },
+    {
+      "id": "GHSA-p4rw-rvv2-7xwr",
+      "source": "github-advisory",
+      "severity": "high",
+      "cvss": null,
+      "title": "NLTK: Corpus readers follow symlinks outside trusted roots despite pathsec enforcement",
+      "summary": "### Summary\n\nSeveral corpus readers still step outside NLTK's symlink-aware trusted-root model. They derive in-root paths from trusted corpus state, convert those paths back into plain strings, and reopen them with built-in `open()` rather than `nltk.pathsec.open()`.\n\n### Details\n\n- **Vulnerability type:** Path traversal and symlink boundary bypass\n- **Affected component:** `nltk.corpus.reader.ipipan`, `nltk.corpus.reader.crubadan`, `nltk.corpus.reader.lin`\n- **Affected versions:** Published `3.",
+      "affected": "pip:nltk",
+      "references": [
+        "https://github.com/advisories/GHSA-p4rw-rvv2-7xwr"
+      ],
+      "published": "2026-09-08T16:55:38Z",
+      "fetched": "2026-09-09T08:06:50.019627+00:00"
+    },
+    {
+      "id": "GHSA-3hhw-38pf-pxj6",
+      "source": "github-advisory",
+      "severity": "medium",
+      "cvss": 5.5,
+      "title": "NLTK: Symlink-based arbitrary file read in IPIPANCorpusReader, bypasses nltk.pathsec entirely",
+      "summary": "## Summary\n\n`IPIPANCorpusReader` (`nltk/corpus/reader/ipipan.py`) exposes public methods, `channels()`, `domains()`, `categories()`, and `fileids(channels=...)`, that accept a caller supplied `fileids` list and read a file via a completely unprotected builtin `open()` call, with no `nltk.pathsec` involvement at all. A symlink placed inside the corpus root, with a name containing no separators or `..`, passes NLTK's existing traversal checks and is opened directly, reading a file from anywhere on",
+      "affected": "pip:nltk",
+      "references": [
+        "https://github.com/advisories/GHSA-3hhw-38pf-pxj6"
+      ],
+      "published": "2026-09-08T16:40:38Z",
+      "fetched": "2026-09-09T08:06:50.019886+00:00"
+    },
+    {
+      "id": "GHSA-f833-7jw8-xwrv",
+      "source": "github-advisory",
+      "severity": "high",
+      "cvss": 7.5,
+      "title": "NLTK: Symlink-based sandbox bypass in FramenetCorpusReader (bypasses the fix for CVE-2026-54292)",
+      "summary": "This is a **new, distinct vulnerability**: a bypass of the fix already published as [GHSA-xh95-f55m-82fw](https://github.com/nltk/nltk/security/advisories/GHSA-xh95-f55m-82fw) (\"Path traversal in NLTK FramenetCorpusReader.frame() allows arbitrary XML file read, bypassing the nltk.pathsec sandbox\"), not a duplicate of it.\n\n## Summary\n\nThe original advisory was fixed (PR [#3581](https://github.com/nltk/nltk/pull/3581)) by adding `_reject_unsafe_path_component()`, which blocks literal `/`, `\\`, `..",
+      "affected": "pip:nltk",
+      "references": [
+        "https://github.com/advisories/GHSA-f833-7jw8-xwrv"
+      ],
+      "published": "2026-09-08T16:39:24Z",
+      "fetched": "2026-09-09T08:06:50.019913+00:00"
+    },
+    {
+      "id": "GHSA-x5ph-mj9p-rfr8",
+      "source": "github-advisory",
+      "severity": "high",
+      "cvss": null,
+      "title": "NLTK: StreamBackedCorpusView Bypasses pathsec.ENFORCE - Arbitrary Local File Read",
+      "summary": "## Summary\nSetting `nltk.pathsec.ENFORCE = True` is documented to sandbox all file access to allowed NLTK data directories and raise `PermissionError` on unauthorized access. However, `StreamBackedCorpusView` opens files via `builtins.open()` directly, bypassing `pathsec.validate_path()` entirely. An attacker who can influence the `fileid` argument can read arbitrary local files regardless of the `ENFORCE` setting.\n\n## Details\n`nltk/pathsec.py:274` defines the enforcement point:\n```python\ndef op",
+      "affected": "pip:nltk",
+      "references": [
+        "https://github.com/advisories/GHSA-x5ph-mj9p-rfr8"
+      ],
+      "published": "2026-09-08T15:27:32Z",
+      "fetched": "2026-09-09T08:06:50.019983+00:00"
+    },
+    {
+      "id": "GHSA-72r2-7mfr-5xr9",
+      "source": "github-advisory",
+      "severity": "medium",
+      "cvss": 6.5,
+      "title": "NLTK: FileSystemPathPointer.open() sandbox check is dead code — arbitrary file read via file:// protocol",
+      "summary": "### Summary\n\nThere's a logic bug in `FileSystemPathPointer.open()` inside `nltk/data.py`\nthat makes the sandbox check permanently inert. The guard condition is always\n`False` — meaning any file the process can read is accessible by passing a\n`file://` URL to `nltk.data.load()`.\n\n---\n\n### Details\n\nIn `nltk/data.py`, `FileSystemPathPointer.open()` was patched at some point\nwith a comment saying \"SECURITY PATCH ENFORCING SANDBOX\", but the check\ndoesn't work:\n```python\ndef open(self, encoding=None):",
+      "affected": "pip:nltk",
+      "references": [
+        "https://github.com/advisories/GHSA-72r2-7mfr-5xr9"
+      ],
+      "published": "2026-09-08T15:27:12Z",
+      "fetched": "2026-09-09T08:06:50.020028+00:00"
+    },
+    {
+      "id": "GHSA-r6gq-whwq-mvg9",
+      "source": "github-advisory",
+      "severity": "high",
+      "cvss": 6.2,
+      "title": "NLTK: Symlink escape in CorpusReader allows arbitrary local file read outside the corpus root",
+      "summary": "### Summary\n`nltk.corpus.reader.api.CorpusReader.open()` can be used to read files outside the intended corpus root via a symlink placed inside that root. Although NLTK blocks absolute paths and `..` traversal, the current boundary check is only lexical and does not account for symlink resolution. This leads to an arbitrary local file read / filesystem sandbox bypass for applications that rely on `CorpusReader` or `FileSystemPathPointer` to restrict file access.\n\n### Details\nThe vulnerable flow ",
+      "affected": "pip:nltk",
+      "references": [
+        "https://github.com/advisories/GHSA-r6gq-whwq-mvg9"
+      ],
+      "published": "2026-09-08T15:26:47Z",
+      "fetched": "2026-09-09T08:06:50.020054+00:00"
+    },
+    {
+      "id": "GHSA-7q9c-hpx7-9cwm",
+      "source": "github-advisory",
+      "severity": "high",
+      "cvss": 7.5,
+      "title": "TypeSpec: Unauthenticated Remote Shutdown of Spector Mock Server via POST /.admin/stop",
+      "summary": "### Summary\n\n`@typespec/spector` registers a `POST /.admin/stop` HTTP route with no authentication, authorization token, Origin check, or IP-source restriction. Any network-reachable client can send a single unauthenticated POST request to terminate the mock server process. Because the server binds to `0.0.0.0` by default (all interfaces), this endpoint is exposed to any host that can reach the server's port—not just localhost—making a complete denial-of-service trivially achievable with one HTT",
+      "affected": "npm:@typespec/spector",
+      "references": [
+        "https://github.com/advisories/GHSA-7q9c-hpx7-9cwm"
+      ],
+      "published": "2026-09-04T21:43:13Z",
+      "fetched": "2026-09-05T07:36:31.976644+00:00"
+    },
+    {
+      "id": "GHSA-pr7f-p5mw-fc87",
+      "source": "github-advisory",
+      "severity": "medium",
+      "cvss": null,
+      "title": " vLLM: Incomplete CVE-2025-62164 remediation can be bypassed by concurrent prompt parts",
+      "summary": "## Executive Summary\n\nThe follow-up protection for CVE-2025-62164 is incomplete at vLLM revision `26587f9519e22a5c4549ead7595ad9ca3229c4fd`. It wraps serialized prompt-embedding reconstruction and dense conversion in `torch.sparse.check_sparse_tensor_invariants()`, but PyTorch 2.11.0 implements that context with save/enable/restore operations over process-global state. Two prompt-embedding parts in one `/v1/chat/completions` request are gathered concurrently on the event loop's default executor.",
+      "affected": "pip:vllm",
+      "references": [
+        "https://github.com/advisories/GHSA-pr7f-p5mw-fc87"
+      ],
+      "published": "2026-09-04T21:39:02Z",
+      "fetched": "2026-09-05T07:36:33.402909+00:00"
+    },
+    {
+      "id": "GHSA-48jh-3gj7-fg8v",
+      "source": "github-advisory",
+      "severity": "medium",
+      "cvss": 5.3,
+      "title": "vLLM: ReDoS via structured_outputs.regex in the lm-format-enforcer backend (no compile timeout) — missed sibling of GHSA-rwxx-mrjm-wc2m",
+      "summary": "### Summary\n\nThe fix for `GHSA-rwxx-mrjm-wc2m` (\"ReDoS via `structured_outputs.regex` compiled without timeout\") wrapped the regex compile in the **xgrammar** and **outlines** backends with `compile_regex_with_timeout` (and, for outlines, `validate_regex_is_buildable`). The **lm-format-enforcer** backend was left unguarded: it compiles the attacker-supplied regex with no timeout and no buildability check. A single request with a catastrophic regex hangs the structured-output compile step and sta",
+      "affected": "pip:vllm",
+      "references": [
+        "https://github.com/advisories/GHSA-48jh-3gj7-fg8v"
+      ],
+      "published": "2026-09-04T21:37:00Z",
+      "fetched": "2026-09-05T07:36:33.402945+00:00"
+    },
+    {
+      "id": "GHSA-hwrm-c4cx-rf4j",
+      "source": "github-advisory",
+      "severity": "medium",
+      "cvss": 5.3,
+      "title": "vLLM: Unauthenticated Internal Path and Username Disclosure via Validation Error Messages",
+      "summary": "## Summary\n\nWhen the vLLM API receives a malformed request (e.g., invalid JSON or missing required fields), FastAPI raises a Pydantic `RequestValidationError`. The `validation_exception_handler` in `vllm/entrypoints/openai/server_utils.py` converts this exception to a string via `str(exc)`, which includes the internal file path and line number of the handler function. The existing `sanitize_message()` function in `vllm/entrypoints/utils.py` strips memory addresses (e.g., `0x7f...`) but does not ",
+      "affected": "pip:vllm",
+      "references": [
+        "https://github.com/advisories/GHSA-hwrm-c4cx-rf4j"
+      ],
+      "published": "2026-09-04T21:36:33Z",
+      "fetched": "2026-09-05T07:36:33.402965+00:00"
+    },
+    {
+      "id": "GHSA-8737-qx52-hjff",
+      "source": "github-advisory",
+      "severity": "medium",
+      "cvss": 4.3,
+      "title": "vLLM: Derender endpoints decode caller-supplied GenerateResponse token IDs without output bounds",
+      "summary": "## Summary\n\nThe `/v1/completions/derender` and `/v1/chat/completions/derender` endpoints accept caller-supplied `GenerateResponse` objects and postprocess every nested `choices[*].token_ids` list directly. Unlike the normal render/generate path, derender does not enforce model context length, resolved `max_tokens`, `max_num_seqs`, choice-count, or response-size bounds before detokenizing and returning the supplied token IDs. An authenticated API client can therefore make the CPU-only render fron",
+      "affected": "pip:vllm",
+      "references": [
+        "https://github.com/advisories/GHSA-8737-qx52-hjff"
+      ],
+      "published": "2026-09-04T21:32:07Z",
+      "fetched": "2026-09-05T07:36:33.402978+00:00"
+    },
+    {
+      "id": "GHSA-gx45-xrj5-g6c4",
+      "source": "github-advisory",
+      "severity": "high",
+      "cvss": 7.8,
+      "title": "CodeWhale: Project config `allow_shell` override enables arbitrary shell command execution via cloned repository",
+      "summary": "### Maintainer resolution\n\nThe CodeWhale maintainers validated this report. The affected package ranges are recorded in the advisory metadata. Version 0.8.64 contains the fix in commit 43563356b98c6b993085554da82e77370160a31c. Users should upgrade to 0.8.64 or later. The original reporter analysis is preserved below.\n\n### Summary\n\nA malicious `.codewhale/config.toml` or `.deepseek/config.toml` committed to a repository can silently set `allow_shell = true` for any user who clones and opens the r",
+      "affected": "npm:deepseek-tui, npm:deepseek-tui, npm:codewhale-tui, npm:codewhale",
+      "references": [
+        "https://github.com/advisories/GHSA-gx45-xrj5-g6c4"
+      ],
+      "published": "2026-09-04T18:14:09Z",
+      "fetched": "2026-09-05T07:36:31.976715+00:00"
+    },
+    {
+      "id": "GHSA-wrj3-vj8c-784f",
+      "source": "github-advisory",
+      "severity": "high",
+      "cvss": 7.8,
+      "title": "CodeWhale: rlm_eval auto-approves arbitrary Python execution, bypassing the user's approval policy (RCE)",
+      "summary": "### Maintainer resolution\n\nThe CodeWhale maintainers validated this report. The affected package ranges are recorded in the advisory metadata. Version 0.8.64 contains the fix in commit 57f3c89471e27ac4032d9791f6885e5d4408c381. Users should upgrade to 0.8.64 or later. The original reporter analysis is preserved below.\n\n### Summary\nThe `rlm_eval` tool runs an arbitrary Python string chosen by the model in a real `python3` interpreter. Its `approval_requirement()` returns `ApprovalRequirement::Auto",
+      "affected": "npm:deepseek-tui, npm:deepseek-tui, npm:codewhale-tui, npm:codewhale",
+      "references": [
+        "https://github.com/advisories/GHSA-wrj3-vj8c-784f"
+      ],
+      "published": "2026-09-04T18:12:15Z",
+      "fetched": "2026-09-05T07:36:31.976742+00:00"
+    },
+    {
+      "id": "GHSA-c6mw-8xh8-gpq6",
+      "source": "github-advisory",
+      "severity": "high",
+      "cvss": 7.4,
+      "title": "CodeWhale: Argument Injection in `git_blame` Tool Allows Arbitrary File Read Without Approval",
+      "summary": "### Maintainer resolution\n\nThe CodeWhale maintainers validated this report. The affected package ranges are recorded in the advisory metadata. Version 0.8.64 contains the fix in commit 9a34b5034d29f05d1f28fa61b04719ca6a741020. Users should upgrade to 0.8.64 or later. The original reporter analysis is preserved below.\n\n# Argument Injection in `git_blame` Tool Allows Arbitrary File Read Without Approval\n\n## Overview\n\nThe `git_blame` tool in DeepSeek-TUI passes the model-supplied `rev` parameter un",
+      "affected": "npm:deepseek-tui, npm:deepseek-tui, npm:codewhale-tui, npm:codewhale",
+      "references": [
+        "https://github.com/advisories/GHSA-c6mw-8xh8-gpq6"
+      ],
+      "published": "2026-09-04T18:11:45Z",
+      "fetched": "2026-09-05T07:36:31.976772+00:00"
+    },
+    {
+      "id": "GHSA-6v2g-fpxh-pmmh",
+      "source": "github-advisory",
+      "severity": "critical",
+      "cvss": 8.6,
+      "title": "CodeWhale: SSRF‌ bypass - TOCTOU on DNS failure for DNS pinning",
+      "summary": "### Maintainer resolution\n\nThe CodeWhale maintainers validated this report. The affected package ranges are recorded in the advisory metadata. Version 0.8.64 contains the fix in commit 26de44a8bd5051f8f944ea60b2c37ae1d2b7d25e. Users should upgrade to 0.8.64 or later. The original reporter analysis is preserved below.\n\n### Summary\nDNS-pinning failure allows natural failure of code, however with a custom DNS server that fails the initial requests and allows the secondary requests, it's possible to",
+      "affected": "npm:deepseek-tui, npm:deepseek-tui, npm:codewhale-tui, npm:codewhale",
+      "references": [
+        "https://github.com/advisories/GHSA-6v2g-fpxh-pmmh"
+      ],
+      "published": "2026-09-04T18:05:12Z",
+      "fetched": "2026-09-05T07:36:31.976821+00:00"
+    },
+    {
+      "id": "GHSA-h539-c7r8-3xq4",
+      "source": "github-advisory",
+      "severity": "high",
+      "cvss": 7.5,
+      "title": "CodeWhale: js_execution leaks parent environment to model context via missing env scrub",
+      "summary": "### Maintainer resolution\n\nThe CodeWhale maintainers validated this report. The affected package ranges are recorded in the advisory metadata. Version 0.8.64 contains the fix in commit 26de44a8bd5051f8f944ea60b2c37ae1d2b7d25e. Users should upgrade to 0.8.64 or later. The original reporter analysis is preserved below.\n\n### Summary\n\njs_execution exposes parent process environment to model-provided JavaScript\n\nThe js_execution tool spawns Node with tokio::process::Command::new without calling the c",
+      "affected": "npm:deepseek-tui, npm:deepseek-tui, npm:codewhale-tui, npm:codewhale",
+      "references": [
+        "https://github.com/advisories/GHSA-h539-c7r8-3xq4"
+      ],
+      "published": "2026-09-04T18:03:08Z",
+      "fetched": "2026-09-05T07:36:31.976831+00:00"
+    },
+    {
+      "id": "GHSA-7j5w-7r7x-9v27",
+      "source": "github-advisory",
+      "severity": "high",
+      "cvss": 9.3,
+      "title": "CodeWhale: Argument Injection in `git_show` Tool Allows Arbitrary File Write Without Approval",
+      "summary": "### Maintainer resolution\n\nThe CodeWhale maintainers validated this report. The affected package ranges are recorded in the advisory metadata. Version 0.8.64 contains the fix in commit 9a34b5034d29f05d1f28fa61b04719ca6a741020. Users should upgrade to 0.8.64 or later. The original reporter analysis is preserved below.\n\n# Argument Injection in `git_show` Tool Allows Arbitrary File Write Without Approval\n\n## Overview\n\nThe `git_show` tool in DeepSeek-TUI executes `git show` with the model-supplied `",
+      "affected": "npm:deepseek-tui, npm:deepseek-tui, npm:codewhale-tui, npm:codewhale",
+      "references": [
+        "https://github.com/advisories/GHSA-7j5w-7r7x-9v27"
+      ],
+      "published": "2026-09-04T18:02:37Z",
+      "fetched": "2026-09-05T07:36:31.976839+00:00"
+    },
+    {
+      "id": "GHSA-g29h-pfmp-qp9r",
+      "source": "github-advisory",
+      "severity": "high",
+      "cvss": 7.0,
+      "title": "CodeWhale: exec_shell_interact sends LLM-controlled input to a running shell without an approval prompt (privilege escalation)",
+      "summary": "### Maintainer resolution\n\nThe CodeWhale maintainers validated this report. The affected package ranges are recorded in the advisory metadata. Version 0.8.64 contains the fix in commit 57f3c89471e27ac4032d9791f6885e5d4408c381. Users should upgrade to 0.8.64 or later. The original reporter analysis is preserved below.\n\n### Summary\n`exec_shell` is correctly approval-gated. Its sibling `exec_shell_interact` returns `ApprovalRequirement::Auto`, so when the model writes input into a shell the user al",
+      "affected": "npm:deepseek-tui, npm:deepseek-tui, npm:codewhale-tui, npm:codewhale",
+      "references": [
+        "https://github.com/advisories/GHSA-g29h-pfmp-qp9r"
+      ],
+      "published": "2026-09-04T18:02:10Z",
+      "fetched": "2026-09-05T07:36:31.976859+00:00"
+    },
+    {
+      "id": "GHSA-62f5-cp2p-vq95",
+      "source": "github-advisory",
+      "severity": "high",
+      "cvss": 7.5,
+      "title": "CodeWhale: Project config `instructions` override enables arbitrary file read into AI system prompt via cloned repository",
+      "summary": "### Maintainer resolution\n\nThe CodeWhale maintainers validated this report. The affected package ranges are recorded in the advisory metadata. Version 0.8.64 contains the fix in commit 43563356b98c6b993085554da82e77370160a31c. Users should upgrade to 0.8.64 or later. The original reporter analysis is preserved below.\n\n### Summary\n\nA malicious `.codewhale/config.toml` or `.deepseek/config.toml` committed to a repository can set `instructions` to an array of arbitrary file paths (including paths o",
+      "affected": "npm:deepseek-tui, npm:deepseek-tui, npm:codewhale-tui, npm:codewhale",
+      "references": [
+        "https://github.com/advisories/GHSA-62f5-cp2p-vq95"
+      ],
+      "published": "2026-09-04T18:00:37Z",
+      "fetched": "2026-09-05T07:36:31.976902+00:00"
+    },
+    {
+      "id": "GHSA-w7wx-5q49-r59w",
+      "source": "github-advisory",
+      "severity": "high",
+      "cvss": 7.5,
+      "title": "CodeWhale: image_analyze follows workspace symlinks, leaking external file bytes",
+      "summary": "### Maintainer resolution\n\nThe CodeWhale maintainers validated this report. The affected package ranges are recorded in the advisory metadata. Version 0.8.64 contains the fix in commit 26de44a8bd5051f8f944ea60b2c37ae1d2b7d25e. Users should upgrade to 0.8.64 or later. The original reporter analysis is preserved below.\n\n### Summary\n\nimage_analyze follows workspace symlinks and leaks outside-workspace file bytes to the vision endpoint\n\nThe image_analyze tool resolves its image_path with a bare cont",
+      "affected": "npm:deepseek-tui, npm:deepseek-tui, npm:codewhale-tui, npm:codewhale",
+      "references": [
+        "https://github.com/advisories/GHSA-w7wx-5q49-r59w"
+      ],
+      "published": "2026-09-04T17:34:55Z",
+      "fetched": "2026-09-05T07:36:31.976911+00:00"
+    },
+    {
+      "id": "CVE-2026-31020",
+      "source": "nvd",
+      "severity": "critical",
+      "cvss": 9.8,
+      "title": "In DocsGPT 0.15.0 and below, the application provides a custom prompt feature that allows users to define prompt content used during chatbot interactions. This functionality renders user-supplied prom",
+      "summary": "In DocsGPT 0.15.0 and below, the application provides a custom prompt feature that allows users to define prompt content used during chatbot interactions. This functionality renders user-supplied prompt data using Jinja templates without input sanitization or sandboxing. An unauthenticated attacker can inject malicious template expressions, leading to a server-side template injection (SSTI) vulnerability that can be exploited to achieve full remote code execution (RCE).",
+      "affected": "prompt injection",
+      "references": [
+        "http://arc53.com",
+        "https://github.com/PhDg1410/CVE/tree/main/CVE-2026-31020"
+      ],
+      "published": "2026-09-04T17:16:56.910",
+      "fetched": "2026-09-10T15:50:25.029285+00:00"
+    },
+    {
+      "id": "CVE-2026-19645",
+      "source": "nvd",
+      "severity": "medium",
+      "cvss": 6.5,
+      "title": "IBM MQ Agent CD: v1.0.0, v1.0.1, v2.0.0, v2.0.1 An authenticated user with a valid session cookie can submit arbitrarily large or computationallyexpensive requests that cause the LLM agent workers to ",
+      "summary": "IBM MQ Agent CD: v1.0.0, v1.0.1, v2.0.0, v2.0.1 An authenticated user with a valid session cookie can submit arbitrarily large or computationallyexpensive requests that cause the LLM agent workers to be held for extended periods — rangingfrom tens of seconds to over ten minutes per request. When multiple such requests are sentconcurrently, the agent worker pool becomes exhausted, causing all other IBM MQ Console users toexperience degraded performance or complete unavailability of the AI Agent f",
+      "affected": "llm agent",
+      "references": [
+        "https://www.ibm.com/support/pages/node/7285394"
+      ],
+      "published": "2026-09-04T16:17:24.923",
+      "fetched": "2026-09-05T07:36:24.830930+00:00"
+    },
+    {
+      "id": "CVE-2026-85694",
+      "source": "nvd",
+      "severity": "high",
+      "cvss": 8.1,
+      "title": "LaVague 0.2.35 contains a remote code execution vulnerability in PythonFromMarkdownExtractor.extract_as_object that evaluates untrusted language model output derived from web page content. Attackers c",
+      "summary": "LaVague 0.2.35 contains a remote code execution vulnerability in PythonFromMarkdownExtractor.extract_as_object that evaluates untrusted language model output derived from web page content. Attackers can inject malicious Python code through web pages using indirect prompt injection to execute arbitrary code on the operator's host without review.",
+      "affected": "prompt injection",
+      "references": [
+        "https://github.com/lavague-ai/LaVague",
+        "https://github.com/lavague-ai/LaVague/blob/9024bb83/lavague-core/lavague/core/extractors.py",
+        "https://github.com/lavague-ai/LaVague/issues/650",
+        "https://www.vulncheck.com/advisories/lavague-0.2.35-remote-code-execution-via-eval-extraction",
+        "https://github.com/lavague-ai/LaVague/issues/650"
+      ],
+      "published": "2026-09-04T15:17:47.540",
+      "fetched": "2026-09-10T15:50:25.029279+00:00"
+    },
+    {
+      "id": "CVE-2026-85675",
+      "source": "nvd",
+      "severity": "high",
+      "cvss": 7.5,
+      "title": "OWL's DocumentProcessingToolkit contains a server-side request forgery vulnerability in the extract_document_content tool that fetches caller-supplied URLs with no scheme, host, or IP filtering. Attac",
+      "summary": "OWL's DocumentProcessingToolkit contains a server-side request forgery vulnerability in the extract_document_content tool that fetches caller-supplied URLs with no scheme, host, or IP filtering. Attackers can inject malicious URLs through prompt injection to make the server fetch internal resources, with responses returned to the agent context.",
+      "affected": "prompt injection",
+      "references": [
+        "https://github.com/camel-ai/owl",
+        "https://github.com/camel-ai/owl/blob/fba1dd5b3a9e8cc15f16221bb002cca7e3de2d9d/owl/utils/document_toolkit.py",
+        "https://github.com/camel-ai/owl/issues/615",
+        "https://www.vulncheck.com/advisories/owl-documentprocessingtoolkit-server-side-request-forgery-via-url-fetching"
+      ],
+      "published": "2026-09-04T15:17:45.763",
+      "fetched": "2026-09-10T15:50:25.029256+00:00"
+    },
+    {
+      "id": "GHSA-79wm-x847-7cvg",
+      "source": "github-advisory",
+      "severity": "high",
+      "cvss": 8.8,
+      "title": "Claude Code Templates: Unauthenticated OS command injection (RCE) in Claude Code Studio server (--studio)",
+      "summary": "### Summary\n`npx claude-code-templates --studio` launches \"Claude Code Studio\", an Express HTTP server (`cli-tool/src/sandbox-server.js`, default port 3444) that binds to **all interfaces** (`0.0.0.0`), sets `Access-Control-Allow-Origin: *`, and requires **no authentication**. Two POST endpoints pass attacker-controlled request-body fields into `child_process.spawn(..., { shell: true })`. Because `shell: true` makes Node join the argv array into a single `sh -c` string, the fields are parsed by ",
+      "affected": "npm:claude-code-templates",
+      "references": [
+        "https://github.com/advisories/GHSA-79wm-x847-7cvg"
+      ],
+      "published": "2026-09-03T19:50:47Z",
+      "fetched": "2026-09-04T07:57:38.299041+00:00"
+    },
+    {
+      "id": "GHSA-fg9p-mrxr-hvq7",
+      "source": "github-advisory",
+      "severity": "critical",
+      "cvss": null,
+      "title": "Orval: RCE via OpenAPI path -> unescaped request-URL template literal (backtick breakout)",
+      "summary": "### Summary\n\nOrval emits the OpenAPI path into the generated request URL as a TEMPLATE LITERAL (`` `/users/...` ``) without escaping the backtick character. A path containing a backtick closes the template literal and injects a concatenation expression that is evaluated when the generated URL/request/key function is called, executing attacker-controlled code. Affects the axios, fetch, react-query, and swr clients. Verified on Orval 8.19.0; survives Orval's default OpenAPI validation.\n\n### Detail",
+      "affected": "npm:orval",
+      "references": [
+        "https://github.com/advisories/GHSA-fg9p-mrxr-hvq7"
+      ],
+      "published": "2026-09-03T19:17:32Z",
+      "fetched": "2026-09-04T07:57:38.299130+00:00"
+    },
+    {
+      "id": "GHSA-88f2-fpv8-89q2",
+      "source": "github-advisory",
+      "severity": "critical",
+      "cvss": null,
+      "title": "Orval: RCE via servers[].url -> unescaped request-URL template literal (with getBaseUrlFromSpecification)",
+      "summary": "### Summary\n\nWhen Orval is configured with `output.baseUrl.getBaseUrlFromSpecification: true`, it bakes the spec's `servers[0].url` into the generated request URL as a template literal without escaping the backtick. A server URL containing a backtick closes the template literal and injects a concatenation expression evaluated when the generated URL/request function is called, executing attacker-controlled code. Verified on Orval 8.19.0 (fetch client); survives default OpenAPI validation.\n\n### De",
+      "affected": "npm:orval",
+      "references": [
+        "https://github.com/advisories/GHSA-88f2-fpv8-89q2"
+      ],
+      "published": "2026-09-03T19:06:52Z",
+      "fetched": "2026-09-04T07:57:38.299141+00:00"
+    },
+    {
+      "id": "GHSA-w727-8j6c-2rj4",
+      "source": "github-advisory",
+      "severity": "critical",
+      "cvss": null,
+      "title": "Orval: Import-time RCE via schema default -> zod module-level template literal",
+      "summary": "### Summary\n\nOrval's zod schema generation emits a schema's `default` value as a module-level template literal (`export const …Default = `<default>`;`) without escaping `${` or the backtick. A default of the form `v${<code>}w` injects a live JavaScript expression that is evaluated when the generated zod schema module is imported, executing attacker-controlled code at import — no request or function call needed. Verified on Orval 8.19.0; survives default OpenAPI validation.\n\n### Details\n\n```ts\nex",
+      "affected": "npm:orval",
+      "references": [
+        "https://github.com/advisories/GHSA-w727-8j6c-2rj4"
+      ],
+      "published": "2026-09-03T19:03:03Z",
+      "fetched": "2026-09-04T07:57:38.299158+00:00"
+    },
+    {
+      "id": "GHSA-w8wf-3qvj-6xqf",
+      "source": "github-advisory",
+      "severity": "high",
+      "cvss": 8.1,
+      "title": "OpenClaw Feishu permission tools could ignore per-account disablement",
+      "summary": "### Summary\n\nFeishu permission tools could ignore per-account disablement. In affected versions, a lower-trust caller or configured input path could perform actions that should have required a stronger authorization or policy check.\n\nThis advisory is scoped to the named feature and configuration. It does not change OpenClaw's trusted-operator model: authenticated Gateway operators, installed plugins, and intentional local execution surfaces remain trusted unless a separate policy, approval, allo",
+      "affected": "npm:@openclaw/feishu",
+      "references": [
+        "https://github.com/advisories/GHSA-w8wf-3qvj-6xqf"
+      ],
+      "published": "2026-09-03T17:33:19Z",
+      "fetched": "2026-09-04T07:57:38.299368+00:00"
+    },
+    {
+      "id": "GHSA-2q7j-2vhx-56g8",
+      "source": "github-advisory",
+      "severity": "high",
+      "cvss": 8.1,
+      "title": "OpenClaw Feishu tools could ignore per-account disablement",
+      "summary": "### Summary\n\nFeishu tools could ignore per-account disablement. In affected versions, a lower-trust caller or configured input path could perform actions that should have required a stronger authorization or policy check.\n\nThis advisory is scoped to the named feature and configuration. It does not change OpenClaw's trusted-operator model: authenticated Gateway operators, installed plugins, and intentional local execution surfaces remain trusted unless a separate policy, approval, allowlist, sand",
+      "affected": "npm:@openclaw/feishu",
+      "references": [
+        "https://github.com/advisories/GHSA-2q7j-2vhx-56g8"
+      ],
+      "published": "2026-09-03T17:30:55Z",
+      "fetched": "2026-09-04T07:57:38.299375+00:00"
+    },
+    {
+      "id": "CVE-2026-84779",
+      "source": "nvd",
+      "severity": "high",
+      "cvss": 8.1,
+      "title": "Subscriber Broken Access Control in Agentimus – AI SEO, llms.txt &amp; MCP for AI Agents <= 1.51.0 versions.",
+      "summary": "Subscriber Broken Access Control in Agentimus – AI SEO, llms.txt &amp; MCP for AI Agents <= 1.51.0 versions.",
+      "affected": "llm agent",
+      "references": [
+        "https://patchstack.com/database/wordpress/plugin/agentimus/vulnerability/wordpress-agentimus-ai-seo-llms-txt-mcp-for-ai-agents-plugin-1-51-0-broken-access-control-vulnerability?_s_id=cve"
+      ],
+      "published": "2026-09-03T17:17:28.880",
+      "fetched": "2026-09-04T07:57:31.231569+00:00"
+    },
+    {
+      "id": "GHSA-4mvj-m6j5-pmf7",
+      "source": "github-advisory",
+      "severity": "critical",
+      "cvss": 9.3,
+      "title": "unstructured: Server-Side Request Forgery in the URL-based partitioning",
+      "summary": "### Summary\n\nServer-Side Request Forgery in `unstructured`. The `url=` argument of `partition()`, `partition_html()`, and `partition_md()` is fetched via `requests.get()` with no host validation. The response body is returned as `Element` text, so this is a **full-read SSRF** — attackers reach loopback admin APIs, internal HTTP services, and cloud metadata endpoints, and read the response. \n\n`unstructured` is the de facto URL ingestion layer for LangChain `UnstructuredURLLoader`, LlamaIndex `Uns",
+      "affected": "pip:unstructured",
+      "references": [
+        "https://github.com/advisories/GHSA-4mvj-m6j5-pmf7"
+      ],
+      "published": "2026-09-03T17:02:46Z",
+      "fetched": "2026-09-04T07:57:39.728256+00:00"
+    },
+    {
+      "id": "GHSA-78x9-fhhx-v2g6",
+      "source": "github-advisory",
+      "severity": "medium",
+      "cvss": 6.5,
+      "title": "CKAN MCP Server: Cache-key canonicalization collision enables cache confusion / poisoning",
+      "summary": "## Summary\n\nThe response cache derives its key from an ambiguous string serialization of the request parameters. `canonicalizeParams` joins sorted `${key}=${value}` pairs with `&` and does not escape `&`, `=`, or the `|` field separators used in `buildCacheKey`. Two **different** logical parameter sets can therefore serialize to the **same** key and share one cache entry. Because the cached value is whatever the upstream returned for whichever request populated the entry first, an attacker can p",
+      "affected": "npm:@aborruso/ckan-mcp-server",
+      "references": [
+        "https://github.com/advisories/GHSA-78x9-fhhx-v2g6"
+      ],
+      "published": "2026-09-03T14:49:22Z",
+      "fetched": "2026-09-04T07:57:38.299389+00:00"
+    },
+    {
+      "id": "GHSA-6f9w-9hf2-5rg3",
+      "source": "github-advisory",
+      "severity": "low",
+      "cvss": 3.7,
+      "title": "CKAN MCP Server: Information disclosure via verbose error reflection",
+      "summary": "## Summary\n\nError paths reflect raw upstream response bodies and internal exception messages back to the caller instead of a sanitized, generic message. When the server is pointed at (or redirected/SSRF'd to) a host that returns a non-CKAN response, or when an internal exception occurs, the caller receives verbatim upstream content and internal detail (hostnames, internal IPs, DB errors, stack fragments).\n\n## Affected code\n\n`src/utils/http.ts` — the entire decoded upstream body is embedded in th",
+      "affected": "npm:@aborruso/ckan-mcp-server",
+      "references": [
+        "https://github.com/advisories/GHSA-6f9w-9hf2-5rg3"
+      ],
+      "published": "2026-09-03T14:49:10Z",
+      "fetched": "2026-09-04T07:57:38.299450+00:00"
+    },
+    {
+      "id": "GHSA-7mqg-cx4g-x2rf",
+      "source": "github-advisory",
+      "severity": "high",
+      "cvss": 7.1,
+      "title": "Omnigent Guardrail policy bypass: shell-command parser fails open in policies/builtins/_shell.py",
+      "summary": "**Reporter:** Aaron / Aeon — autonomous security agent (https://github.com/aaronjmars/aeon)\n**Project:** `omnigent-ai/omnigent` v0.1.0 (Databricks) — meta-harness running Claude Code / Codex / Pi \"in check with policies and sandboxing\"\n**Component:** `omnigent/policies/builtins/_shell.py` (shared parser) → consumed by `policies/builtins/github.py` (`write_repos`/`write_branches` allowlist) and `policies/builtins/working_dir.py` (workspace confinement)\n\n## Summary\n\nThe shared shell-command parser",
+      "affected": "pip:omnigent",
+      "references": [
+        "https://github.com/advisories/GHSA-7mqg-cx4g-x2rf"
+      ],
+      "published": "2026-09-02T22:40:07Z",
+      "fetched": "2026-09-04T07:57:39.728294+00:00"
+    },
+    {
+      "id": "GHSA-p8rw-8qj3-hf33",
+      "source": "github-advisory",
+      "severity": "high",
+      "cvss": 8.8,
+      "title": "Omnigent: Unvalidated os_env.cwd in agent bundle yields arbitrary host filesystem access on runners without OMNIGENT_RUNNER_WORKSPACE",
+      "summary": "### Summary\n\nAn authenticated, non-admin user can obtain **arbitrary host-filesystem read/write** (and host environment-secret disclosure) on an Omnigent **runner** by uploading an agent bundle whose `os_env.cwd` points outside any intended workspace (e.g. `/` or `/home/<victim>`). The `cwd` field is taken **verbatim** from the bundle with no validation, normalization, or boundary check anywhere in the spec pipeline.\n\nThis is a **different sink** from GHSA-jrrm-9hc7-2v3h (CWE-94, shared-agent bu",
+      "affected": "pip:omnigent",
+      "references": [
+        "https://github.com/advisories/GHSA-p8rw-8qj3-hf33"
+      ],
+      "published": "2026-09-02T22:00:54Z",
+      "fetched": "2026-09-04T07:57:39.728312+00:00"
+    },
+    {
+      "id": "GHSA-jrrm-9hc7-2v3h",
+      "source": "github-advisory",
+      "severity": "critical",
+      "cvss": 9.0,
+      "title": "Omnigent: Shared Agent Bundle Overwrite Leads to Authenticated Runner RCE",
+      "summary": "### Summary\n\nAn authenticated user with edit access to their own session can overwrite a shared/template agent by uploading a full agent bundle through `PUT /sessions/{session_id}/agent`.\n\nShared/template agents are shown as not MCP-editable, but this upload path still accepts a replacement bundle. By adding a `stdio` MCP server to the shared agent, the attacker can cause future runner sessions using that shared agent to start an attacker-controlled command.\n\n### Details\n\nThe vulnerable endpoint",
+      "affected": "pip:omnigent",
+      "references": [
+        "https://github.com/advisories/GHSA-jrrm-9hc7-2v3h"
+      ],
+      "published": "2026-09-02T21:55:11Z",
+      "fetched": "2026-09-04T07:57:39.728320+00:00"
+    },
+    {
+      "id": "GHSA-756x-9hf6-q4h4",
+      "source": "github-advisory",
+      "severity": "high",
+      "cvss": 8.8,
+      "title": "Omnigent: Uploaded Agent Bundle Allows Authenticated Runner RCE via Python Callable Tools",
+      "summary": "### Summary\n\nAn authenticated user can upload a crafted agent bundle that defines a server-side Python callable tool. The server validates the uploaded bundle, but it does not block dangerous `callable:` paths in untrusted user-provided agent configs.\n\nWhen the tool is invoked, the runner imports and executes that Python callable. A crafted bundle can point the tool at `subprocess.check_output`, which lets the attacker run a local command on the runner machine.\n\nThis is serious because hosted Om",
+      "affected": "pip:omnigent",
+      "references": [
+        "https://github.com/advisories/GHSA-756x-9hf6-q4h4"
+      ],
+      "published": "2026-09-02T21:54:52Z",
+      "fetched": "2026-09-04T07:57:39.728328+00:00"
+    },
+    {
+      "id": "GHSA-83x6-42hr-jc76",
+      "source": "github-advisory",
+      "severity": "medium",
+      "cvss": 5.3,
+      "title": "CKAN MCP Server: MQA server allowlist bypass via unanchored regex (`isValidMqaServer`)",
+      "summary": "## Summary\n\nThe `ckan_get_mqa_quality` and `ckan_get_mqa_quality_details` tools restrict their `server_url` argument to `dati.gov.it` via a regular expression. The regex is anchored only at the start and places no boundary after the host, so any URL whose host merely **begins with** `dati.gov.it` — or that uses `dati.gov.it` as URL *userinfo* before an `@` — passes validation while actually targeting an attacker-controlled host.\n\n## Affected code\n\n```js\n// src/tools/quality.ts\nconst ALLOWED_SERV",
+      "affected": "npm:@aborruso/ckan-mcp-server",
+      "references": [
+        "https://github.com/advisories/GHSA-83x6-42hr-jc76"
+      ],
+      "published": "2026-09-02T14:52:21Z",
+      "fetched": "2026-09-04T07:57:38.299728+00:00"
+    },
+    {
+      "id": "GHSA-x8wg-4xgc-vr54",
+      "source": "github-advisory",
+      "severity": "medium",
+      "cvss": null,
+      "title": "Banks: Path traversal in `DirectoryPromptRegistry.set()` allows arbitrary file write outside the registry root",
+      "summary": "## Summary\n\n`DirectoryPromptRegistry.set()` interpolates the attacker-controllable `Prompt.name` into a `Path` expression with no canonicalization. An application that derives the prompt name from request data lets a caller write attacker-controlled bytes outside the configured registry directory.\n\n## Details\n\n`src/banks/registries/directory.py:44`\n\n```python\nprompt_file = path / f\"{prompt.name}.{prompt.version}.jinja\"\nprompt_file.write_text(prompt.raw)\n```\n\nTwo failure modes:\n\n1. **Relative tra",
+      "affected": "pip:banks",
+      "references": [
+        "https://github.com/advisories/GHSA-x8wg-4xgc-vr54"
+      ],
+      "published": "2026-09-02T14:38:24Z",
+      "fetched": "2026-09-04T07:57:39.728414+00:00"
+    },
+    {
+      "id": "GHSA-8mgp-746c-j5xp",
+      "source": "github-advisory",
+      "severity": "high",
+      "cvss": 7.0,
+      "title": "NLTK: Model-artifact APIs bypass pathsec and touch files outside allowed roots",
+      "summary": "### Summary\n\nSeveral model-artifact APIs still treat caller-controlled model paths as ordinary filenames even when NLTK path security is enforced. The same outside-root paths are rejected by guarded helpers, but these public read and write flows still use raw file APIs.\n\n### Details\n\n- **Vulnerability type:** File sandbox bypass\n- **Affected component:** `TransitionParser.train`, `TransitionParser.parse`, `AveragedPerceptron.save`, `AveragedPerceptron.load`, `PerceptronTagger.save_to_json`, `sav",
+      "affected": "pip:nltk",
+      "references": [
+        "https://github.com/advisories/GHSA-8mgp-746c-j5xp"
+      ],
+      "published": "2026-09-02T14:35:04Z",
+      "fetched": "2026-09-04T07:57:39.728457+00:00"
+    },
+    {
+      "id": "GHSA-vp2x-qp44-57v7",
+      "source": "github-advisory",
+      "severity": "medium",
+      "cvss": 3.7,
+      "title": "NLTK: Quadratic CPU Exhaustion in `XMLCorpusView._read_xml_fragment()`",
+      "summary": "## Summary\n\n`XMLCorpusView._read_xml_fragment()` reads a corpus file in 1 KiB blocks, appending\neach block to a growing `fragment` string, then calls `_VALID_XML_RE.match(fragment)`\non the full accumulated buffer every iteration. Because each iteration rescans the\nentire accumulated fragment, the total amount of work grows quadratically with input\nsize.\n\nCommit `c9c332284` (CWE-1333) made each `match()` call linear. The quadratic behavior\nis separate: the loop calls `match()` once per 1 KiB bloc",
+      "affected": "pip:nltk",
+      "references": [
+        "https://github.com/advisories/GHSA-vp2x-qp44-57v7"
+      ],
+      "published": "2026-09-02T14:34:11Z",
+      "fetched": "2026-09-04T07:57:39.728495+00:00"
+    },
+    {
+      "id": "GHSA-cw6x-m8jw-qmrh",
+      "source": "github-advisory",
+      "severity": "medium",
+      "cvss": 5.3,
+      "title": "NLTK: Uncontrolled recursion in nltk.featstruct.FeatStructReader causes unhandled RecursionError (DoS) via deeply nested feature-structure input",
+      "summary": "### Summary\n\n`nltk.featstruct.FeatStructReader` (used by `FeatStruct(str)` and by `FeatureGrammar.fromstring()`) parses feature-structure strings such as `[a=1]` with a recursive-descent parser that has no nesting-depth limit. A small, trivially-crafted input (~700 bytes) with deeply nested brackets drives the parser past Python's recursion limit and raises an **unhandled `RecursionError`** instead of the library's normal, catchable `ValueError`/`LogicalExpressionException`. Any application that",
+      "affected": "pip:nltk",
+      "references": [
+        "https://github.com/advisories/GHSA-cw6x-m8jw-qmrh"
+      ],
+      "published": "2026-09-02T14:33:22Z",
+      "fetched": "2026-09-04T07:57:39.728563+00:00"
+    },
+    {
+      "id": "GHSA-m4rf-3fr8-xwx3",
+      "source": "github-advisory",
+      "severity": "critical",
+      "cvss": 9.8,
+      "title": "NLTK: JVM argument injection bypass via per-call options in the NLTK Stanford wrappers (incomplete fix of CVE-2026-12841)",
+      "summary": "## Vulnerability\n\nThe fix for CVE-2026-12841 (CWE-88, JVM argument injection) added `_validate_java_options()` to block dangerous JVM flags such as `-agentlib`, `-agentpath`, `-javaagent`, `-Xrunjdwp`, and `@argfile` references. However, the validation is only applied when setting global options via `config_java()`. The `java()` function's per-call `options` parameter -- added by PR #3683 (CVE-2026-12615 fix) -- passes options directly to `subprocess.Popen` without calling `_validate_java_option",
+      "affected": "pip:nltk",
+      "references": [
+        "https://github.com/advisories/GHSA-m4rf-3fr8-xwx3"
+      ],
+      "published": "2026-09-01T20:38:22Z",
+      "fetched": "2026-09-02T07:53:43.919281+00:00"
+    },
+    {
+      "id": "GHSA-6hwm-xvph-95vm",
+      "source": "github-advisory",
+      "severity": "high",
+      "cvss": 7.8,
+      "title": "NLTK: Uncontrolled search path when invoking the Graphviz 'dot' binary",
+      "summary": "Two NLTK sites executed the Graphviz `dot` program by bare name, so process creation resolved it via the search path — and on Windows via the current working directory — rather than a validated absolute location. An attacker who can place a file named `dot` where resolution looks (the CWD on Windows, or a writable/relative entry such as `.` on `PATH`) has their binary executed in place of Graphviz (arbitrary code execution).\n\nAffected (<= 3.10.2):\n- `nltk.parse.dependencygraph.dot2img` — called ",
+      "affected": "pip:nltk",
+      "references": [
+        "https://github.com/advisories/GHSA-6hwm-xvph-95vm"
+      ],
+      "published": "2026-09-01T20:27:20Z",
+      "fetched": "2026-09-02T07:53:43.919332+00:00"
+    },
+    {
+      "id": "GHSA-2rx9-3g3h-c2jv",
+      "source": "github-advisory",
+      "severity": "high",
+      "cvss": 7.1,
+      "title": "pnpm: pacquet trust-lockfile install can create dependency symlinks outside the project",
+      "summary": "## Summary\n\nA crafted lockfile alias could reach several install-time filesystem joins. With `--trust-lockfile` or a frozen lockfile, traversal segments could create links outside the intended project or `node_modules` boundary. This patch validates dependency names and every virtual-store slot before creating directories, links, bins, or hoisted entries.\n\n## Security boundary\n\n- A shared safe-join helper rejects traversal, absolute, platform-specific, and reserved dependency names before filesy",
+      "affected": "npm:pnpm",
+      "references": [
+        "https://github.com/advisories/GHSA-2rx9-3g3h-c2jv"
+      ],
+      "published": "2026-09-01T18:59:22Z",
+      "fetched": "2026-09-02T07:53:42.589800+00:00"
+    },
+    {
+      "id": "GHSA-3wgp-x9p5-c7cc",
+      "source": "github-advisory",
+      "severity": "medium",
+      "cvss": 6.5,
+      "title": "Appium: Reflected XSS / arbitrary JS in @appium/base-driver /test/guinea-pig* routes",
+      "summary": "## Summary\n\nAppium's base-driver mounts the built-in `/test/guinea-pig`, `/test/guinea-pig-scrollable` and `/test/guinea-pig-app-banner` routes **unconditionally** on every server. The handler reflects the `throwError` query param, the `comments` POST field, and the `User-Agent` request header into the returned HTML via `compileLodashTemplate`, which interpolates `<%= expr %>` as `String(expr)` with **no HTML/JS escaping**. This yields reflected XSS, and the `throwError` value is reflected **ins",
+      "affected": "npm:@appium/base-driver",
+      "references": [
+        "https://github.com/advisories/GHSA-3wgp-x9p5-c7cc"
+      ],
+      "published": "2026-09-01T18:54:53Z",
+      "fetched": "2026-09-02T07:53:42.589835+00:00"
+    },
+    {
+      "id": "GHSA-73wf-gq98-2v4g",
+      "source": "github-advisory",
+      "severity": "high",
+      "cvss": 7.5,
+      "title": "Browserslist: Uncaught crash / prototype write via untrusted browserslist-stats.json custom stats (normalizeStats)",
+      "summary": "## Vulnerability Details\n\n**File**: `node.js`\n**Function**: `normalizeStats()` (line ~214), reached from `getStat()` (called\n**unconditionally** on every `browserslist()` call) and `loadStat()`\n\n### Root Cause\n```js\nfunction normalizeStats(data, stats) {\n  if (!data) { data = {} }\n  if (stats && 'dataByBrowser' in stats) { stats = stats.dataByBrowser }\n  if (typeof stats !== 'object') return undefined\n\n  var normalized = {}\n  for (var i in stats) {\n    var versions = Object.keys(stats[i])\n    if",
+      "affected": "npm:browserslist",
+      "references": [
+        "https://github.com/advisories/GHSA-73wf-gq98-2v4g"
+      ],
+      "published": "2026-09-01T16:41:54Z",
+      "fetched": "2026-09-02T07:53:42.589950+00:00"
+    },
+    {
+      "id": "CVE-2026-79745",
+      "source": "nvd",
+      "severity": "high",
+      "cvss": 7.1,
+      "title": "MCPHub is a unified hub for centrally managing and dynamically orchestrating multiple MCP servers/APIs into separate endpoints with flexible routing strategies. Prior to version 1.0.32, the built-in p",
+      "summary": "MCPHub is a unified hub for centrally managing and dynamically orchestrating multiple MCP servers/APIs into separate endpoints with flexible routing strategies. Prior to version 1.0.32, the built-in prompt and resource controllers perform no role checking. The mutating POST/PUT /api/prompts* and POST/PUT /api/resources* routes are attached to the authenticated router with no admin gate, and the handlers never read req.user. The DAO singletons they write are consulted first — ahead of any connect",
+      "affected": "prompt injection",
+      "references": [
+        "https://github.com/samanhappy/mcphub/commit/6ba55ac63954a71506e61c088753251e2ff643cf",
+        "https://github.com/samanhappy/mcphub/pull/1069",
+        "https://github.com/samanhappy/mcphub/releases/tag/v1.0.32",
+        "https://github.com/samanhappy/mcphub/security/advisories/GHSA-6cvf-cfch-4g7m",
+        "https://github.com/samanhappy/mcphub/security/advisories/GHSA-6cvf-cfch-4g7m"
+      ],
+      "published": "2026-08-31T18:17:19.910",
+      "fetched": "2026-09-05T07:36:12.064890+00:00"
+    },
+    {
+      "id": "CVE-2026-82217",
+      "source": "nvd",
+      "severity": "high",
+      "cvss": 8.8,
+      "title": "In Eclipse Theia versions 1.73.0 up to but not including 1.75.0, the AI \"Agent Mode\" file-change tools (writeFileContent, suggestFileContent, and the replacement and state helpers) resolved a model-su",
+      "summary": "In Eclipse Theia versions 1.73.0 up to but not including 1.75.0, the AI \"Agent Mode\" file-change tools (writeFileContent, suggestFileContent, and the replacement and state helpers) resolved a model-supplied file path without a workspace-containment check. A crafted relative path such as ../.bashrc, an absolute path, or a ~-expanded path could therefore write or delete files outside the workspace with the privileges of the Theia backend OS user. Because the path argument is influenced by model ou",
+      "affected": "prompt injection",
+      "references": [
+        "https://github.com/eclipse-theia/theia/commit/28da106c254",
+        "https://gitlab.eclipse.org/security/vulnerability-reports/-/work_items/624"
+      ],
+      "published": "2026-08-31T14:17:26.610",
+      "fetched": "2026-09-04T07:57:18.598119+00:00"
+    },
+    {
+      "id": "CVE-2026-77956",
+      "source": "nvd",
+      "severity": "unknown",
+      "cvss": null,
+      "title": "Improper Control of Generation of Code (Code Injection) vulnerability in ash-project ash_ai allows a remote, unauthenticated client to execute arbitrary Elixir code.\n\nAshAi.Actions.Prompt evaluates pr",
+      "summary": "Improper Control of Generation of Code (Code Injection) vulnerability in ash-project ash_ai allows a remote, unauthenticated client to execute arbitrary Elixir code.\n\nAshAi.Actions.Prompt evaluates prompt content through EEx.eval_string/2. The documented prompt: fn input, context -> ... end form lets the prompt content be built from action arguments, so when a prompt action's text incorporates request data, that attacker-controlled text is compiled and run as an EEx template (Elixir source). Con",
+      "affected": "prompt injection",
+      "references": [
+        "https://cna.erlef.org/cves/CVE-2026-77956.html",
+        "https://github.com/ash-project/ash_ai/commit/e9948254b5659c1143b73dc2f59f457931e64514",
+        "https://github.com/ash-project/ash_ai/security/advisories/GHSA-2g59-hg7m-qc83",
+        "https://osv.dev/vulnerability/EEF-CVE-2026-77956",
+        "https://github.com/ash-project/ash_ai/security/advisories/GHSA-2g59-hg7m-qc83"
+      ],
+      "published": "2026-08-31T01:16:49.563",
+      "fetched": "2026-09-04T07:57:18.598117+00:00"
+    },
+    {
+      "id": "GHSA-ffg3-p8fm-mjx2",
+      "source": "github-advisory",
+      "severity": "high",
+      "cvss": 8.3,
+      "title": "RestrictedPython guard hooks can be shadowed via positional-only arguments",
+      "summary": "### Impact\n\nRestrictedPython rewrites sensitive operations to go through guard hooks. Attribute access becomes `_getattr_(obj, name)`, item access becomes `_getitem_(obj, key)`, writes go through `_write_`, and print goes through `_print_`. The embedding application supplies these hooks to enforce its policy.\n\nArgument-name validation rejects these protected names for regular arguments, `*args`, `**kwargs`, and keyword-only arguments, but it misses positional-only arguments (the ones before `/`)",
+      "affected": "pip:RestrictedPython",
+      "references": [
+        "https://github.com/advisories/GHSA-ffg3-p8fm-mjx2"
+      ],
+      "published": "2026-08-28T22:51:35Z",
+      "fetched": "2026-09-01T04:49:58.895602+00:00"
+    },
+    {
+      "id": "GHSA-73p9-6hrp-8qhr",
+      "source": "github-advisory",
+      "severity": "medium",
+      "cvss": null,
+      "title": "AIIR verification and policy gates could report success without enforcing the control (fail-open)",
+      "summary": "### Summary\nSeveral of AIIR's verification and policy paths could return a success/\"verified\" result without actually enforcing the control they represent — they could **fail open** rather than fail closed. For a tool whose purpose is trustworthy verification, a consumer relying on these gates may have treated unverified or non-conforming input as verified.\n\nFound during an internal adversarial hardening review of AIIR (not a third-party audit). All paths are fixed in **1.7.0**.\n\n### Affected pa",
+      "affected": "pip:aiir",
+      "references": [
+        "https://github.com/advisories/GHSA-73p9-6hrp-8qhr"
+      ],
+      "published": "2026-08-28T19:20:32Z",
+      "fetched": "2026-09-01T04:49:58.895639+00:00"
+    },
+    {
+      "id": "GHSA-wjmf-p669-5m5p",
+      "source": "github-advisory",
+      "severity": "high",
+      "cvss": null,
+      "title": "Protego has exponential backtracking ReDoS in robots.txt URL wildcard matching",
+      "summary": "### Problem description\n\nProtego constructs regular expressions to match URLs against `robots.txt` `Allow:` and `Disallow:` directives, see `protego._urlpattern._URLPattern._prepare_pattern_for_regex()`. Every `*` in the directive value is translated into a lazy `.*?` regex piece, thus a specially crafted directive value with many asterisks may produce a regex that freezes the parser due to exponential backtracking.\n\n### Impact\n\nParsing a specially crafted `robots.txt` with `protego.Protego.pars",
+      "affected": "pip:Protego",
+      "references": [
+        "https://github.com/advisories/GHSA-wjmf-p669-5m5p"
+      ],
+      "published": "2026-08-28T18:43:02Z",
+      "fetched": "2026-09-01T04:49:58.895670+00:00"
+    },
+    {
+      "id": "GHSA-86m2-fcxq-5q7c",
+      "source": "github-advisory",
+      "severity": "high",
+      "cvss": 8.2,
+      "title": "9router: Unauthenticated `/v1` proxy access via `Host`-header spoofing → open AI relay + SSRF",
+      "summary": "## Summary\n\n9router's request guard decides a request is \"local\" (and therefore exempt from API-key auth on the `/v1` LLM proxy) by reading the **client-controlled `Host` header**. Because 9router binds `0.0.0.0` by default (and the CLI misleadingly prints \"localhost\"), a remote, unauthenticated attacker who can reach the port can send `Host: localhost` to be treated as local and obtain `/v1` proxy access with **no API key, no CLI token, and no dashboard login**. In the default configuration (`r",
+      "affected": "npm:9router",
+      "references": [
+        "https://github.com/advisories/GHSA-86m2-fcxq-5q7c"
+      ],
+      "published": "2026-08-28T18:33:20Z",
+      "fetched": "2026-09-01T04:49:57.561181+00:00"
+    },
+    {
+      "id": "GHSA-8gmq-j984-vp4r",
+      "source": "github-advisory",
+      "severity": "high",
+      "cvss": 8.6,
+      "title": "9router: Unauthenticated LLM proxy access via /codex rewrite authorization bypass",
+      "summary": "## Summary\n\n9router exposes an OpenAI/Anthropic-compatible LLM proxy. Remote access to this proxy is intended to be protected by an API-key check in the Next.js middleware.\n\nHowever, 9router also defines a rewrite that maps `/codex/*` to the backend LLM endpoint `/api/v1/responses`. The middleware authorization decision is made on the incoming request path before the rewrite is applied. Because `/codex` is not included in the middleware's protected LLM API prefix list, requests to `/codex/*` byp",
+      "affected": "npm:9router",
+      "references": [
+        "https://github.com/advisories/GHSA-8gmq-j984-vp4r"
+      ],
+      "published": "2026-08-28T18:32:01Z",
+      "fetched": "2026-09-01T04:49:57.561245+00:00"
+    },
+    {
+      "id": "GHSA-jw39-3688-r4rx",
+      "source": "github-advisory",
+      "severity": "high",
+      "cvss": 7.8,
+      "title": "Trestle has Server-Side Template Injection (SSTI) via Recursive Template Re-evaluation of Untrusted Data",
+      "summary": "### Impact\n\nA Server-Side Template Injection (SSTI) vulnerability exists in multiple locations of trestle's Jinja2 rendering pipeline due to a systemic pattern: **untrusted data is re-parsed as Jinja2 template source code without sandboxing**. This advisory tracks the root cause across all affected code paths.\n\nThe core anti-pattern is: treating runtime data (rendered output, included Markdown content, LUT values) as Jinja2 template source code and passing it to `Parser.parse()` or an equivalent",
+      "affected": "pip:compliance-trestle, pip:compliance-trestle",
+      "references": [
+        "https://github.com/advisories/GHSA-jw39-3688-r4rx"
+      ],
+      "published": "2026-08-28T16:15:38Z",
+      "fetched": "2026-09-01T04:49:58.895939+00:00"
+    },
+    {
+      "id": "CVE-2026-82233",
+      "source": "nvd",
+      "severity": "medium",
+      "cvss": 5.7,
+      "title": "SiYuan before v3.8.1 contains a path traversal vulnerability in the asset.upload MCP tool that accepts arbitrary absolute file paths without workspace boundary validation. Attackers can induce the AI ",
+      "summary": "SiYuan before v3.8.1 contains a path traversal vulnerability in the asset.upload MCP tool that accepts arbitrary absolute file paths without workspace boundary validation. Attackers can induce the AI Agent to upload sensitive files such as SSH keys or credentials from outside the workspace into the asset directory through prompt injection.",
+      "affected": "prompt injection",
+      "references": [
+        "https://github.com/siyuan-note/siyuan/security/advisories/GHSA-p23f-cm6q-2qp8",
+        "https://www.vulncheck.com/advisories/siyuan-before-3.8.1-path-traversal-via-asset-upload",
+        "https://github.com/siyuan-note/siyuan/security/advisories/GHSA-p23f-cm6q-2qp8"
+      ],
+      "published": "2026-08-28T12:16:32.953",
+      "fetched": "2026-09-04T07:57:18.598115+00:00"
+    },
+    {
       "id": "CVE-2026-74820",
       "source": "nvd",
       "severity": "unknown",
@@ -72,6 +1410,20 @@
       ],
       "published": "2026-08-27T20:17:03.870",
       "fetched": "2026-08-28T01:21:46.749248+00:00"
+    },
+    {
+      "id": "GHSA-hqj7-phwp-c3fp",
+      "source": "github-advisory",
+      "severity": "high",
+      "cvss": 7.0,
+      "title": "Duplicate Advisory: Model-artifact APIs bypass pathsec and touch files outside allowed roots",
+      "summary": "## Duplicate Advisory\n\nThis advisory has been withdrawn because it is a duplicate of GHSA-8mgp-746c-j5xp. This link is maintained to preserve external references.\n\n## Original Description\nNLTK through 3.10.3 contains a path traversal vulnerability in model-artifact APIs that bypass pathsec enforcement by using raw file operations on caller-controlled paths. Attackers can read or write files outside allowed sandbox roots through TransitionParser, AveragedPerceptron, PerceptronTagger, and maxent p",
+      "affected": "pip:nltk",
+      "references": [
+        "https://github.com/advisories/GHSA-hqj7-phwp-c3fp"
+      ],
+      "published": "2026-08-27T18:32:30Z",
+      "fetched": "2026-09-04T07:57:39.729097+00:00"
     },
     {
       "id": "CVE-2026-75062",
@@ -247,6 +1599,20 @@
       ],
       "published": "2026-08-25T18:32:06Z",
       "fetched": "2026-08-25T18:43:24.464385+00:00"
+    },
+    {
+      "id": "GHSA-3h2g-j4wp-7qqq",
+      "source": "github-advisory",
+      "severity": "critical",
+      "cvss": 9.8,
+      "title": "Duplicate Advisory: JVM argument injection bypass via per-call options in the NLTK Stanford wrappers (incomplete fix of CVE-2026-12841)",
+      "summary": "## Duplicate Advisory\n\nThis advisory has been withdrawn because it is a duplicate of GHSA-m4rf-3fr8-xwx3. This link is maintained to preserve external references.\n\n## Original Description\n\nNLTK before 3.10.3 fails to validate JVM options passed through the per-call options parameter in the java() function, allowing attackers to inject dangerous JVM flags. Attackers can supply malicious options like -agentpath, -javaagent, or @argfile to Stanford wrapper classes to achieve arbitrary code executio",
+      "affected": "pip:nltk",
+      "references": [
+        "https://github.com/advisories/GHSA-3h2g-j4wp-7qqq"
+      ],
+      "published": "2026-08-25T18:31:52Z",
+      "fetched": "2026-09-02T07:53:43.920497+00:00"
     },
     {
       "id": "GHSA-g7gc-gmgp-wgqg",
@@ -3916,19 +5282,59 @@
       "fetched": "2026-08-04T06:34:53.913899+00:00"
     }
   ],
-  "updated": "2026-08-28T01:22:07.244180+00:00",
+  "updated": "2026-09-12T07:54:23.948699+00:00",
   "sources": [
     "osv",
     "nvd",
     "github-advisory"
   ],
+  "sources_ok": [
+    "github-advisory",
+    "nvd",
+    "osv"
+  ],
+  "sources_failed": [],
+  "source_health": {
+    "sources": {
+      "osv": {
+        "ok": true,
+        "items": 0,
+        "attempts": 1,
+        "error": null,
+        "checked_at": "2026-09-12T07:54:03.171871+00:00",
+        "consecutive_failures": 0,
+        "degraded_since": null
+      },
+      "nvd": {
+        "ok": true,
+        "items": 33,
+        "attempts": 1,
+        "error": null,
+        "checked_at": "2026-09-12T07:54:21.716608+00:00",
+        "consecutive_failures": 0,
+        "degraded_since": null
+      },
+      "github-advisory": {
+        "ok": true,
+        "items": 34,
+        "attempts": 1,
+        "error": null,
+        "checked_at": "2026-09-12T07:54:23.948436+00:00",
+        "consecutive_failures": 0,
+        "degraded_since": null
+      }
+    },
+    "degraded": [],
+    "last_success": "2026-09-12T07:54:23.948699+00:00",
+    "last_attempt": "2026-09-12T07:54:23.948699+00:00"
+  },
   "stats": {
-    "unknown": 29,
-    "critical": 34,
-    "low": 4,
-    "high": 123,
-    "medium": 73,
+    "medium": 105,
+    "high": 172,
+    "critical": 47,
+    "low": 5,
+    "unknown": 30,
     "moderate": 1
   },
-  "total": 264
+  "total": 360
 }

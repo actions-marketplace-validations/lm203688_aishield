@@ -15,6 +15,8 @@ step id 而非 job id，GitHub Actions 解析期直接报错，整个 workflow 4
   E5 定时任务缺少 workflow_dispatch（无法手动补跑）
   E6 非法顶层键（run 块续行落到第 0 列，命令被静默截断）
   E8 表达式含 shell 变量插值 / 注释里写坏表达式（workflow 无法加载）
+  E9 CRLF(\\r) 行尾（破坏 heredoc 定界符导致 bash 语法错）/ 命令替换内嵌 heredoc（脆弱写法）
+  E10 并发 push 假绿吞错（`git push || echo`）/ `git add data/state/` 整目录提交
   W1 关键步骤使用 continue-on-error（测试形同虚设）
   W2 workflow 无任何触发器
   W3 cron 表达式字段数不合法
@@ -99,7 +101,104 @@ def check_file(path: Path) -> Dict[str, Any]:
 
     text = path.read_text(encoding="utf-8")
 
+    # E9a CRLF 行尾检查（致命但本地极难发现）
+    #
+    # 背景：本仓库 workflow 多经 Windows 环境推送，历史上是 CRLF 行尾。CRLF 对 bash
+    # 是隐形炸弹——heredoc 定界符行变成 'PYCI\r'，bash 比对永远不等，于是报
+    # "unterminated here-document" 继而 "syntax error near ')'"，整个 workflow 静默失败。
+    # threat-intel-feed 因此连续 3 次失败（2026-08-28~31）。读原始字节，含 \r 即报错，
+    # 杜绝该类回归（涉及变量插值时 GitHub 不会在本地给出任何提示）。
+    raw = path.read_bytes()
+    if b"\r" in raw:
+        res["errors"].append(
+            "E9 文件含 CRLF(\\r) 行尾 —— 会破坏 heredoc 定界符导致 bash 语法错，须统一转为 LF"
+        )
+
+    # E9b 命令替换内嵌 heredoc（脆弱写法）：$( ... <<'EOF' ... )
+    #   该写法在 CRLF / 定界符带尾随空白 / 结束符缩进时彻底崩，且极难调试。
+    #   建议把脚本落盘成文件再调用，而非塞进 $( ) 里。warning 级别，不阻断推送。
+    HEREDOC_IN_SUBST = re.compile(r"\$\(\s*[^)]*<<")
+
+    def _walk_runs(node):
+        if isinstance(node, dict):
+            for k, v in node.items():
+                if k == "run" and isinstance(v, str):
+                    # 逐行跳过注释，避免说明性注释里的字面量（如解释某 bug 时的示例代码）误报
+                    for line in v.splitlines():
+                        if line.strip().startswith("#"):
+                            continue
+                        if HEREDOC_IN_SUBST.search(line):
+                            yield v
+                            break
+                else:
+                    yield from _walk_runs(v)
+        elif isinstance(node, list):
+            for i in node:
+                yield from _walk_runs(i)
+
+    for _ in _walk_runs(data.get("jobs", {})):
+        res["warnings"].append(
+            "E9 检测到命令替换内嵌 heredoc ($( ... <<'EOF' ...))，"
+            "该写法在 CRLF/定界符带尾随空白时会致 bash 语法错，建议改为调用落盘脚本"
+        )
+        break
+
+    # E10 并发 push 假绿吞错 / 整目录状态提交（2026-09-05 审计 spine 三次失败）
+    #
+    # 背景：closed-loop-spine 每日主干里多个 workflow 先后 push 同一个 main。
+    #   (a) `git push ... || echo "push skipped"` —— job 永远绿灯，但产物永久丢失。
+    #       feature-closed-loop 因此连挂 09-01 / 09-02 两天，迭代汇报被 skip；
+    #       规则晋升产物靠人工补 13 条才入库（数据飞轮"只进不出"同型根因）。
+    #   (b) `git add data/state/` —— 把别的 workflow 刚 push 的状态文件一并提交，
+    #       rebase 时产生内容冲突（重试无法解决），必须精确到本 workflow 自己的域文件。
+    # 统一要求走 scripts/git_push_safe.sh（带重试，耗尽才真 exit 1 触发 alert job）。
+    PUSHSWALLOW = re.compile(
+        r"git\s+push\s+.*\|\|\s*(?:echo\b|true\b|\d\s*$)"
+    )
+    PULL_NO_RETRY = re.compile(r"git\s+pull\s+--rebase\b[^\n]*\|\|\s*true")
+    # 目录引用 = 同一行存在 `git add`，且 `data/state/` 之后紧跟空白或行尾。
+    # 反例（不报）：`git add ROADMAP.md data/state/feature.json` —— 精确文件，合法。
+    # 反例（不报）：`python -c "...p='data/state/published.json'..."` —— 行内无 git add，
+    #              纯字符串引用。上一版正则漏了 `git add` 前缀，导致这类行被误报。
+    ADD_STATE_DIR = re.compile(r"git\s+add\b[^\n]*\bdata/state/(?=\s|$)")
+
+    def _run_lines(node):
+        if isinstance(node, dict):
+            for k, v in node.items():
+                if k == "run" and isinstance(v, str):
+                    for line in v.splitlines():
+                        if line.strip().startswith("#"):
+                            continue
+                        yield line
+                else:
+                    yield from _run_lines(v)
+        elif isinstance(node, list):
+            for i in node:
+                yield from _run_lines(i)
+
+    for line in _run_lines(data.get("jobs", {})):
+        s = line.strip()
+        if "git_push_safe" in s:
+            continue
+        if PUSHSWALLOW.search(s):
+            res["errors"].append(
+                f"E10 `git push` 的失败被 `|| echo`/`|| true` 吞成假绿（{s[:70]}）"
+                "—— 并发冲突时产物永久丢失；改用 `bash scripts/git_push_safe.sh`"
+            )
+        elif PULL_NO_RETRY.search(s):
+            res["errors"].append(
+                f"E10 `git pull --rebase ... || true` 吞掉 rebase 失败且无重试（{s[:70]}）；"
+                "改用 `bash scripts/git_push_safe.sh`"
+            )
+        if ADD_STATE_DIR.search(s):
+            res["errors"].append(
+                f"E10 `git add data/state/` 提交整个状态目录（{s[:70]}）"
+                "—— 会把其他 workflow 刚 push 的文件一并提交并引发 rebase 内容冲突；"
+                "请只 add 本 workflow 自己拥有的 data/state/<domain>.json"
+            )
+
     # E6 顶层键污染检查
+
     # 场景：run 块里的多行字符串未缩进，续行落到第 0 列后被 YAML 当成新的顶层键。
     # 这类错误语法上合法、GitHub 不报错，但 run 命令已被截断 —— 比语法错更隐蔽。
     ALLOWED_TOP = {

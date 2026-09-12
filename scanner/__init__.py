@@ -20,14 +20,27 @@ from .live_probe import probe_server_metadata
 from .registry_discovery import discover_across_registries, search_registry
 from .engine import explain_score
 # Fleet 中心化聚合 (F5)
-from .fleet import FleetService, ingest as fleet_ingest, summary as fleet_summary, list_members as fleet_list_members
+from .fleet import FleetService, ingest as fleet_ingest, summary as fleet_summary, list_members as fleet_list_members, version_stream as fleet_version_stream
 from .diff import diff_scans, diff_summary
 from .fuzzing import fuzz, FuzzReport
+# 基线漂移扫描（借鉴 agent-audit save-baseline + agentgraph 定义钉扎 + Snyk toxic flow）
+from .baseline_scan import (
+    build_baseline,
+    check_drift,
+    detect_toxic_flows,
+    baseline_scan,
+    definition_fingerprints,
+)
+# 合规映射（借鉴 Latteflo/mcp-scanner：findings → NIST CSF / ISO 27001 / PCI DSS）
+from .compliance import compliance_summary, controls_for_category, CATEGORY_CONTROLS
 
 __all__ = [
     "get_rule_count", "get_all_rules", "OWASP_MCP_TOP10",
     "scan", "batch_scan",
     "detect_rug_pull",
+    "build_baseline", "check_drift", "detect_toxic_flows",
+    "baseline_scan", "definition_fingerprints",
+    "compliance_summary", "controls_for_category", "CATEGORY_CONTROLS",
     "verify_handshake",
     "APIScanOrchestrator",
     # 多客户端 MCP 配置发现（纯离线，绝不执行被扫命令）
@@ -41,5 +54,5 @@ __all__ = [
     "probe_server_metadata", "discover_across_registries", "search_registry",
     "explain_score",
     # Fleet 中心化聚合 (F5)
-    "FleetService", "fleet_ingest", "fleet_summary", "fleet_list_members",
+    "FleetService", "fleet_ingest", "fleet_summary", "fleet_list_members", "fleet_version_stream",
 ]

@@ -108,38 +108,39 @@ class TestSignalClassification(unittest.TestCase):
     """真实论文标题，取自 2026-08-09 当天 arXiv 扫描结果"""
 
     CASES = [
-        ('When Experience Becomes Instruction: Trajectory Poisoning in '
-         'Self-Evolving Agent Skill Systems', 'trajectory-poisoning'),
         ('Towards a Risk Assessment of Malicious Skill Files in Coding Agents',
          'skill-poisoning'),
         ('Breaking Customized LLMs for Coding: Automated Red Teaming for '
          'Instruction Backdoor Attacks', 'instruction-hijack'),
         ('Agent Against Agent: An Agentic System for Automatic Prompt '
          'Injection Red Teaming', 'prompt-injection'),
+        ('A Universal Jailbreak Toolkit for Large Language Model Agents',
+         'jailbreak'),
     ]
 
     def test_known_attack_papers_are_classified(self):
         for title, expected in self.CASES:
-            cat, sev = tech_radar.classify_signal({'title': title, 'summary': ''})
+            cat, sev, side = tech_radar.classify_signal({'title': title, 'summary': ''})
             self.assertEqual(cat, expected, '误分类: %s' % title[:60])
             self.assertIn(sev, ('critical', 'high', 'medium'))
 
     def test_defence_papers_are_downgraded_not_escalated(self):
         """防御类论文描述了攻击，但它本身不是威胁，不应判为 critical"""
-        cat, sev = tech_radar.classify_signal({
+        cat, sev, side = tech_radar.classify_signal({
             'title': 'PromptShield Home: Ambient Multimodal Prompt Injection '
                      'Defense for Smart-Home Agents', 'summary': ''})
         self.assertEqual(cat, 'prompt-injection')
         self.assertEqual(sev, 'medium')
+        self.assertEqual(side, 'defense')
 
     def test_exploit_language_escalates_to_critical(self):
-        _, sev = tech_radar.classify_signal({
+        _, sev, _ = tech_radar.classify_signal({
             'title': 'Unauthenticated RCE exploit in MCP tool poisoning chain',
             'summary': ''})
         self.assertEqual(sev, 'critical')
 
     def test_unrelated_paper_is_not_classified(self):
-        cat, _ = tech_radar.classify_signal({
+        cat, _, _ = tech_radar.classify_signal({
             'title': 'A Survey of Adversarial Efficiency Degradation for '
                      'Vision Transformer', 'summary': ''})
         self.assertIsNone(cat, '与 agent 安全无关的论文不应产生规则候选')
@@ -150,6 +151,46 @@ class TestSignalClassification(unittest.TestCase):
         hits = sum(1 for t in titles
                    if tech_radar.classify_signal({'title': t, 'summary': ''})[0])
         self.assertEqual(hits, len(titles))
+
+    def test_defense_side_is_not_drafted(self):
+        """根因修复：防御侧信号不得进入攻击起草链路（不得产死稿）"""
+        sig = {'_source': 'arxiv', 'id': 'def1',
+               'title': 'PromptShield: Prompt Injection Defense for Agents',
+               'url': 'https://example.com/x'}
+        self.assertIsNone(tech_radar.draft_rule_candidate(sig),
+                          '防御侧信号不应起草攻击规则候选')
+
+    def test_repo_spam_is_suppressed(self):
+        """根因修复：owner 级仓库刷量（genpark-*）须被抑制为 spam"""
+        sig = {'_source': 'github', 'id': 'spam1',
+               'title': 'alphaparkinc/genpark-firewall-sentinel-skill',
+               'url': 'https://github.com/alphaparkinc/genpark-firewall-sentinel-skill'}
+        cat, sev, side = tech_radar.classify_signal(sig)
+        self.assertEqual(side, 'spam')
+        self.assertIsNone(cat)
+
+    def test_r4_capability_self_evolution_paper_suppressed(self):
+        """待办④/R4-capability：自进化 agent 能力论文（攻击前提，非攻击）
+        曾误标 trajectory-poisoning 进入起草链路产死稿；须抑制为 none。"""
+        sig = {'_source': 'arxiv', 'id': 'cap1',
+               'title': 'When Experience Becomes Instruction: Trajectory '
+                        'Poisoning in Self-Evolving Agent Skill Systems',
+               'url': 'https://arxiv.org/abs/2609.08832'}
+        cat, sev, side = tech_radar.classify_signal(sig)
+        self.assertIsNone(cat, 'R4-capability 能力论文不得判为攻击类别')
+        self.assertEqual(side, 'none')
+        self.assertIsNone(tech_radar.draft_rule_candidate(sig),
+                          '能力论文不得产生规则候选（避免 _proposed/ 腐烂）')
+
+    def test_capability_paper_with_exploit_language_stays_attack(self):
+        """能力论文若同时给出具体利用链（exploit/bypass），则是真实技术，保留攻击侧"""
+        sig = {'_source': 'arxiv', 'id': 'cap2',
+               'title': 'Self-Evolving Agent Skill Poisoning: a working '
+                        'exploit chain to bypass tool attestation',
+               'url': 'https://arxiv.org/abs/x'}
+        cat, sev, side = tech_radar.classify_signal(sig)
+        self.assertIsNotNone(cat, '含显式利用语的能力论文应保留为攻击类别')
+        self.assertEqual(side, 'attack')
 
 
 # ══════════════════════════════════════════════════════════════
@@ -193,6 +234,28 @@ class TestCapabilityGap(unittest.TestCase):
             'title': 'LLM-Assisted Detection and Repair of Hardware Security '
                      'Vulnerabilities in Verilog Designs'}),
             '硬件安全属于相邻领域，不应进入采纳清单')
+
+    def test_life_science_papers_excluded(self):
+        """2026-08-11 实测误报：'risk of bias' 里的 risk 被当成安全强词，
+        叠加摘要里的 'LLM agents' 就误判为可采纳防御能力。生命科学论文
+        大量复用 risk/safety/integrity 的非安全义项，必须按垂直领域排除。"""
+        self.assertFalse(capability_gap.is_defensive({
+            'id': 'x',
+            'title': 'Authoring and Management of Transparent Research '
+                     'Integrity Assessments of Randomised Clinical Trial '
+                     'Publications',
+            'summary': 'We present a platform where large language model '
+                       'agents assist reviewers in assessing risk of bias '
+                       'in randomised clinical trial reports.'}),
+            '临床试验论文不应进入采纳清单（risk of bias 非安全语义）')
+
+    def test_agent_security_paper_survives_new_exclusions(self):
+        """垂直黑名单不能误伤本领域论文——加词后必须重跑这条"""
+        self.assertTrue(capability_gap.is_defensive({
+            'id': 'x',
+            'title': 'Prompt injection attacks against MCP tool descriptions',
+            'summary': 'We show malicious skill manifests can hijack agents.'}),
+            '本领域攻防论文被新增排除词误伤')
 
     def test_existing_capability_is_matched_not_flagged_as_gap(self):
         """我们已有的能力不能被报成缺口，否则会重复造轮子"""
@@ -386,7 +449,7 @@ class TestDraftFormatMatchesEngine(unittest.TestCase):
     def test_draft_is_json_with_promotable_shape(self):
         path = tech_radar.draft_rule_candidate({
             '_source': 'arxiv', 'id': 'abcdef123456',
-            'title': 'Trajectory Poisoning in Self-Evolving Agent Skill Systems',
+            'title': 'A Universal Jailbreak Toolkit for Large Language Model Agents',
             'url': 'https://arxiv.org/abs/1234.5678'})
         self.assertIsNotNone(path)
         self.assertTrue(path.endswith('.json'))
@@ -413,6 +476,189 @@ class TestDraftFormatMatchesEngine(unittest.TestCase):
         self.assertIsNone(tech_radar.draft_rule_candidate({
             '_source': 'arxiv', 'id': 'x',
             'title': 'A study of protein folding', 'url': 'u'}))
+
+
+# ══════════════════════════════════════════════════════════════
+# 8. 每源健康：崩溃源不得隐身、连续失败可见（补 Reddit 死 12 天假绿）
+# ══════════════════════════════════════════════════════════════
+class TestSourceHealth(unittest.TestCase):
+    """某源崩溃/持续不可达，必须可单独判红，而非淹没在聚合 errors 里全绿。"""
+
+    def test_crash_marks_source_failed_and_records_error(self):
+        state, sr, errs = {}, {"reddit": {"ok": False, "items": 0}}, \
+            ["reddit :: CRASH :: ConnectionError: dead"]
+        h = tech_radar._update_source_health(state, sr, errs)
+        self.assertEqual(h["reddit"]["consecutive_failures"], 1)
+        self.assertIsNotNone(h["reddit"]["last_fail"])
+
+    def test_consecutive_failures_accumulate_across_runs(self):
+        state = {}
+        for _ in range(4):
+            tech_radar._update_source_health(
+                state, {"reddit": {"ok": False, "items": 0}},
+                ["reddit :: CRASH :: x"])
+        self.assertEqual(state["source_health"]["reddit"]["consecutive_failures"], 4)
+
+    def test_success_resets_counter(self):
+        state = {}
+        tech_radar._update_source_health(
+            state, {"reddit": {"ok": False, "items": 0}},
+            ["reddit :: CRASH :: x"])
+        tech_radar._update_source_health(
+            state, {"reddit": {"ok": True, "items": 3}}, [])
+        self.assertEqual(state["source_health"]["reddit"]["consecutive_failures"], 0)
+        self.assertIsNotNone(state["source_health"]["reddit"]["last_success"])
+
+    def test_error_entry_counts_as_failure(self):
+        """HTTP -1（Reddit 现状）走 _error 分支，也应累计为失败"""
+        state = {}
+        tech_radar._update_source_health(
+            state, {"reddit": {"ok": True, "items": 0}},
+            ["reddit :: HTTP -1"])
+        self.assertEqual(state["source_health"]["reddit"]["consecutive_failures"], 1)
+
+    def test_render_report_flags_degraded_source(self):
+        health = {"reddit": {"consecutive_failures": 12, "last_fail": "x",
+                              "last_success": None, "last_items": 0}}
+        rep = tech_radar.render_report([], [], [], [], source_health=health)
+        self.assertIn("DEGRADED", rep)
+        self.assertIn("reddit", rep)
+
+    def test_render_report_no_degraded_when_healthy(self):
+        health = {"reddit": {"consecutive_failures": 0, "last_success": "x",
+                              "last_items": 5}}
+        rep = tech_radar.render_report([], [], [], [], source_health=health)
+        self.assertNotIn("DEGRADED", rep)
+
+
+# ══════════════════════════════════════════════════════════════
+# 9. 起草自动 ready + 遗留草稿迁移（闭合 signal→draft→promote）
+# ══════════════════════════════════════════════════════════════
+class TestDraftAutoReady(unittest.TestCase):
+    """高置信类别直接给出 first-pass 正则并标 ready；过宽的只留 draft。"""
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix='aishield_ready_')
+        self._orig_dir = tech_radar.PROPOSED_DIR
+        tech_radar.PROPOSED_DIR = self.tmp
+        self._orig_existing = tech_radar._existing_patterns
+
+    def tearDown(self):
+        tech_radar.PROPOSED_DIR = self._orig_dir
+        tech_radar._existing_patterns = self._orig_existing
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    @staticmethod
+    def _sig(title):
+        return {'_source': 'github-trending', 'id': 'abc123def456',
+                'title': title, 'url': 'https://example.com/x'}
+
+    def _isolate(self):
+        tech_radar._existing_patterns = lambda live_only=False: set()
+
+    def test_specific_category_drafts_ready(self):
+        self._isolate()
+        path = tech_radar.draft_rule_candidate(
+            self._sig('Malicious skill silently backdoors the agent on install'))
+        self.assertIsNotNone(path)
+        with open(path, encoding='utf-8') as f:
+            data = json.load(f)
+        self.assertEqual(data['attack_category'], 'skill-poisoning')
+        self.assertEqual(data['status'], 'ready',
+                         '结构具体的类别应直接 ready，否则循环又只进不出')
+        self.assertTrue(data['auto_ready'])
+        self.assertNotIn('_auto_ready_blocked', data)
+        self.assertNotIn('TODO', data['rules'][0]['pattern'])
+
+    def test_broad_category_stays_draft_with_reason(self):
+        self._isolate()
+        path = tech_radar.draft_rule_candidate(
+            self._sig('Universal AI Jailbreak Collection for LLM agents'))
+        with open(path, encoding='utf-8') as f:
+            data = json.load(f)
+        self.assertEqual(data['status'], 'draft',
+                         '裸关键字规则会误伤良性文档，不得自动上线')
+        self.assertFalse(data['auto_ready'])
+        self.assertIn('_auto_ready_blocked', data)
+
+    def test_duplicate_pattern_not_redrafted(self):
+        """同类别已排队的候选不得再堆积重复 stub（22 条腐烂草稿的根源）。"""
+        skill_pat = tech_radar.CATEGORY_FIRST_PATTERN['skill-poisoning']
+        with open(os.path.join(self.tmp, 'PROPOSED_20260101_queued.json'),
+                  'w', encoding='utf-8') as f:
+            json.dump({'status': 'ready', 'attack_category': 'skill-poisoning',
+                       'rules': [{'pattern': skill_pat, 'description': 'd',
+                                  'severity': 'high'}]}, f)
+        # use the real _existing_patterns so the queued file is seen
+        tech_radar._existing_patterns = self._orig_existing
+        self.assertIsNone(tech_radar.draft_rule_candidate(
+            self._sig('Malicious skill backdoors the agent')))
+
+    def test_is_specific_requires_structure(self):
+        self.assertFalse(tech_radar._is_specific('jailbreak'))
+        self.assertFalse(tech_radar._is_specific(r'prompt\s*injection'))
+        self.assertTrue(tech_radar._is_specific(r'credential\s*(leak|theft)'))
+        self.assertTrue(tech_radar._is_specific(r'a\b.{0,40}\bb'))
+
+
+class TestMigrateDrafts(unittest.TestCase):
+    """一次性迁移：遗留 TODO 草稿刷成 ready / rejected，不再静默腐烂。"""
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix='aishield_migrate_')
+        self._orig_dir = tech_radar.PROPOSED_DIR
+        self._orig_existing = tech_radar._existing_patterns
+        tech_radar.PROPOSED_DIR = self.tmp
+        tech_radar._existing_patterns = lambda live_only=False: set()
+
+    def tearDown(self):
+        tech_radar.PROPOSED_DIR = self._orig_dir
+        tech_radar._existing_patterns = self._orig_existing
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _write(self, name, cat, pattern='TODO: regex here', **extra):
+        d = {'status': 'draft', 'attack_category': cat,
+             'rules': [{'pattern': pattern, 'description': 'd', 'severity': 'high'}]}
+        d.update(extra)
+        p = os.path.join(self.tmp, name)
+        with open(p, 'w', encoding='utf-8') as f:
+            json.dump(d, f)
+        return p
+
+    def _load(self, p):
+        with open(p, encoding='utf-8') as f:
+            return json.load(f)
+
+    def test_upgrades_safe_todo_draft_to_ready(self):
+        p = self._write('PROPOSED_20260101_skill.json', 'skill-poisoning')
+        tech_radar.migrate_drafts()
+        d = self._load(p)
+        self.assertEqual(d['status'], 'ready')
+        self.assertEqual(d['rules'][0]['pattern'],
+                         tech_radar.CATEGORY_FIRST_PATTERN['skill-poisoning'])
+
+    def test_rejects_broad_draft_with_reason(self):
+        p = self._write('PROPOSED_20260101_pi.json', 'prompt-injection')
+        tech_radar.migrate_drafts()
+        d = self._load(p)
+        self.assertEqual(d['status'], 'rejected')
+        self.assertIn('_rejected_reason', d)
+        self.assertIn('bare keyword', d['_rejected_reason'])
+
+    def test_leaves_hand_authored_candidate_alone(self):
+        custom = r'custom\s*(leak|theft)\s+specific'
+        p = self._write('PROPOSED_20260101_custom.json', 'prompt-injection',
+                        pattern=custom)
+        tech_radar.migrate_drafts()
+        d = self._load(p)
+        self.assertEqual(d['status'], 'draft', '人工候选不应被迁移覆盖')
+        self.assertEqual(d['rules'][0]['pattern'], custom)
+
+    def test_idempotent(self):
+        p = self._write('PROPOSED_20260101_skill2.json', 'skill-poisoning')
+        tech_radar.migrate_drafts()
+        tech_radar.migrate_drafts()
+        self.assertEqual(self._load(p)['status'], 'ready')
 
 
 if __name__ == '__main__':

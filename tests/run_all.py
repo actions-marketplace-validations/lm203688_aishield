@@ -49,6 +49,13 @@ def main():
         'tests.test_vertical_risk',
         'tests.test_diff',
         'tests.test_fuzzing',
+        'tests.test_baseline_scan',
+        'tests.test_compliance',
+        'tests.test_fleet_versions',
+        'tests.test_runtime_behavior',
+        'tests.test_self_reference',
+        'tests.test_vuln_feed_health',
+        'tests.test_radar_effect',
     ]
 
     loaded = 0
