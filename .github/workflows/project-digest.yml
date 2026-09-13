@@ -135,15 +135,27 @@ jobs:
           import json, subprocess, os
           from datetime import datetime, timezone, timedelta
 
-          since = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
+          def _parse_ts(value):
+              try:
+                  return datetime.fromisoformat((value or '').replace('Z', '+00:00'))
+              except Exception:
+                  return None
+
+          cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
 
           # Get recent workflow runs
           result = subprocess.run([
-              'gh', 'run', 'list', '--limit', '50', '--json',
+              'gh', 'run', 'list', '--limit', '100', '--json',
               'name,status,conclusion,createdAt,headBranch,event'
           ], capture_output=True, text=True, env={**os.environ})
 
-          runs = json.loads(result.stdout) if result.stdout else []
+          runs_all = json.loads(result.stdout) if result.stdout else []
+          # 必须真的按时间过滤：gh run list 没有时间窗口，
+          # 若不过滤会把几天前的失败当成"最近 24 小时"的失败，
+          # 使 overall 长期误报 DEGRADED（此前 since 算了却从未使用）。
+          runs = [r for r in runs_all
+                  if (_parse_ts(r.get('createdAt')) or cutoff) >= cutoff]
+          print(f'Runs in 24h window: {len(runs)} (fetched {len(runs_all)})')
 
           # Group by workflow
           workflow_stats = {}

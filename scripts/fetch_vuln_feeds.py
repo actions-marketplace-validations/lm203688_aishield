@@ -76,6 +76,9 @@ SOURCE_RETRIES = 2          # 单源额外重试次数（共 1 + 2 次尝试）
 RETRY_BACKOFF_SEC = 3       # 退避基数：第 n 次重试前等待 n * base 秒
 FP_DEGRADED = "vuln-source-degraded"   # 部分上游源不可用
 FP_DOWN = "vuln-source-down"           # 全部上游源不可用（情报停更）
+# 事件型告警：语义是"本轮有新增高危漏洞"。漏洞被发现这件事本身不会"恢复"，
+# 因此必须由"出现一轮零新增"来销案，否则该 Issue 会永久挂在仓库里（曾发生：#665）。
+FP_HIGH_NEW = "new-high-vulns"
 
 
 def _now() -> str:
@@ -531,18 +534,26 @@ def main() -> int:
     except Exception as e:
         print(f"[warn] 状态回写失败: {e}")
 
-    if args.notify and high:
+    if args.notify:
         try:
-            from scripts.notify import notify
+            from scripts.notify import notify, resolve
 
-            body = f"权威漏洞库本轮新增 **{len(high)}** 条 critical/high 级漏洞，涉及 MCP / AI Agent 攻击面：\n\n"
-            for i in high[:15]:
-                body += f"- **[{i['severity'].upper()}] {i['id']}** — {i['title'][:100]}\n"
-                if i.get("affected"):
-                    body += f"  影响：`{i['affected']}`\n"
-            body += "\n> 这些漏洞将由 intel_to_rules 自动转化为扫描规则。"
-            notify("P1", f"新增 {len(high)} 条高危 AI Agent 漏洞", body,
-                   "new-high-vulns", cooldown_hours=12)
+            if high:
+                body = f"权威漏洞库本轮新增 **{len(high)}** 条 critical/high 级漏洞，涉及 MCP / AI Agent 攻击面：\n\n"
+                for i in high[:15]:
+                    body += f"- **[{i['severity'].upper()}] {i['id']}** — {i['title'][:100]}\n"
+                    if i.get("affected"):
+                        body += f"  影响：`{i['affected']}`\n"
+                body += "\n> 这些漏洞将由 intel_to_rules 自动转化为扫描规则。"
+                notify("P1", f"新增 {len(high)} 条高危 AI Agent 漏洞", body,
+                       FP_HIGH_NEW, cooldown_hours=12)
+            else:
+                resolve(
+                    FP_HIGH_NEW,
+                    title="本轮无新增高危漏洞",
+                    note=(f"本轮抓取 {len(intel)} 条情报、新增 {len(added)} 条，"
+                          f"其中 critical/high 为 0 —— 事件型告警按语义销案。"),
+                )
         except Exception as e:
             print(f"[warn] 通知失败: {e}")
 
