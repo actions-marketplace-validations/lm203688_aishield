@@ -261,6 +261,29 @@ class TestMainFailClosed(unittest.TestCase):
         self.assertEqual(rc, 0)
         self.assertNotEqual(db["updated"], "2020-01-01T00:00:00+00:00")
 
+    def test_clean_round_resolves_new_high_alert(self):
+        """事件型告警必须能销案：一轮零新增高危 → 关闭 new-high-vulns。
+
+        "本轮新增高危"这件事不会自己恢复，若只在有高危时才 notify、
+        零新增时什么都不做，该 Issue 会永久挂在仓库里（历史缺陷 #665）。
+        """
+        low = lambda d: [{"id": "OSV-1", "severity": "low",
+                          "title": "t", "published": "2026-01-01"}]
+        rc, db, bus, _ = self._run(low, low, low)
+        self.assertEqual(rc, 0)
+        self.assertIn(fv.FP_HIGH_NEW, bus.resolved,
+                      "本轮无新增高危必须关闭 new-high-vulns")
+        self.assertNotIn(fv.FP_HIGH_NEW, [f for _, _, f in bus.notified])
+
+    def test_high_round_alerts_without_self_resolving(self):
+        """本轮确实有新增高危 → 告警，且不得在同一轮里把它销掉。"""
+        hi = lambda d: [{"id": "GHSA-1", "severity": "high",
+                         "title": "t", "published": "2026-01-01"}]
+        rc, db, bus, _ = self._run(hi, hi, hi)
+        self.assertEqual(rc, 0)
+        self.assertIn(fv.FP_HIGH_NEW, [f for _, _, f in bus.notified])
+        self.assertNotIn(fv.FP_HIGH_NEW, bus.resolved)
+
 
 class TestTransportLayerTruthfulness(unittest.TestCase):
     """更隐蔽的一层：'源没有新漏洞'与'源根本没连上'必须可区分。

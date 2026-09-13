@@ -54,13 +54,17 @@ jobs:
               except Exception as e:
                   domains[name] = {'error': str(e)}
 
-          # Read published count
-          pub_path = 'data/state/published.json'
+          # Read published count（真台账是 distribution/published.json；
+          # data/state/published.json 是空壳 {}，读它会让"已发布"永远显示 0）
+          pub_path = 'distribution/published.json'
           pub_count = 0
+          pub_registered = 0
           if os.path.exists(pub_path):
               try:
                   pub_data = json.load(open(pub_path, encoding='utf-8'))
-                  pub_count = pub_data.get('count', 0)
+                  entries = pub_data.get('entries') or []
+                  pub_registered = len(entries)
+                  pub_count = sum(1 for e in entries if e.get('published_at'))
               except:
                   pass
 
@@ -108,6 +112,7 @@ jobs:
           result = {
               'domains': domains,
               'published_count': pub_count,
+              'published_registered': pub_registered,
               'tools_scanned': tools_count,
               'feature_state': feature_state,
               'meta_score': meta_score,
@@ -135,15 +140,27 @@ jobs:
           import json, subprocess, os
           from datetime import datetime, timezone, timedelta
 
-          since = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
+          def _parse_ts(value):
+              try:
+                  return datetime.fromisoformat((value or '').replace('Z', '+00:00'))
+              except Exception:
+                  return None
+
+          cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
 
           # Get recent workflow runs
           result = subprocess.run([
-              'gh', 'run', 'list', '--limit', '50', '--json',
+              'gh', 'run', 'list', '--limit', '100', '--json',
               'name,status,conclusion,createdAt,headBranch,event'
           ], capture_output=True, text=True, env={**os.environ})
 
-          runs = json.loads(result.stdout) if result.stdout else []
+          runs_all = json.loads(result.stdout) if result.stdout else []
+          # 必须真的按时间过滤：gh run list 没有时间窗口，
+          # 若不过滤会把几天前的失败当成"最近 24 小时"的失败，
+          # 使 overall 长期误报 DEGRADED（此前 since 算了却从未使用）。
+          runs = [r for r in runs_all
+                  if (_parse_ts(r.get('createdAt')) or cutoff) >= cutoff]
+          print(f'Runs in 24h window: {len(runs)} (fetched {len(runs_all)})')
 
           # Group by workflow
           workflow_stats = {}
@@ -177,7 +194,7 @@ jobs:
         run: |
           # 确保前序步骤的输出文件存在
           if [ ! -f /tmp/state_summary.json ]; then
-            echo '{"domains":{},"published_count":0,"tools_scanned":0,"feature_state":{},"meta_score":0,"meta_level":"unknown","health_level":"unknown"}' > /tmp/state_summary.json
+            echo '{"domains":{},"published_count":0,"published_registered":0,"tools_scanned":0,"feature_state":{},"meta_score":0,"meta_level":"unknown","health_level":"unknown"}' > /tmp/state_summary.json
             echo "Warning: state_summary.json missing, using empty state"
           fi
           if [ ! -f /tmp/runs_summary.json ]; then
@@ -219,7 +236,7 @@ jobs:
           lines.append(f'|------|-----|')
           lines.append(f'| 服务健康 | {health} |')
           lines.append(f'| 自动化体系评分 | {meta_score}/100 ({meta}) |')
-          lines.append(f'| 已发布内容 | {state.get(\"published_count\", 0)} 篇 |')
+          lines.append(f'| 已发布渠道 | {state.get(\"published_count\", 0)} / 登记 {state.get(\"published_registered\", 0)} 个 |')
           lines.append(f'| 已扫描工具库 | {state.get(\"tools_scanned\", 0)} 个 |')
           feat = state.get('feature_state', {})
           lines.append(f'| 需求采纳 | {feat.get(\"adopted\", 0)} 项 |')
@@ -261,6 +278,11 @@ jobs:
 
           with open('/tmp/digest_report.md', 'w', encoding='utf-8') as f:
               f.write(report)
+
+          # 单一事实源：webhook 推送必须复用这里的判定，
+          # 否则正文（含 workflow 失败）与推送（只看 health）会互相矛盾。
+          with open('/tmp/overall.txt', 'w', encoding='utf-8') as f:
+              f.write(overall)
 
           step_summary = os.environ.get('GITHUB_STEP_SUMMARY')
           if step_summary:
@@ -315,13 +337,13 @@ jobs:
           NOTIFY_WEBHOOK: ${{ secrets.NOTIFY_WEBHOOK }}
         run: |
           if [ -n "$NOTIFY_WEBHOOK" ]; then
-            OVERALL=$(python -c "import json; d=json.load(open('/tmp/state_summary.json')); print('HEALTHY' if d['health_level']=='healthy' and d['meta_level'] in ('healthy','good') else 'DEGRADED')")
+            OVERALL=$(cat /tmp/overall.txt 2>/dev/null || python -c "import json; d=json.load(open('/tmp/state_summary.json')); print('HEALTHY' if d['health_level']=='healthy' and d['meta_level'] in ('healthy','good') else 'DEGRADED')")
             TOOLS=$(python -c "import json; d=json.load(open('/tmp/state_summary.json')); print(d['tools_scanned'])")
             PUBLISHED=$(python -c "import json; d=json.load(open('/tmp/state_summary.json')); print(d['published_count'])")
 
             curl -s -X POST "$NOTIFY_WEBHOOK" \
               -H 'Content-Type: application/json' \
-              -d "{\"msgtype\":\"text\",\"text\":{\"content\":\"📊 [项目迭代报告] 状态: $OVERALL | 已扫描: $TOOLS 工具 | 已发布: $PUBLISHED 篇\"}}"
+              -d "{\"msgtype\":\"text\",\"text\":{\"content\":\"📊 [项目迭代报告] 状态: $OVERALL | 已扫描: $TOOLS 工具 | 已发布渠道: $PUBLISHED 个\"}}"
           fi
 
       - name: Record digest state

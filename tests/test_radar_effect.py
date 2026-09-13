@@ -94,5 +94,42 @@ class TestEffectEvaluation(unittest.TestCase):
         self.assertIn('暂无', radar_effect.render(eff))
 
 
+class TestAttackSampleCoverage(unittest.TestCase):
+    """每条线上雷达规则都必须至少有一个正样本。
+
+    历史缺口（2026-09-13 修）：5 条规则在正样本语料里零命中，于是
+    "有命中 12/17" 看起来像 5 条规则失效 —— 实际是**语料洞**而非规则失效。
+    本测试把"规则与样本必须同步演进"钉死：新晋升一条规则却没配样本 → 红。
+    """
+
+    def _live_rules(self):
+        path = os.path.join(ROOT, 'data', 'radar_rules.json')
+        with open(path, encoding='utf-8') as f:
+            return json.load(f).get('rules') or {}
+
+    def test_every_live_rule_has_a_positive_sample(self):
+        import re as _re
+        rules = self._live_rules()
+        self.assertTrue(rules, '仓库内应存在已晋升的雷达规则')
+        dead = []
+        for pattern in rules:
+            compiled = _re.compile(pattern, _re.IGNORECASE)
+            if not any(compiled.search(s) for s in radar_effect.ATTACK_SAMPLES):
+                dead.append(pattern)
+        self.assertEqual(
+            dead, [],
+            '以下规则没有任何正样本，会被误读为死规则（应补 ATTACK_SAMPLES）：\n  '
+            + '\n  '.join(dead))
+
+    def test_corpus_did_not_shrink(self):
+        self.assertGreaterEqual(
+            len(radar_effect.ATTACK_SAMPLES), 23,
+            '正样本语料被删减会让覆盖率无声倒退')
+
+    def test_samples_are_non_trivial(self):
+        for s in radar_effect.ATTACK_SAMPLES:
+            self.assertGreater(len(s.strip()), 12, '样本过短无法构成有效正例')
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)
