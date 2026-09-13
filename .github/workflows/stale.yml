@@ -62,7 +62,12 @@ jobs:
           days-before-pr-close: 10
           stale-pr-label: 'stale'
           # 排除标签
-          exempt-issue-labels: 'pinned,security,roadmap'
+          # blog/content：这些 Issue 是**内容发布渠道本身**（正文即文章，可被检索/引用），
+          #   被 stale bot 关闭等于静默删掉一条分发渠道。
+          # auto-alert：告警必须由通知总线以"已恢复"关闭；被 stale bot 以
+          #   "长期无活动"关闭会让未解决的故障看起来像已恢复（假绿）。
+          # digest/automated：自动更新的报告入口，长期是同一个 Issue。
+          exempt-issue-labels: 'pinned,security,roadmap,blog,content,digest,automated,auto-alert'
           exempt-pr-labels: 'pinned,work-in-progress'
           # 不处理已分配的 Issue
           exempt-all-assignees: true
