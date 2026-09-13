@@ -32,6 +32,20 @@ class TestDigestWindow(unittest.TestCase):
         self.assertIn("'--limit', '100'", self.text,
                       "limit 过小会让 24 小时窗口漏采样，导致统计不完整")
 
+    def test_published_reads_real_ledger(self):
+        """已发布数必须读 distribution/published.json。
+
+        data/state/published.json 是空壳 {}，读它会让"已发布"永远是 0。
+        """
+        self.assertIn("distribution/published.json", self.text,
+                      "读错台账 → 已发布数恒为 0")
+        self.assertNotIn("pub_path = 'data/state/published.json'", self.text)
+
+    def test_webhook_reuses_single_verdict(self):
+        """正文与推送必须共用同一个 overall，避免同一事实算两遍而互相矛盾。"""
+        self.assertIn("/tmp/overall.txt", self.text)
+        self.assertIn("f.write(overall)", self.text)
+
 
 if __name__ == "__main__":
     unittest.main()
