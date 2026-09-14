@@ -244409,26 +244409,812 @@
         }
       ],
       "error_details": []
+    },
+    {
+      "id": "batch_20260914_165124",
+      "source": "all",
+      "scanner_version": "4.1",
+      "scanned_at": "2026-09-14 16:51:24",
+      "total": 1,
+      "success": 1,
+      "errors": 0,
+      "results": [
+        {
+          "security_score": 0,
+          "permissions_score": 98,
+          "data_handling_score": 80,
+          "supply_chain_score": 100,
+          "reliability_score": 89,
+          "overall_score": 54,
+          "risk_level": "critical",
+          "badge_level": "none",
+          "owasp_coverage": {
+            "covered": [
+              "MCP02",
+              "MCP05",
+              "MCP06",
+              "MCP08",
+              "MCP10"
+            ],
+            "covered_count": 5,
+            "total": 10,
+            "coverage_percent": 50,
+            "categories": {
+              "MCP02": {
+                "name": "Privilege Scope Creep Leading to Escalation",
+                "name_cn": "权限范围蔓延导致提权",
+                "rules_triggered": 7,
+                "total_rules": 12
+              },
+              "MCP08": {
+                "name": "Lack of Audit & Observability",
+                "name_cn": "审计与可观测性缺失",
+                "rules_triggered": 4,
+                "total_rules": 6
+              },
+              "MCP05": {
+                "name": "Command Injection & Execution",
+                "name_cn": "命令注入与执行",
+                "rules_triggered": 3,
+                "total_rules": 24
+              },
+              "MCP10": {
+                "name": "Context Injection & Over-Sharing",
+                "name_cn": "上下文注入与过度共享",
+                "rules_triggered": 1,
+                "total_rules": 8
+              },
+              "MCP06": {
+                "name": "Intent Flow Subversion / Prompt Injection",
+                "name_cn": "意图流颠覆/上下文提示注入",
+                "rules_triggered": 5,
+                "total_rules": 14
+              }
+            }
+          },
+          "agentic_coverage": {
+            "covered": [
+              "ASI07"
+            ],
+            "covered_count": 1,
+            "total": 10,
+            "coverage_percent": 10,
+            "categories": {
+              "ASI07": {
+                "name": "Unbounded Resource Consumption",
+                "name_cn": "无限制资源消耗",
+                "rules_triggered": 1,
+                "total_rules": 6
+              }
+            }
+          },
+          "rules_count": 236,
+          "score_breakdown": {
+            "security_score": {
+              "base": 100,
+              "penalty": 115,
+              "contributors": [
+                {
+                  "reason": "exec() 动态代码执行",
+                  "severity": "critical",
+                  "amount": 20,
+                  "owasp": "MCP05"
+                },
+                {
+                  "reason": "越狱关键词",
+                  "severity": "critical",
+                  "amount": 20,
+                  "owasp": "MCP06"
+                },
+                {
+                  "reason": "内网/元数据地址访问(SSRF)",
+                  "severity": "critical",
+                  "amount": 20,
+                  "owasp": "MCP10"
+                },
+                {
+                  "reason": "[情报驱动] 路径遍历: 越权访问上级目录",
+                  "severity": "high",
+                  "amount": 10,
+                  "owasp": null
+                },
+                {
+                  "reason": "持久化/自启动指令",
+                  "severity": "high",
+                  "amount": 10,
+                  "owasp": "MCP06"
+                }
+              ]
+            },
+            "permissions_score": {
+              "base": 100,
+              "penalty": 2,
+              "contributors": [
+                {
+                  "reason": "完整环境变量访问",
+                  "severity": "low",
+                  "amount": 2,
+                  "owasp": "MCP02"
+                }
+              ]
+            },
+            "data_handling_score": {
+              "base": 100,
+              "penalty": 20,
+              "contributors": [
+                {
+                  "reason": "内网/元数据地址访问(SSRF)",
+                  "severity": "critical",
+                  "amount": 20,
+                  "owasp": "MCP10"
+                }
+              ]
+            },
+            "supply_chain_score": {
+              "base": 100,
+              "penalty": 0,
+              "contributors": []
+            },
+            "reliability_score": {
+              "base": 100,
+              "penalty": 11,
+              "contributors": [
+                {
+                  "reason": "裸异常捕获并忽略",
+                  "severity": "high",
+                  "amount": 8,
+                  "owasp": "MCP08"
+                },
+                {
+                  "reason": "命令执行操作(需验证是否有日志)",
+                  "severity": "medium",
+                  "amount": 3,
+                  "owasp": "MCP08"
+                }
+              ]
+            }
+          },
+          "top_deductions": [
+            {
+              "dimension": "security_score",
+              "reason": "exec() 动态代码执行",
+              "severity": "critical",
+              "amount": 20,
+              "owasp": "MCP05"
+            },
+            {
+              "dimension": "security_score",
+              "reason": "越狱关键词",
+              "severity": "critical",
+              "amount": 20,
+              "owasp": "MCP06"
+            },
+            {
+              "dimension": "security_score",
+              "reason": "内网/元数据地址访问(SSRF)",
+              "severity": "critical",
+              "amount": 20,
+              "owasp": "MCP10"
+            },
+            {
+              "dimension": "data_handling_score",
+              "reason": "内网/元数据地址访问(SSRF)",
+              "severity": "critical",
+              "amount": 20,
+              "owasp": "MCP10"
+            },
+            {
+              "dimension": "security_score",
+              "reason": "[情报驱动] 路径遍历: 越权访问上级目录",
+              "severity": "high",
+              "amount": 10,
+              "owasp": null
+            },
+            {
+              "dimension": "security_score",
+              "reason": "持久化/自启动指令",
+              "severity": "high",
+              "amount": 10,
+              "owasp": "MCP06"
+            },
+            {
+              "dimension": "reliability_score",
+              "reason": "裸异常捕获并忽略",
+              "severity": "high",
+              "amount": 8,
+              "owasp": "MCP08"
+            },
+            {
+              "dimension": "reliability_score",
+              "reason": "命令执行操作(需验证是否有日志)",
+              "severity": "medium",
+              "amount": 3,
+              "owasp": "MCP08"
+            }
+          ],
+          "name": "feder-cr/AIHawk",
+          "source_url": "https://github.com/feder-cr/AIHawk",
+          "tool_type": "mcp",
+          "findings": [
+            {
+              "type": "dangerous_pattern",
+              "severity": "critical",
+              "description": "exec() 动态代码执行",
+              "file": "src/aihawk/ui/js/01-markdown.js",
+              "lines": "30",
+              "evidence": "exec(",
+              "owasp_category": "MCP05"
+            },
+            {
+              "type": "dangerous_pattern",
+              "severity": "medium",
+              "description": "命令执行操作(需验证是否有日志)",
+              "file": "src/aihawk/ui/js/01-markdown.js",
+              "lines": "30",
+              "evidence": "exec(",
+              "owasp_category": "MCP08"
+            },
+            {
+              "type": "dangerous_pattern",
+              "severity": "critical",
+              "description": "越狱关键词",
+              "file": "src/aihawk/ui/__init__.py",
+              "lines": "34",
+              "evidence": "override",
+              "owasp_category": "MCP06"
+            },
+            {
+              "type": "dangerous_pattern",
+              "severity": "low",
+              "description": "完整环境变量访问",
+              "file": "src/aihawk/storage.py",
+              "lines": "39",
+              "evidence": "os.environ",
+              "owasp_category": "MCP02"
+            },
+            {
+              "type": "dangerous_pattern",
+              "severity": "critical",
+              "description": "越狱关键词",
+              "file": "src/aihawk/storage.py",
+              "lines": "39",
+              "evidence": "override",
+              "owasp_category": "MCP06"
+            },
+            {
+              "type": "dangerous_pattern",
+              "severity": "high",
+              "description": "[情报驱动] 路径遍历: 越权访问上级目录",
+              "file": "src/aihawk/storage.py",
+              "lines": "54",
+              "evidence": "../../",
+              "owasp_category": null
+            },
+            {
+              "type": "dangerous_pattern",
+              "severity": "high",
+              "description": "持久化/自启动指令",
+              "file": "src/aihawk/sessions.py",
+              "lines": "104",
+              "evidence": "persist",
+              "owasp_category": "MCP06"
+            },
+            {
+              "type": "dangerous_pattern",
+              "severity": "high",
+              "description": "无限循环风险",
+              "file": "src/aihawk/routes.py",
+              "lines": "261",
+              "evidence": "while True",
+              "owasp_category": "ASI07"
+            },
+            {
+              "type": "dangerous_pattern",
+              "severity": "high",
+              "description": "裸异常捕获并忽略",
+              "file": "src/aihawk/quiet.py",
+              "lines": "5",
+              "evidence": "except Exception: pass",
+              "owasp_category": "MCP08"
+            },
+            {
+              "type": "dangerous_pattern",
+              "severity": "high",
+              "description": "[情报驱动] 会话安全: 会话标识过短或硬编码",
+              "file": "src/aihawk/mcp/work.py",
+              "lines": "466",
+              "evidence": "Session:\n        \"\"",
+              "owasp_category": null
+            },
+            {
+              "type": "dangerous_pattern",
+              "severity": "low",
+              "description": "完整环境变量访问",
+              "file": "src/aihawk/mcp/session.py",
+              "lines": "18",
+              "evidence": "os.environ",
+              "owasp_category": "MCP02"
+            },
+            {
+              "type": "dangerous_pattern",
+              "severity": "low",
+              "description": "完整环境变量访问",
+              "file": "src/aihawk/mcp/server.py",
+              "lines": "75",
+              "evidence": "os.environ",
+              "owasp_category": "MCP02"
+            },
+            {
+              "type": "dangerous_pattern",
+              "severity": "critical",
+              "description": "内网/元数据地址访问(SSRF)",
+              "file": "src/aihawk/mcp/server.py",
+              "lines": "616",
+              "evidence": "127.0.0.1",
+              "owasp_category": "MCP10"
+            }
+          ],
+          "total_findings": 13,
+          "static_analysis": {
+            "findings": [
+              {
+                "type": "dangerous_pattern",
+                "severity": "critical",
+                "description": "exec() 动态代码执行",
+                "file": "src/aihawk/ui/js/01-markdown.js",
+                "lines": "30",
+                "evidence": "exec(",
+                "owasp_category": "MCP05"
+              },
+              {
+                "type": "dangerous_pattern",
+                "severity": "critical",
+                "description": "exec() 动态代码执行",
+                "file": "src/aihawk/ui/js/01-markdown.js",
+                "lines": "67",
+                "evidence": "exec(",
+                "owasp_category": "MCP05"
+              },
+              {
+                "type": "dangerous_pattern",
+                "severity": "critical",
+                "description": "exec() 动态代码执行",
+                "file": "src/aihawk/ui/js/01-markdown.js",
+                "lines": "77",
+                "evidence": "exec(",
+                "owasp_category": "MCP05"
+              },
+              {
+                "type": "dangerous_pattern",
+                "severity": "medium",
+                "description": "命令执行操作(需验证是否有日志)",
+                "file": "src/aihawk/ui/js/01-markdown.js",
+                "lines": "30",
+                "evidence": "exec(",
+                "owasp_category": "MCP08"
+              },
+              {
+                "type": "dangerous_pattern",
+                "severity": "medium",
+                "description": "命令执行操作(需验证是否有日志)",
+                "file": "src/aihawk/ui/js/01-markdown.js",
+                "lines": "67",
+                "evidence": "exec(",
+                "owasp_category": "MCP08"
+              },
+              {
+                "type": "dangerous_pattern",
+                "severity": "medium",
+                "description": "命令执行操作(需验证是否有日志)",
+                "file": "src/aihawk/ui/js/01-markdown.js",
+                "lines": "77",
+                "evidence": "exec(",
+                "owasp_category": "MCP08"
+              },
+              {
+                "type": "dangerous_pattern",
+                "severity": "critical",
+                "description": "越狱关键词",
+                "file": "src/aihawk/ui/__init__.py",
+                "lines": "34",
+                "evidence": "override",
+                "owasp_category": "MCP06"
+              },
+              {
+                "type": "dangerous_pattern",
+                "severity": "low",
+                "description": "完整环境变量访问",
+                "file": "src/aihawk/storage.py",
+                "lines": "39",
+                "evidence": "os.environ",
+                "owasp_category": "MCP02"
+              },
+              {
+                "type": "dangerous_pattern",
+                "severity": "low",
+                "description": "完整环境变量访问",
+                "file": "src/aihawk/storage.py",
+                "lines": "43",
+                "evidence": "os.environ",
+                "owasp_category": "MCP02"
+              },
+              {
+                "type": "dangerous_pattern",
+                "severity": "low",
+                "description": "完整环境变量访问",
+                "file": "src/aihawk/storage.py",
+                "lines": "47",
+                "evidence": "os.environ",
+                "owasp_category": "MCP02"
+              },
+              {
+                "type": "dangerous_pattern",
+                "severity": "critical",
+                "description": "越狱关键词",
+                "file": "src/aihawk/storage.py",
+                "lines": "39",
+                "evidence": "override",
+                "owasp_category": "MCP06"
+              },
+              {
+                "type": "dangerous_pattern",
+                "severity": "critical",
+                "description": "越狱关键词",
+                "file": "src/aihawk/storage.py",
+                "lines": "40",
+                "evidence": "override",
+                "owasp_category": "MCP06"
+              },
+              {
+                "type": "dangerous_pattern",
+                "severity": "critical",
+                "description": "越狱关键词",
+                "file": "src/aihawk/storage.py",
+                "lines": "41",
+                "evidence": "override",
+                "owasp_category": "MCP06"
+              },
+              {
+                "type": "dangerous_pattern",
+                "severity": "high",
+                "description": "[情报驱动] 路径遍历: 越权访问上级目录",
+                "file": "src/aihawk/storage.py",
+                "lines": "54",
+                "evidence": "../../",
+                "owasp_category": null
+              },
+              {
+                "type": "dangerous_pattern",
+                "severity": "high",
+                "description": "持久化/自启动指令",
+                "file": "src/aihawk/sessions.py",
+                "lines": "104",
+                "evidence": "persist",
+                "owasp_category": "MCP06"
+              },
+              {
+                "type": "dangerous_pattern",
+                "severity": "high",
+                "description": "无限循环风险",
+                "file": "src/aihawk/routes.py",
+                "lines": "261",
+                "evidence": "while True",
+                "owasp_category": "ASI07"
+              },
+              {
+                "type": "dangerous_pattern",
+                "severity": "high",
+                "description": "裸异常捕获并忽略",
+                "file": "src/aihawk/quiet.py",
+                "lines": "5",
+                "evidence": "except Exception: pass",
+                "owasp_category": "MCP08"
+              },
+              {
+                "type": "dangerous_pattern",
+                "severity": "high",
+                "description": "[情报驱动] 会话安全: 会话标识过短或硬编码",
+                "file": "src/aihawk/mcp/work.py",
+                "lines": "466",
+                "evidence": "Session:\n        \"\"",
+                "owasp_category": null
+              },
+              {
+                "type": "dangerous_pattern",
+                "severity": "high",
+                "description": "[情报驱动] 会话安全: 会话标识过短或硬编码",
+                "file": "src/aihawk/mcp/work.py",
+                "lines": "504",
+                "evidence": "Session:\n        \"\"",
+                "owasp_category": null
+              },
+              {
+                "type": "dangerous_pattern",
+                "severity": "low",
+                "description": "完整环境变量访问",
+                "file": "src/aihawk/mcp/session.py",
+                "lines": "18",
+                "evidence": "os.environ",
+                "owasp_category": "MCP02"
+              },
+              {
+                "type": "dangerous_pattern",
+                "severity": "low",
+                "description": "完整环境变量访问",
+                "file": "src/aihawk/mcp/server.py",
+                "lines": "75",
+                "evidence": "os.environ",
+                "owasp_category": "MCP02"
+              },
+              {
+                "type": "dangerous_pattern",
+                "severity": "low",
+                "description": "完整环境变量访问",
+                "file": "src/aihawk/mcp/server.py",
+                "lines": "612",
+                "evidence": "os.environ",
+                "owasp_category": "MCP02"
+              },
+              {
+                "type": "dangerous_pattern",
+                "severity": "low",
+                "description": "完整环境变量访问",
+                "file": "src/aihawk/mcp/server.py",
+                "lines": "616",
+                "evidence": "os.environ",
+                "owasp_category": "MCP02"
+              },
+              {
+                "type": "dangerous_pattern",
+                "severity": "critical",
+                "description": "内网/元数据地址访问(SSRF)",
+                "file": "src/aihawk/mcp/server.py",
+                "lines": "616",
+                "evidence": "127.0.0.1",
+                "owasp_category": "MCP10"
+              }
+            ],
+            "total_files": 20,
+            "patterns_checked": 236,
+            "owasp_coverage": {
+              "covered": [
+                "MCP02",
+                "MCP05",
+                "MCP06",
+                "MCP08",
+                "MCP10"
+              ],
+              "covered_count": 5,
+              "total": 10,
+              "coverage_percent": 50,
+              "categories": {
+                "MCP02": {
+                  "name": "Privilege Scope Creep Leading to Escalation",
+                  "name_cn": "权限范围蔓延导致提权",
+                  "rules_triggered": 7,
+                  "total_rules": 12
+                },
+                "MCP08": {
+                  "name": "Lack of Audit & Observability",
+                  "name_cn": "审计与可观测性缺失",
+                  "rules_triggered": 4,
+                  "total_rules": 6
+                },
+                "MCP05": {
+                  "name": "Command Injection & Execution",
+                  "name_cn": "命令注入与执行",
+                  "rules_triggered": 3,
+                  "total_rules": 24
+                },
+                "MCP10": {
+                  "name": "Context Injection & Over-Sharing",
+                  "name_cn": "上下文注入与过度共享",
+                  "rules_triggered": 1,
+                  "total_rules": 8
+                },
+                "MCP06": {
+                  "name": "Intent Flow Subversion / Prompt Injection",
+                  "name_cn": "意图流颠覆/上下文提示注入",
+                  "rules_triggered": 5,
+                  "total_rules": 14
+                }
+              }
+            },
+            "agentic_coverage": {
+              "covered": [
+                "ASI07"
+              ],
+              "covered_count": 1,
+              "total": 10,
+              "coverage_percent": 10,
+              "categories": {
+                "ASI07": {
+                  "name": "Unbounded Resource Consumption",
+                  "name_cn": "无限制资源消耗",
+                  "rules_triggered": 1,
+                  "total_rules": 6
+                }
+              }
+            }
+          },
+          "dependency_analysis": {
+            "findings": [],
+            "dependencies": [],
+            "total_dependencies": 0
+          },
+          "secrets_detection": {
+            "findings": []
+          },
+          "llm_analysis": {
+            "findings": [],
+            "analyzed": false,
+            "reason": "LLM not configured (set AISHIELD_LLM_URL and AISHIELD_LLM_KEY)"
+          },
+          "llm_supply_chain": {
+            "findings": [],
+            "analyzed": false
+          },
+          "toxic_flow_scan": [],
+          "baseline_drift": [],
+          "compliance": {
+            "frameworks": {
+              "nist_csf": {
+                "controls_hit": 8,
+                "controls": {
+                  "PR.PS-01": {
+                    "findings_count": 4,
+                    "max_severity": "critical"
+                  },
+                  "DE.CM-01": {
+                    "findings_count": 2,
+                    "max_severity": "critical"
+                  },
+                  "PR.PS-04": {
+                    "findings_count": 2,
+                    "max_severity": "high"
+                  },
+                  "DE.CM-09": {
+                    "findings_count": 2,
+                    "max_severity": "high"
+                  },
+                  "DE.AE-02": {
+                    "findings_count": 3,
+                    "max_severity": "critical"
+                  },
+                  "PR.AA-05": {
+                    "findings_count": 3,
+                    "max_severity": "low"
+                  },
+                  "PR.IR-04": {
+                    "findings_count": 1,
+                    "max_severity": "high"
+                  },
+                  "PR.DS-02": {
+                    "findings_count": 1,
+                    "max_severity": "critical"
+                  }
+                }
+              },
+              "iso27001": {
+                "controls_hit": 11,
+                "controls": {
+                  "A.8.28": {
+                    "findings_count": 4,
+                    "max_severity": "critical"
+                  },
+                  "A.8.32": {
+                    "findings_count": 1,
+                    "max_severity": "critical"
+                  },
+                  "A.8.15": {
+                    "findings_count": 2,
+                    "max_severity": "high"
+                  },
+                  "A.8.16": {
+                    "findings_count": 2,
+                    "max_severity": "high"
+                  },
+                  "A.5.37": {
+                    "findings_count": 3,
+                    "max_severity": "critical"
+                  },
+                  "A.5.15": {
+                    "findings_count": 3,
+                    "max_severity": "low"
+                  },
+                  "A.8.2": {
+                    "findings_count": 3,
+                    "max_severity": "low"
+                  },
+                  "A.8.6": {
+                    "findings_count": 1,
+                    "max_severity": "high"
+                  },
+                  "A.8.14": {
+                    "findings_count": 1,
+                    "max_severity": "high"
+                  },
+                  "A.8.20": {
+                    "findings_count": 1,
+                    "max_severity": "critical"
+                  },
+                  "A.8.22": {
+                    "findings_count": 1,
+                    "max_severity": "critical"
+                  }
+                }
+              },
+              "pci_dss": {
+                "controls_hit": 6,
+                "controls": {
+                  "6.2.4": {
+                    "findings_count": 4,
+                    "max_severity": "critical"
+                  },
+                  "10.2": {
+                    "findings_count": 2,
+                    "max_severity": "high"
+                  },
+                  "7.2": {
+                    "findings_count": 3,
+                    "max_severity": "low"
+                  },
+                  "2.2": {
+                    "findings_count": 1,
+                    "max_severity": "high"
+                  },
+                  "1.2": {
+                    "findings_count": 1,
+                    "max_severity": "critical"
+                  },
+                  "11.5": {
+                    "findings_count": 1,
+                    "max_severity": "critical"
+                  }
+                }
+              }
+            },
+            "categories_mapped": 6,
+            "findings_unmapped": 2,
+            "note": "映射为审计锚点（select-the-control），不构成合规认证结论"
+          },
+          "osv_cve": [],
+          "commit_hash": "5d14639f",
+          "recommendations": [
+            "避免直接执行用户输入的命令，使用参数化调用或白名单机制",
+            "检测到提示注入风险，建议添加输入过滤和输出检查",
+            "检测到数据外传/SSRF风险，建议审查数据流向并添加URL白名单",
+            "安全评分较低，建议进行全面安全审查后再发布"
+          ],
+          "scanned_at": "2026-09-14 16:51:24",
+          "scanner_version": "4.0",
+          "owasp_standard": "OWASP MCP Top 10 (2025 v0.1)",
+          "source": "github-search",
+          "directory_description": "Anti detect browser and web browsing agent: an open-source MCP server for undetected browsing, AI web scraping and computer use agents. No captchas.",
+          "stars": 30935
+        }
+      ],
+      "error_details": []
     }
   ],
   "summary": {
-    "total_tools": 69,
-    "last_scan": "2026-09-13 16:15:54",
+    "total_tools": 70,
+    "last_scan": "2026-09-14 16:51:24",
     "scanner_version": "4.1",
-    "avg_score": 77.17391304347827,
+    "avg_score": 76.84285714285714,
     "badge_distribution": {
-      "none": 11,
+      "none": 12,
       "gold": 26,
       "silver": 22,
       "bronze": 10
     },
     "risk_distribution": {
-      "critical": 20,
+      "critical": 21,
       "safe": 23,
       "high": 11,
       "medium": 15
     },
-    "owasp_coverage_avg": 3.1884057971014492
+    "owasp_coverage_avg": 3.2142857142857144
   },
   "tools": [
     {
@@ -296381,6 +297167,780 @@
       "source": "github-search",
       "directory_description": "A one-of-a-kind resume builder that keeps your privacy in mind. Completely secure, customizable, portable, open-source and free forever. Try it out today!",
       "stars": 42614
+    },
+    {
+      "security_score": 0,
+      "permissions_score": 98,
+      "data_handling_score": 80,
+      "supply_chain_score": 100,
+      "reliability_score": 89,
+      "overall_score": 54,
+      "risk_level": "critical",
+      "badge_level": "none",
+      "owasp_coverage": {
+        "covered": [
+          "MCP02",
+          "MCP05",
+          "MCP06",
+          "MCP08",
+          "MCP10"
+        ],
+        "covered_count": 5,
+        "total": 10,
+        "coverage_percent": 50,
+        "categories": {
+          "MCP02": {
+            "name": "Privilege Scope Creep Leading to Escalation",
+            "name_cn": "权限范围蔓延导致提权",
+            "rules_triggered": 7,
+            "total_rules": 12
+          },
+          "MCP08": {
+            "name": "Lack of Audit & Observability",
+            "name_cn": "审计与可观测性缺失",
+            "rules_triggered": 4,
+            "total_rules": 6
+          },
+          "MCP05": {
+            "name": "Command Injection & Execution",
+            "name_cn": "命令注入与执行",
+            "rules_triggered": 3,
+            "total_rules": 24
+          },
+          "MCP10": {
+            "name": "Context Injection & Over-Sharing",
+            "name_cn": "上下文注入与过度共享",
+            "rules_triggered": 1,
+            "total_rules": 8
+          },
+          "MCP06": {
+            "name": "Intent Flow Subversion / Prompt Injection",
+            "name_cn": "意图流颠覆/上下文提示注入",
+            "rules_triggered": 5,
+            "total_rules": 14
+          }
+        }
+      },
+      "agentic_coverage": {
+        "covered": [
+          "ASI07"
+        ],
+        "covered_count": 1,
+        "total": 10,
+        "coverage_percent": 10,
+        "categories": {
+          "ASI07": {
+            "name": "Unbounded Resource Consumption",
+            "name_cn": "无限制资源消耗",
+            "rules_triggered": 1,
+            "total_rules": 6
+          }
+        }
+      },
+      "rules_count": 236,
+      "score_breakdown": {
+        "security_score": {
+          "base": 100,
+          "penalty": 115,
+          "contributors": [
+            {
+              "reason": "exec() 动态代码执行",
+              "severity": "critical",
+              "amount": 20,
+              "owasp": "MCP05"
+            },
+            {
+              "reason": "越狱关键词",
+              "severity": "critical",
+              "amount": 20,
+              "owasp": "MCP06"
+            },
+            {
+              "reason": "内网/元数据地址访问(SSRF)",
+              "severity": "critical",
+              "amount": 20,
+              "owasp": "MCP10"
+            },
+            {
+              "reason": "[情报驱动] 路径遍历: 越权访问上级目录",
+              "severity": "high",
+              "amount": 10,
+              "owasp": null
+            },
+            {
+              "reason": "持久化/自启动指令",
+              "severity": "high",
+              "amount": 10,
+              "owasp": "MCP06"
+            }
+          ]
+        },
+        "permissions_score": {
+          "base": 100,
+          "penalty": 2,
+          "contributors": [
+            {
+              "reason": "完整环境变量访问",
+              "severity": "low",
+              "amount": 2,
+              "owasp": "MCP02"
+            }
+          ]
+        },
+        "data_handling_score": {
+          "base": 100,
+          "penalty": 20,
+          "contributors": [
+            {
+              "reason": "内网/元数据地址访问(SSRF)",
+              "severity": "critical",
+              "amount": 20,
+              "owasp": "MCP10"
+            }
+          ]
+        },
+        "supply_chain_score": {
+          "base": 100,
+          "penalty": 0,
+          "contributors": []
+        },
+        "reliability_score": {
+          "base": 100,
+          "penalty": 11,
+          "contributors": [
+            {
+              "reason": "裸异常捕获并忽略",
+              "severity": "high",
+              "amount": 8,
+              "owasp": "MCP08"
+            },
+            {
+              "reason": "命令执行操作(需验证是否有日志)",
+              "severity": "medium",
+              "amount": 3,
+              "owasp": "MCP08"
+            }
+          ]
+        }
+      },
+      "top_deductions": [
+        {
+          "dimension": "security_score",
+          "reason": "exec() 动态代码执行",
+          "severity": "critical",
+          "amount": 20,
+          "owasp": "MCP05"
+        },
+        {
+          "dimension": "security_score",
+          "reason": "越狱关键词",
+          "severity": "critical",
+          "amount": 20,
+          "owasp": "MCP06"
+        },
+        {
+          "dimension": "security_score",
+          "reason": "内网/元数据地址访问(SSRF)",
+          "severity": "critical",
+          "amount": 20,
+          "owasp": "MCP10"
+        },
+        {
+          "dimension": "data_handling_score",
+          "reason": "内网/元数据地址访问(SSRF)",
+          "severity": "critical",
+          "amount": 20,
+          "owasp": "MCP10"
+        },
+        {
+          "dimension": "security_score",
+          "reason": "[情报驱动] 路径遍历: 越权访问上级目录",
+          "severity": "high",
+          "amount": 10,
+          "owasp": null
+        },
+        {
+          "dimension": "security_score",
+          "reason": "持久化/自启动指令",
+          "severity": "high",
+          "amount": 10,
+          "owasp": "MCP06"
+        },
+        {
+          "dimension": "reliability_score",
+          "reason": "裸异常捕获并忽略",
+          "severity": "high",
+          "amount": 8,
+          "owasp": "MCP08"
+        },
+        {
+          "dimension": "reliability_score",
+          "reason": "命令执行操作(需验证是否有日志)",
+          "severity": "medium",
+          "amount": 3,
+          "owasp": "MCP08"
+        }
+      ],
+      "name": "feder-cr/AIHawk",
+      "source_url": "https://github.com/feder-cr/AIHawk",
+      "tool_type": "mcp",
+      "findings": [
+        {
+          "type": "dangerous_pattern",
+          "severity": "critical",
+          "description": "exec() 动态代码执行",
+          "file": "src/aihawk/ui/js/01-markdown.js",
+          "lines": "30",
+          "evidence": "exec(",
+          "owasp_category": "MCP05"
+        },
+        {
+          "type": "dangerous_pattern",
+          "severity": "medium",
+          "description": "命令执行操作(需验证是否有日志)",
+          "file": "src/aihawk/ui/js/01-markdown.js",
+          "lines": "30",
+          "evidence": "exec(",
+          "owasp_category": "MCP08"
+        },
+        {
+          "type": "dangerous_pattern",
+          "severity": "critical",
+          "description": "越狱关键词",
+          "file": "src/aihawk/ui/__init__.py",
+          "lines": "34",
+          "evidence": "override",
+          "owasp_category": "MCP06"
+        },
+        {
+          "type": "dangerous_pattern",
+          "severity": "low",
+          "description": "完整环境变量访问",
+          "file": "src/aihawk/storage.py",
+          "lines": "39",
+          "evidence": "os.environ",
+          "owasp_category": "MCP02"
+        },
+        {
+          "type": "dangerous_pattern",
+          "severity": "critical",
+          "description": "越狱关键词",
+          "file": "src/aihawk/storage.py",
+          "lines": "39",
+          "evidence": "override",
+          "owasp_category": "MCP06"
+        },
+        {
+          "type": "dangerous_pattern",
+          "severity": "high",
+          "description": "[情报驱动] 路径遍历: 越权访问上级目录",
+          "file": "src/aihawk/storage.py",
+          "lines": "54",
+          "evidence": "../../",
+          "owasp_category": null
+        },
+        {
+          "type": "dangerous_pattern",
+          "severity": "high",
+          "description": "持久化/自启动指令",
+          "file": "src/aihawk/sessions.py",
+          "lines": "104",
+          "evidence": "persist",
+          "owasp_category": "MCP06"
+        },
+        {
+          "type": "dangerous_pattern",
+          "severity": "high",
+          "description": "无限循环风险",
+          "file": "src/aihawk/routes.py",
+          "lines": "261",
+          "evidence": "while True",
+          "owasp_category": "ASI07"
+        },
+        {
+          "type": "dangerous_pattern",
+          "severity": "high",
+          "description": "裸异常捕获并忽略",
+          "file": "src/aihawk/quiet.py",
+          "lines": "5",
+          "evidence": "except Exception: pass",
+          "owasp_category": "MCP08"
+        },
+        {
+          "type": "dangerous_pattern",
+          "severity": "high",
+          "description": "[情报驱动] 会话安全: 会话标识过短或硬编码",
+          "file": "src/aihawk/mcp/work.py",
+          "lines": "466",
+          "evidence": "Session:\n        \"\"",
+          "owasp_category": null
+        },
+        {
+          "type": "dangerous_pattern",
+          "severity": "low",
+          "description": "完整环境变量访问",
+          "file": "src/aihawk/mcp/session.py",
+          "lines": "18",
+          "evidence": "os.environ",
+          "owasp_category": "MCP02"
+        },
+        {
+          "type": "dangerous_pattern",
+          "severity": "low",
+          "description": "完整环境变量访问",
+          "file": "src/aihawk/mcp/server.py",
+          "lines": "75",
+          "evidence": "os.environ",
+          "owasp_category": "MCP02"
+        },
+        {
+          "type": "dangerous_pattern",
+          "severity": "critical",
+          "description": "内网/元数据地址访问(SSRF)",
+          "file": "src/aihawk/mcp/server.py",
+          "lines": "616",
+          "evidence": "127.0.0.1",
+          "owasp_category": "MCP10"
+        }
+      ],
+      "total_findings": 13,
+      "static_analysis": {
+        "findings": [
+          {
+            "type": "dangerous_pattern",
+            "severity": "critical",
+            "description": "exec() 动态代码执行",
+            "file": "src/aihawk/ui/js/01-markdown.js",
+            "lines": "30",
+            "evidence": "exec(",
+            "owasp_category": "MCP05"
+          },
+          {
+            "type": "dangerous_pattern",
+            "severity": "critical",
+            "description": "exec() 动态代码执行",
+            "file": "src/aihawk/ui/js/01-markdown.js",
+            "lines": "67",
+            "evidence": "exec(",
+            "owasp_category": "MCP05"
+          },
+          {
+            "type": "dangerous_pattern",
+            "severity": "critical",
+            "description": "exec() 动态代码执行",
+            "file": "src/aihawk/ui/js/01-markdown.js",
+            "lines": "77",
+            "evidence": "exec(",
+            "owasp_category": "MCP05"
+          },
+          {
+            "type": "dangerous_pattern",
+            "severity": "medium",
+            "description": "命令执行操作(需验证是否有日志)",
+            "file": "src/aihawk/ui/js/01-markdown.js",
+            "lines": "30",
+            "evidence": "exec(",
+            "owasp_category": "MCP08"
+          },
+          {
+            "type": "dangerous_pattern",
+            "severity": "medium",
+            "description": "命令执行操作(需验证是否有日志)",
+            "file": "src/aihawk/ui/js/01-markdown.js",
+            "lines": "67",
+            "evidence": "exec(",
+            "owasp_category": "MCP08"
+          },
+          {
+            "type": "dangerous_pattern",
+            "severity": "medium",
+            "description": "命令执行操作(需验证是否有日志)",
+            "file": "src/aihawk/ui/js/01-markdown.js",
+            "lines": "77",
+            "evidence": "exec(",
+            "owasp_category": "MCP08"
+          },
+          {
+            "type": "dangerous_pattern",
+            "severity": "critical",
+            "description": "越狱关键词",
+            "file": "src/aihawk/ui/__init__.py",
+            "lines": "34",
+            "evidence": "override",
+            "owasp_category": "MCP06"
+          },
+          {
+            "type": "dangerous_pattern",
+            "severity": "low",
+            "description": "完整环境变量访问",
+            "file": "src/aihawk/storage.py",
+            "lines": "39",
+            "evidence": "os.environ",
+            "owasp_category": "MCP02"
+          },
+          {
+            "type": "dangerous_pattern",
+            "severity": "low",
+            "description": "完整环境变量访问",
+            "file": "src/aihawk/storage.py",
+            "lines": "43",
+            "evidence": "os.environ",
+            "owasp_category": "MCP02"
+          },
+          {
+            "type": "dangerous_pattern",
+            "severity": "low",
+            "description": "完整环境变量访问",
+            "file": "src/aihawk/storage.py",
+            "lines": "47",
+            "evidence": "os.environ",
+            "owasp_category": "MCP02"
+          },
+          {
+            "type": "dangerous_pattern",
+            "severity": "critical",
+            "description": "越狱关键词",
+            "file": "src/aihawk/storage.py",
+            "lines": "39",
+            "evidence": "override",
+            "owasp_category": "MCP06"
+          },
+          {
+            "type": "dangerous_pattern",
+            "severity": "critical",
+            "description": "越狱关键词",
+            "file": "src/aihawk/storage.py",
+            "lines": "40",
+            "evidence": "override",
+            "owasp_category": "MCP06"
+          },
+          {
+            "type": "dangerous_pattern",
+            "severity": "critical",
+            "description": "越狱关键词",
+            "file": "src/aihawk/storage.py",
+            "lines": "41",
+            "evidence": "override",
+            "owasp_category": "MCP06"
+          },
+          {
+            "type": "dangerous_pattern",
+            "severity": "high",
+            "description": "[情报驱动] 路径遍历: 越权访问上级目录",
+            "file": "src/aihawk/storage.py",
+            "lines": "54",
+            "evidence": "../../",
+            "owasp_category": null
+          },
+          {
+            "type": "dangerous_pattern",
+            "severity": "high",
+            "description": "持久化/自启动指令",
+            "file": "src/aihawk/sessions.py",
+            "lines": "104",
+            "evidence": "persist",
+            "owasp_category": "MCP06"
+          },
+          {
+            "type": "dangerous_pattern",
+            "severity": "high",
+            "description": "无限循环风险",
+            "file": "src/aihawk/routes.py",
+            "lines": "261",
+            "evidence": "while True",
+            "owasp_category": "ASI07"
+          },
+          {
+            "type": "dangerous_pattern",
+            "severity": "high",
+            "description": "裸异常捕获并忽略",
+            "file": "src/aihawk/quiet.py",
+            "lines": "5",
+            "evidence": "except Exception: pass",
+            "owasp_category": "MCP08"
+          },
+          {
+            "type": "dangerous_pattern",
+            "severity": "high",
+            "description": "[情报驱动] 会话安全: 会话标识过短或硬编码",
+            "file": "src/aihawk/mcp/work.py",
+            "lines": "466",
+            "evidence": "Session:\n        \"\"",
+            "owasp_category": null
+          },
+          {
+            "type": "dangerous_pattern",
+            "severity": "high",
+            "description": "[情报驱动] 会话安全: 会话标识过短或硬编码",
+            "file": "src/aihawk/mcp/work.py",
+            "lines": "504",
+            "evidence": "Session:\n        \"\"",
+            "owasp_category": null
+          },
+          {
+            "type": "dangerous_pattern",
+            "severity": "low",
+            "description": "完整环境变量访问",
+            "file": "src/aihawk/mcp/session.py",
+            "lines": "18",
+            "evidence": "os.environ",
+            "owasp_category": "MCP02"
+          },
+          {
+            "type": "dangerous_pattern",
+            "severity": "low",
+            "description": "完整环境变量访问",
+            "file": "src/aihawk/mcp/server.py",
+            "lines": "75",
+            "evidence": "os.environ",
+            "owasp_category": "MCP02"
+          },
+          {
+            "type": "dangerous_pattern",
+            "severity": "low",
+            "description": "完整环境变量访问",
+            "file": "src/aihawk/mcp/server.py",
+            "lines": "612",
+            "evidence": "os.environ",
+            "owasp_category": "MCP02"
+          },
+          {
+            "type": "dangerous_pattern",
+            "severity": "low",
+            "description": "完整环境变量访问",
+            "file": "src/aihawk/mcp/server.py",
+            "lines": "616",
+            "evidence": "os.environ",
+            "owasp_category": "MCP02"
+          },
+          {
+            "type": "dangerous_pattern",
+            "severity": "critical",
+            "description": "内网/元数据地址访问(SSRF)",
+            "file": "src/aihawk/mcp/server.py",
+            "lines": "616",
+            "evidence": "127.0.0.1",
+            "owasp_category": "MCP10"
+          }
+        ],
+        "total_files": 20,
+        "patterns_checked": 236,
+        "owasp_coverage": {
+          "covered": [
+            "MCP02",
+            "MCP05",
+            "MCP06",
+            "MCP08",
+            "MCP10"
+          ],
+          "covered_count": 5,
+          "total": 10,
+          "coverage_percent": 50,
+          "categories": {
+            "MCP02": {
+              "name": "Privilege Scope Creep Leading to Escalation",
+              "name_cn": "权限范围蔓延导致提权",
+              "rules_triggered": 7,
+              "total_rules": 12
+            },
+            "MCP08": {
+              "name": "Lack of Audit & Observability",
+              "name_cn": "审计与可观测性缺失",
+              "rules_triggered": 4,
+              "total_rules": 6
+            },
+            "MCP05": {
+              "name": "Command Injection & Execution",
+              "name_cn": "命令注入与执行",
+              "rules_triggered": 3,
+              "total_rules": 24
+            },
+            "MCP10": {
+              "name": "Context Injection & Over-Sharing",
+              "name_cn": "上下文注入与过度共享",
+              "rules_triggered": 1,
+              "total_rules": 8
+            },
+            "MCP06": {
+              "name": "Intent Flow Subversion / Prompt Injection",
+              "name_cn": "意图流颠覆/上下文提示注入",
+              "rules_triggered": 5,
+              "total_rules": 14
+            }
+          }
+        },
+        "agentic_coverage": {
+          "covered": [
+            "ASI07"
+          ],
+          "covered_count": 1,
+          "total": 10,
+          "coverage_percent": 10,
+          "categories": {
+            "ASI07": {
+              "name": "Unbounded Resource Consumption",
+              "name_cn": "无限制资源消耗",
+              "rules_triggered": 1,
+              "total_rules": 6
+            }
+          }
+        }
+      },
+      "dependency_analysis": {
+        "findings": [],
+        "dependencies": [],
+        "total_dependencies": 0
+      },
+      "secrets_detection": {
+        "findings": []
+      },
+      "llm_analysis": {
+        "findings": [],
+        "analyzed": false,
+        "reason": "LLM not configured (set AISHIELD_LLM_URL and AISHIELD_LLM_KEY)"
+      },
+      "llm_supply_chain": {
+        "findings": [],
+        "analyzed": false
+      },
+      "toxic_flow_scan": [],
+      "baseline_drift": [],
+      "compliance": {
+        "frameworks": {
+          "nist_csf": {
+            "controls_hit": 8,
+            "controls": {
+              "PR.PS-01": {
+                "findings_count": 4,
+                "max_severity": "critical"
+              },
+              "DE.CM-01": {
+                "findings_count": 2,
+                "max_severity": "critical"
+              },
+              "PR.PS-04": {
+                "findings_count": 2,
+                "max_severity": "high"
+              },
+              "DE.CM-09": {
+                "findings_count": 2,
+                "max_severity": "high"
+              },
+              "DE.AE-02": {
+                "findings_count": 3,
+                "max_severity": "critical"
+              },
+              "PR.AA-05": {
+                "findings_count": 3,
+                "max_severity": "low"
+              },
+              "PR.IR-04": {
+                "findings_count": 1,
+                "max_severity": "high"
+              },
+              "PR.DS-02": {
+                "findings_count": 1,
+                "max_severity": "critical"
+              }
+            }
+          },
+          "iso27001": {
+            "controls_hit": 11,
+            "controls": {
+              "A.8.28": {
+                "findings_count": 4,
+                "max_severity": "critical"
+              },
+              "A.8.32": {
+                "findings_count": 1,
+                "max_severity": "critical"
+              },
+              "A.8.15": {
+                "findings_count": 2,
+                "max_severity": "high"
+              },
+              "A.8.16": {
+                "findings_count": 2,
+                "max_severity": "high"
+              },
+              "A.5.37": {
+                "findings_count": 3,
+                "max_severity": "critical"
+              },
+              "A.5.15": {
+                "findings_count": 3,
+                "max_severity": "low"
+              },
+              "A.8.2": {
+                "findings_count": 3,
+                "max_severity": "low"
+              },
+              "A.8.6": {
+                "findings_count": 1,
+                "max_severity": "high"
+              },
+              "A.8.14": {
+                "findings_count": 1,
+                "max_severity": "high"
+              },
+              "A.8.20": {
+                "findings_count": 1,
+                "max_severity": "critical"
+              },
+              "A.8.22": {
+                "findings_count": 1,
+                "max_severity": "critical"
+              }
+            }
+          },
+          "pci_dss": {
+            "controls_hit": 6,
+            "controls": {
+              "6.2.4": {
+                "findings_count": 4,
+                "max_severity": "critical"
+              },
+              "10.2": {
+                "findings_count": 2,
+                "max_severity": "high"
+              },
+              "7.2": {
+                "findings_count": 3,
+                "max_severity": "low"
+              },
+              "2.2": {
+                "findings_count": 1,
+                "max_severity": "high"
+              },
+              "1.2": {
+                "findings_count": 1,
+                "max_severity": "critical"
+              },
+              "11.5": {
+                "findings_count": 1,
+                "max_severity": "critical"
+              }
+            }
+          }
+        },
+        "categories_mapped": 6,
+        "findings_unmapped": 2,
+        "note": "映射为审计锚点（select-the-control），不构成合规认证结论"
+      },
+      "osv_cve": [],
+      "commit_hash": "5d14639f",
+      "recommendations": [
+        "避免直接执行用户输入的命令，使用参数化调用或白名单机制",
+        "检测到提示注入风险，建议添加输入过滤和输出检查",
+        "检测到数据外传/SSRF风险，建议审查数据流向并添加URL白名单",
+        "安全评分较低，建议进行全面安全审查后再发布"
+      ],
+      "scanned_at": "2026-09-14 16:51:24",
+      "scanner_version": "4.0",
+      "owasp_standard": "OWASP MCP Top 10 (2025 v0.1)",
+      "source": "github-search",
+      "directory_description": "Anti detect browser and web browsing agent: an open-source MCP server for undetected browsing, AI web scraping and computer use agents. No captchas.",
+      "stars": 30935
     }
   ]
 }

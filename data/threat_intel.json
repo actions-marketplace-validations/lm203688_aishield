@@ -5282,7 +5282,7 @@
       "fetched": "2026-08-04T06:34:53.913899+00:00"
     }
   ],
-  "updated": "2026-09-13T08:16:47.410868+00:00",
+  "updated": "2026-09-14T08:52:15.180429+00:00",
   "sources": [
     "osv",
     "nvd",
@@ -5301,16 +5301,16 @@
         "items": 0,
         "attempts": 1,
         "error": null,
-        "checked_at": "2026-09-13T08:16:26.193271+00:00",
+        "checked_at": "2026-09-14T08:51:54.060697+00:00",
         "consecutive_failures": 0,
         "degraded_since": null
       },
       "nvd": {
         "ok": true,
-        "items": 29,
+        "items": 28,
         "attempts": 1,
         "error": null,
-        "checked_at": "2026-09-13T08:16:44.767484+00:00",
+        "checked_at": "2026-09-14T08:52:12.669192+00:00",
         "consecutive_failures": 0,
         "degraded_since": null
       },
@@ -5319,14 +5319,14 @@
         "items": 34,
         "attempts": 1,
         "error": null,
-        "checked_at": "2026-09-13T08:16:47.410646+00:00",
+        "checked_at": "2026-09-14T08:52:15.180142+00:00",
         "consecutive_failures": 0,
         "degraded_since": null
       }
     },
     "degraded": [],
-    "last_success": "2026-09-13T08:16:47.410868+00:00",
-    "last_attempt": "2026-09-13T08:16:47.410868+00:00"
+    "last_success": "2026-09-14T08:52:15.180429+00:00",
+    "last_attempt": "2026-09-14T08:52:15.180429+00:00"
   },
   "stats": {
     "medium": 105,
