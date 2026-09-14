@@ -185,7 +185,7 @@ server.tool(
         data.summary || '',
         ``,
         `发现的问题:`,
-        ...(data.findings || []).map((f: any) => `  [${f.severity}] ${f.description}`),
+        ...(data.findings || []).map((f: any) => formatFinding(f)),
       ].join('\n');
       return { content: [{ type: 'text' as const, text: summary }] };
     } catch (e: any) {
@@ -246,7 +246,7 @@ server.tool(
       if (data.findings && data.findings.length > 0) {
         lines.push('', '── Findings ──');
         for (const f of data.findings.slice(0, 10)) {
-          lines.push(`  [${f.severity}] ${f.description} ${f.commit_sha ? '('+f.commit_sha+')' : ''}`);
+          lines.push(formatFinding(f));
         }
       }
       return { content: [{ type: 'text' as const, text: lines.join('\n') }] };
@@ -284,7 +284,7 @@ server.tool(
       if (data.findings && data.findings.length > 0) {
         lines.push('', '── Findings ──');
         for (const f of data.findings.slice(0, 10)) {
-          lines.push(`  [${f.severity}] ${f.description}`);
+          lines.push(formatFinding(f));
         }
       }
       if (data.configs && data.configs.length > 0) {
@@ -340,7 +340,7 @@ function formatScanResult(raw: any) {
       (f) => f.severity === 'critical' || f.severity === 'high'
     );
     for (const f of important.slice(0, 15)) {
-      lines.push(`  [${f.severity.toUpperCase()}] ${f.description} (${f.file})`);
+      lines.push(formatFinding(f));
     }
     if (important.length > 15) {
       lines.push(`  ... and ${important.length - 15} more`);
@@ -359,6 +359,23 @@ function formatScanResult(raw: any) {
   lines.push(`Badge: [![AIShield](https://img.shields.io/badge/AIShield-${badge}-${badge === 'gold' ? 'FFD700' : badge === 'silver' ? 'C0C0C0' : badge === 'bronze' ? 'CD7F32' : '999'})}](https://aishield.tools)`);
 
   return { content: [{ type: 'text' as const, text: lines.join('\n') }] };
+}
+
+// Helper: render a finding with a precise anchor — file:line + evidence snippet
+// + rule id. HeyClicky-style: point the user AT the exact element, don't just
+// say "you have a vulnerability". Fields are optional so it degrades gracefully
+// when a backend finding lacks them.
+function formatFinding(f: any): string {
+  const sev = String(f?.severity || 'info').toUpperCase();
+  const locParts = [f?.file, f?.lines].filter(Boolean);
+  if (f?.commit_sha) locParts.push(`commit ${String(f.commit_sha).slice(0, 8)}`);
+  const loc = locParts.join(':');
+  let s = `  [${sev}] ${f?.description || '(no description)'}`;
+  if (loc) s += `  @ ${loc}`;
+  const rule = f?.type || f?.rule_id;
+  if (rule) s += `  [${rule}]`;
+  if (f?.evidence) s += `\n      ↳ ${String(f.evidence).slice(0, 160)}`;
+  return s;
 }
 
 // ── Start ──

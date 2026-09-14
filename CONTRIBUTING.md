@@ -64,6 +64,15 @@ AIShield 的核心是安全规则库。你可以：
 - 在社交媒体分享 AIShield
 - 在 Awesome MCP Servers 列表中推荐我们
 
+### 6. 范围纪律（Scope Discipline）
+
+借鉴 heyclicky 的 `AGENTS.md` 约定——**大代码库里 churn 比 bug 更贵**：
+
+- **不擅自加超出请求范围的功能或重构。** 只做被明确要求的改动；想扩功能先提 issue / 讨论。
+- 改动保持最小可用（MVP），避免顺手「顺带」重构不相关的模块。
+- 任何新能力都要说明它在「检测→动作→验证→告警」闭环中的位置，否则是半成品。
+- 详见 [`AGENTS.md`](./AGENTS.md) 的核心不变量与贡献约定。
+
 ## 贡献者权益
 
 - 高质量贡献者将获得 GitHub 仓库的 Triage 权限
