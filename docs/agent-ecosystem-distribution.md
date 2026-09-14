@@ -88,7 +88,23 @@
 
 ---
 
-## §1 平台版图实测表（2026-08-15，2026-08-17 复核，**2026-08-22 重大纠正**，**2026-08-24 重大威胁补充**，**2026-08-31 4.3.0 上线 + drift 修复**，**2026-09-07 品牌劫持升级 + 竞品 3.1.0**）
+## 周报 2026-09-14（自动巡检 · 1 项重大威胁：直接竞品 sinewaveai 3.1→3.5.x 重大功能跃迁；品牌面无扩张）
+
+> 本周主线：**直接竞品 `agent-security-scanner-mcp`(sinewaveai) 在 7 天内从 3.1.0 跃迁至 3.5.2**（新增幻觉包检测 4.3M+ 包/7 生态、98% token 优化、Flask taint 规则），但**其 Official MCP Registry 条目仍卡在 2.0.1**（我们 4.3.0 已 current）→ 我们在 agent 原生发现面反而比它"新鲜"。品牌面（aishield.ai / LobeHub 劫持 / himcp / ClawHub squat）全部 status-quo，无新渠道扩张、无新同名 squat。
+
+- 🟡 **[重大·直接竞品加速]** `agent-security-scanner-mcp`(sinewaveai) **3.1.0 → 3.5.2**（npm / mcp.so / LobeHub 已上架）。相比 09-07 记录的 3.1.0 新增：① **幻觉包检测全量打包 7 生态（npm/PyPI/RubyGems/crates.io/pub.dev/CPAN/raku，4.3M+ 包）**；② **verbosity 参数 98% token 压缩**（minimal ~50 token）；③ Flask SQLi/命令注入/路径穿越/模板注入 taint 规则；④ 仍含 1700+ 规则 / AST+taint / 自动修复 / SARIF 2.1.0。**⚠️ 但其 Official MCP Registry 仍显示 2.0.1 isLatest（滞后 3 个版本）→ 反衬我们 4.3.0 在该 agent 原生发现面更"新鲜"，是差异化叙事的可利用杠杆。** 净判断：竞品在"代码扫描+自动修复+SAST 闭环"上继续拉开身位，我们的护城河必须坚定上移**机器可结算认证(x402)+持续鉴证 attestation** 这两层它没做透的层。
+- 🟠 **[常规·新企业级入场]** ① **Tenable + OpenAI CyberAgents Exchange AI Inspector**（09-03）：用 GPT 网络模型 + Tenable One + 人工复核做三层 vetting gate，挂在 08 月新开的 CyberAgents Exchange registry 上 → 验证"agent 原生信任发现层"是真实需求；② **Protectt.ai MCP Security Solution**（09-07）：企业 BFSI，Scan/Test/Protect 三阶段，映射 OWASP MCP Top 10。二者均为企业/商业路线，非直接 OSS 竞品，但持续为赛道加热、稀释"本地"差异。
+- 🟠 **[常规·新本地小玩家]** **Shield Scanner**(nisake/shield-scanner) 上 LobeHub：浏览器端 prompt-injection / 隐藏指令 / 混淆载荷扫描器（MCP server + 单文件 web app），覆盖 Unicode 不可见字符、同形异义字、PDF/Office metadata smuggling、MCP 工具描述符投毒（OWASP MCP03）→ 与我们的 prompt-injection 面正面重叠，监控项。
+- 🟢 **[我们·线上健康]** aishield.tools `GET /api/v1/health` → **4.3.0 / rules_count 236**（210 静态+9 情报+17 雷达，较 09-07 的 228 +8）/ commit `566d8dc` / deployed 2026-09-13T08:23Z；`.well-known/mcp/server-card.json` 4.3.0 / 227+233 / 工具名正确；Official MCP Registry `io.github.lm203688/aishield` **4.3.0 isLatest=true active**；npm `aishield-mcp-server` latest **4.3.0**；Glama 复测仍 live（227/233，local-first 文案清晰）。
+- 🔴 **[持续·品牌劫持未变]** LobeHub `aishield-ai/aishield` 仍 **2.1.0 / Updated 2026-08-31 / Unvalidated**，其 Packages 区**仍把所有包 + GitHub Action `aishield/audit@v1` + Claude Skill 链接到 `github.com/lm203688/aishield`（我们的仓库）**，`npx aishield-mcp` 仍 404 → 冒用劫持自 09-07 起未变（已 09-13 升级为 🔴 跨项目条目，本周无新事件故不重复升级）。`aishield.ai` 首页仍 Atom 待售 $19,495；himcp.cn 仍 Not Found → 无新渠道扩张。
+- ⚠️ **[持续·npm README drift]** 4.3.0 的 npm README 仍写「201 local rules / Total 215(MCP)·221(Skill)」，与真相 227/233（后端 236）不符（低估且内部自相矛盾）→ 下次发版同步（AI 不代改）。
+- ℹ️ **[持续·ClawHub squat 稳定]** `ai-shield-audit`(LaurentAIA) 仍在，跨 clawhub.ai / clawbox.com(€579) / clawbox.tech(€549，3.5★) / openclawskills；v1.0.0 / Updated 5/17/2026。本周**未发现新的 aishield 同名 squat**。
+
+**行动建议（用户侧，AI 不代发/不代提）**：① 借"我们 Registry 4.3.0 比竞品 2.0.1 更 current"做 agent-native 露出，强化 aishield 干净品牌锚点；② 守夜/竞争情报已持续 09-07→09-13 升级 🔴 品牌劫持条目，待用户在 LobeHub 提申诉；③ 防御性抢注 npm `aishield-mcp`（仍 404 空闲）；④ 差异化坚定上移「x402 机器可结算认证 + attestation 持续鉴证」；⑤ 下次发版同步 npm README 到 227/233。
+
+---
+
+## §1 平台版图实测表（2026-08-15，2026-08-17 复核，**2026-08-22 重大纠正**，**2026-08-24 重大威胁补充**，**2026-08-31 4.3.0 上线 + drift 修复**，**2026-09-07 品牌劫持升级 + 竞品 3.1.0**，**2026-09-14 竞品 3.5.x + 企业级新入场 + 品牌面无扩张**）
 
 | 平台 | 我们的状态 | 提交方式 | 门槛 | 优先级 | 备注 / 证据 |
 |---|---|---|---|---|---|
@@ -130,6 +146,7 @@
 - 🔴 **2026-08-17 新信号**：直接访问 `aishield.ai` 首页返回「Premium Domain For Sale」（Atom 域名出售页）。品牌或处于出售/动荡期；但其 marketplace 列表仍指向在线 API，产品应仍在运行。若域名确在出售，**回收 `aishield.ai` 品牌域名是低成本消除同名混淆的潜在杠杆**——需用户评估（AI 不代购）。
 - 🔴 **2026-08-24 跟踪**：`aishield.ai` 首页**仍为「Premium Domain For Sale」（Atom）**，品牌动荡延续。其 LobeHub 条目升至 **`AIShield 2.1.0`**，仍标「Local Service / 仅客户端本地设备运行」、`npx aishield-mcp` 安装指令（该 npm 包仍 404 不存在）。**himcp.cn 本周实测 Not Found**（2026-08-17 曾上架）→ 疑似渠道收缩或 URL 变更。净判断：无干净新扩张，但「本地叙事劫持 + 域名待售」的混淆组合仍在持续，回收 `aishield.ai` 域名仍是低成本消除同名混淆的杠杆（待用户评估，AI 不代购）。
 - 🔴 **2026-08-31 跟踪**：`aishield.ai` 首页**仍为 Atom「Premium Domain For Sale」**（WebFetch 确认内容未变）；curl 直连现返回 Cloudflare 挑战页（域名现已置于 CF 后，疑为 Atom 自身 CDN 保护），不影响「待售」结论。LobeHub `aishield-ai/aishield` **仍为 2.1.0**、标「Local Service / 本地」、`npx aishield-mcp` 指令（npm 包仍 404）。**himcp.cn 仍 Not Found**。→ 连续两周无渠道扩张，「待售 + 本地叙事劫持」组合未升级，但回收域名杠杆仍成立（待用户评估，AI 不代购）。
+- 🔴 **2026-09-14 跟踪**：`aishield.ai` 首页**仍为 Atom「Premium Domain For Sale」（$19,495）**；LobeHub `aishield-ai/aishield` 仍 **2.1.0 / Updated 2026-08-31 / Unvalidated**，其 Packages 区**仍把 `aishield-mcp`/`aishield-guardrail`/`aishield`(PyPI)/GitHub Action `aishield/audit@v1`/Claude Skill 全部链接到 `github.com/lm203688/aishield`（我们的仓库）**——品牌劫持状态自 09-07 起未变（09-13 已升级为 🔴 跨项目条目）；`npx aishield-mcp` 仍 404。**himcp.cn 仍 Not Found** → 本周无新渠道扩张，域名待售+本地叙事劫持组合持续。
 
 ### 2.2 ClawHub `ai-shield-audit` squatting
 - `clawhub/ai-shield-audit`（laurentaia）OpenClaw 安全审计，81/100、社区验证、144K 安装。
@@ -172,6 +189,16 @@
 - 🔴 **agent-security-scanner-mcp (sinewaveai) 发 3.1.0（重大版本）** — 约 2026-09-06 发布，mcp.so / mdskills.ai 已上架（「Published 19 hours ago」），但 **Official MCP Registry 仍显示 2.0.1 isLatest（未同步，滞后）**。相比 2.0.1 能力大扩张：**1700+ 规则 / 12 语言 tree-sitter AST + taint 分析**、幻觉包检测（4.3M+ 包跨 7 生态：npm/PyPI/RubyGems/crates.io/pub.dev/CPAN/Raku）、prompt injection **56 规则**、**自动修复（fix_security，120 模板）**、**SARIF 2.1.0 对接 GitHub Advanced Security / GitLab SAST**、CWE/OWASP 元数据。→ 直接竞品已补上「自动修复 + 企业 SAST 闭环」，正面对冲我们的「内容安全平面 + 主动治理（kill switch/持续鉴证）」楔子。**差异化必须从「内容安全平面 + 主动治理」进一步上移到竞品没做透的两层：① 机器可结算认证（x402 支付/凭证）② 持续鉴证 attestation（kill switch / 不可篡改审计链）**。另：mcp.so 出现 `agent-security-scanner-mcp/Prooflayer` 分叉 → 碎片化加剧，反衬「aishield」干净品牌资产价值。
 - 🟠 **新晋小竞品（监控项）** — dev.to 综述（2026-09）曝：① **Shrike MCP**（Shrike-Security/shrike-mcp）：agent 循环运行时扫描 prompt/response/SQL/file write/shell/web search/agent-to-agent 消息，工具化（agent 可调用而非透明代理）；② **MCP Injection Guard**（Hosein-Abdollahi/mcp-injection-guard）：provenance/taint 追踪（非正则）， Untrusted fetch 内容打标，副作用动作（邮件/写文件/shell）在参数溯源到 tainted 源时阻断；③ **MCP-Guard**（GenTelLab/MCP-Guard）：对抗性 MCP prompt 基准 + ACL 2026 论文。均小而专，未上 Registry，作监控项。
 - ℹ️ **不变项复测（2026-09-07）**：Registry 我们 `io.github.lm203688/aishield` 仍 **4.3.0 isLatest=true active**；`mcp-audit` 命名空间 **仍为 count=14**（无新 entrant）；Sunglasses / NVIDIA SkillSpector / mcp-audit-scanner 等仍未上 Registry（search 0 命中）。
+
+#### 2026-09-14 竞品更新（直接竞品 3.5.x 重大跃迁 + 企业级新入场 + 新本地小玩家）
+
+> 本周竞品密度再升，且直接竞品 sinewaveai 在 7 天内 3.1.0→3.5.2 加速发货；但其在 Official MCP Registry 的条目仍卡 2.0.1（我们 4.3.0 已 current）——agent 原生发现面我们反而更"新鲜"。差异化须坚定上移至 **机器可结算认证(x402) + 持续鉴证 attestation**。
+
+- 🟡 **agent-security-scanner-mcp (sinewaveai) 3.1.0 → 3.5.2（重大功能跃迁）** — 09-07 记录为 3.1.0，本周 npm/mcp.so/LobeHub 已 **3.5.2**；新增：幻觉包检测全量打包 **7 生态（npm/PyPI/RubyGems/crates.io/pub.dev/CPAN/raku.land，4.3M+ 包）**、**verbosity 参数 98% token 压缩**（minimal ~50 token）、Flask taint 规则（SQLi/命令注入/路径穿越/模板注入）；仍含 1700+ 规则 / 12 语言 AST+taint / 自动修复(120 模板) / SARIF 2.1.0。→ 在"代码扫描+自动修复+SAST 闭环"上继续拉开身位。**⚠️ 但其 Official MCP Registry 仍显示 2.0.1 isLatest（滞后 3 个版本）→ 我们在该 agent 原生发现面比它更 current，是差异化叙事可利用杠杆。** 净判断：我们的护城河必须坚定上移它没做透的两层——① 机器可结算认证(x402 支付/凭证) ② 持续鉴证 attestation(kill switch/不可篡改审计链)。
+- 🟠 **Tenable + OpenAI CyberAgents Exchange AI Inspector（09-03，企业级新入场）** — Tenable 与 OpenAI 在 CyberAgents Exchange（2026-08 新开 registry）上共建 vetting gate：GPT 网络模型 + Tenable One AI Exposure + 人工复核三层，审 MCP server/agent/skill。验证"agent 原生信任发现层"是真实需求，且将由大厂背书 → 我们干净品牌 + 机器可结算认证叙事正逢其时。
+- 🟠 **Protectt.ai MCP Security Solution（09-07，企业级新入场）** — 企业 BFSI 路线，Scan/Test/Protect 三阶段，映射 OWASP MCP Top 10，含 MCP Proxy 内联安全层(SIEM 兼容)。商业路线，非直接 OSS 竞品，但持续加热赛道。
+- 🟠 **Shield Scanner (nisake/shield-scanner)（新本地小玩家，已上 LobeHub）** — 浏览器端 prompt-injection / 隐藏指令 / 混淆载荷扫描器（MCP server + 单文件 web app），覆盖不可见 Unicode / 同形异义字 / PDF·Office metadata smuggling / 编码载荷 / **MCP 工具描述符投毒(OWASP MCP03)**；与我们的 prompt-injection / 零宽字符面正面重叠 → 监控项。
+- ℹ️ **不变项复测（2026-09-14）**：Registry 我们 `io.github.lm203688/aishield` 仍 **4.3.0 isLatest=true active**；直接竞品 agent-security-scanner-mcp Registry 仍 **2.0.1**（npm/mcp.so/LobeHub 已 3.5.2，Registry 滞后）；`mcp-audit` 命名空间仍为 **count=14**；Sunglasses / NVIDIA SkillSpector / mcp-audit-scanner 等仍未上 Registry（search 0 命中）；ClawHub `ai-shield-audit` squat 仍在但无新 aishield 同名 squat。
 
 ---
 
