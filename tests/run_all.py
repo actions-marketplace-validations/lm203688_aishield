@@ -58,6 +58,8 @@ def main():
         'tests.test_radar_effect',
         'tests.test_digest_window',
         'tests.test_stale_exemptions',
+        'tests.test_finding_anchor',
+        'tests.test_isolation_invariants',
     ]
 
     loaded = 0
