@@ -61,6 +61,7 @@ def main():
         'tests.test_finding_anchor',
         'tests.test_isolation_invariants',
         'tests.test_sync_version_targets',
+        'tests.test_no_hardcoded_cf_token',
     ]
 
     loaded = 0

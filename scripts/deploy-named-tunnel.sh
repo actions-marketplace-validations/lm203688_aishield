@@ -17,7 +17,12 @@ log "Time: $(date)"
 log "User: $(whoami) (UID: $(id -u))"
 
 # ========== 配置 ==========
-CF_API_TOKEN=$(echo 'Y2Z1dF9Nb2hJTlhSTFBpaWQ2cHpDZUJuOVZCVUxxZWdvR29sSmVESEFwZDR1YWE1NDM5ZGI=' | base64 -d)
+# 【2026-09-15】CF token 不再硬编码。此前这里 inline 解码一个 base64 token，
+# 本仓库是 public 的 —— 等于把 aishield.tools 的 Zone Read + DNS Records Edit
+# + Zone Settings Edit 公开给所有人（足以劫持 CNAME 指向攻击者服务器）。
+# 改为运行期解析：env $CF_TUNNEL_TOKEN -> /root/.aishield/cf-token。
+# 后者由 .github/workflows/install-cf-token.yml 一次性写入（chmod 600）。
+[ -f "$(dirname "$0")/cf-token-loader.sh" ] && . "$(dirname "$0")/cf-token-loader.sh"
 CF_ZONE_ID='7625fc8ab719b3974e12aa2b6bf25489'
 TUNNEL_NAME='aishield-tunnel'
 CERT_FILE='/root/.cloudflared/cert.pem'
@@ -249,6 +254,18 @@ if [ -f "$CERT_FILE" ]; then
     TUNNEL_MODE="cert"
 else
     log "cert.pem 不存在，尝试 API 方式..."
+
+    # API 方式需要 CF token；cert.pem 模式完全不需要（走 cloudflared CLI）。
+    # 注意必须用 `if ! load_cf_token` 判空：本脚本是 set +e，裸调用会把
+    # "没有 token"静默吞掉，然后拿空 Authorization 头连续 curl Cloudflare。
+    if ! load_cf_token; then
+        log "WARN: 无 CF API token（env \$CF_TUNNEL_TOKEN 与 ${CF_TOKEN_FILE} 均缺）。"
+        log "       cert.pem 也不存在，无法创建 Named Tunnel —— 中止。"
+        log "       修复：GitHub Secrets 添加 CF_TUNNEL_TOKEN，再运行"
+        log "       Actions → install CF token to VPS（docs/cf-token-rotation.md）。"
+        exit 2
+    fi
+    log "CF token 来源: $(cf_token_source)"
 
     # 获取 Account ID
     ZONE_INFO=$(curl -s "https://api.cloudflare.com/client/v4/zones/$CF_ZONE_ID" \
