@@ -109,12 +109,9 @@ TARGETS: List[Tuple[str, str, str]] = [
     # 公开静态面 / 生态清单自报版本 —— 此前不在门禁内，于是长期停在 4.2.2
     # 而 npm / registry 已是 4.3.0（2026-09-15 规则数 sweep 时才发现）。
     # 每个声明位锚点不同，同一文件多处需各自一条（count=1 只替换首个命中）。
-    ("aishield_home.html",
-     r'("softwareVersion": ")([^"]+)(")',
-     r"\g<1>{v}\g<3>"),
-    ("aishield_home.html",
-     r'(<span>AIShield v)([0-9.]+)',
-     r"\g<1>{v}"),
+    # 注意：只登记「仓库内真实存在」的文件。`aishield_home.html` 是根目录下一份
+    # 未被引用的重复副本、不在仓库中——登记它会让 CI 因「文件不存在」而误判版本
+    # 不一致（2026-09-15 实测：本地有、CI 无 → 本地绿而 CI 红）。
     ("api/static/index.html",
      r'("softwareVersion": ")([^"]+)(")',
      r"\g<1>{v}\g<3>"),

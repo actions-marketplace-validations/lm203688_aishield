@@ -60,6 +60,7 @@ def main():
         'tests.test_stale_exemptions',
         'tests.test_finding_anchor',
         'tests.test_isolation_invariants',
+        'tests.test_sync_version_targets',
     ]
 
     loaded = 0
