@@ -1,6 +1,90 @@
 {
   "intel": [
     {
+      "id": "CVE-2026-73497",
+      "source": "nvd",
+      "severity": "medium",
+      "cvss": 6.5,
+      "title": "MCP Atlassian is a Model Context Protocol (MCP) server for Atlassian products (Confluence and Jira). From 0.17.0 until 0.22.0, validate_url_for_ssrf resolves the attacker-controlled X-Atlassian-Jira-U",
+      "summary": "MCP Atlassian is a Model Context Protocol (MCP) server for Atlassian products (Confluence and Jira). From 0.17.0 until 0.22.0, validate_url_for_ssrf resolves the attacker-controlled X-Atlassian-Jira-Url and X-Atlassian-Confluence-Url header host once at middleware time, but the outbound request is built with the raw hostname and resolves it again at connection time with no IP pinning. An attacker-controlled DNS-rebinding name can return a public IP during validation and 169.254.169.254 or anothe",
+      "affected": "model context protocol",
+      "references": [
+        "https://github.com/sooperset/mcp-atlassian/commit/b041733473f95119dd539542a43c280737a8e460",
+        "https://github.com/sooperset/mcp-atlassian/pull/1448",
+        "https://github.com/sooperset/mcp-atlassian/releases/tag/v0.22.0",
+        "https://github.com/sooperset/mcp-atlassian/security/advisories/GHSA-489g-7rxv-6c8q"
+      ],
+      "published": "2026-09-14T20:16:50.993",
+      "fetched": "2026-09-15T08:41:33.455578+00:00"
+    },
+    {
+      "id": "CVE-2026-73496",
+      "source": "nvd",
+      "severity": "high",
+      "cvss": 7.7,
+      "title": "MCP Atlassian is a Model Context Protocol (MCP) server for Atlassian products (Confluence and Jira). Prior to 0.22.0, the confluence_upload_attachment and confluence_upload_attachments tools pass a cl",
+      "summary": "MCP Atlassian is a Model Context Protocol (MCP) server for Atlassian products (Confluence and Jira). Prior to 0.22.0, the confluence_upload_attachment and confluence_upload_attachments tools pass a client-controlled file_path through src/mcp_atlassian/confluence/attachments.py upload_attachment, and the jira_update_issue attachments parameter reaches src/mcp_atlassian/jira/attachments.py upload_attachment, without confining either path to an approved server workspace. In a remote HTTP, SSE, or m",
+      "affected": "model context protocol",
+      "references": [
+        "https://github.com/sooperset/mcp-atlassian/commit/b041733473f95119dd539542a43c280737a8e460",
+        "https://github.com/sooperset/mcp-atlassian/pull/1448",
+        "https://github.com/sooperset/mcp-atlassian/releases/tag/v0.22.0",
+        "https://github.com/sooperset/mcp-atlassian/security/advisories/GHSA-wm45-qh3g-v83f"
+      ],
+      "published": "2026-09-14T20:16:50.833",
+      "fetched": "2026-09-15T08:41:33.455575+00:00"
+    },
+    {
+      "id": "CVE-2026-55837",
+      "source": "nvd",
+      "severity": "medium",
+      "cvss": 6.8,
+      "title": "dbt-mcp is a Model Context Protocol server for interacting with dbt. Prior to 1.20.0, the local OAuth helper in src/dbt_mcp/oauth/fastapi_app.py exposes GET /dbt_platform_context without authenticatio",
+      "summary": "dbt-mcp is a Model Context Protocol server for interacting with dbt. Prior to 1.20.0, the local OAuth helper in src/dbt_mcp/oauth/fastapi_app.py exposes GET /dbt_platform_context without authentication or Host validation after a user completes the dbt Platform OAuth flow. The endpoint returns the full DbtPlatformContext, including access_token and refresh_token values persisted by the context manager, to any process that can reach 127.0.0.1:6785. The absence of TrustedHostMiddleware allows a rem",
+      "affected": "model context protocol",
+      "references": [
+        "https://github.com/dbt-labs/dbt-mcp/commit/b8bdb40f90ed29f6b36176c5f6c697aa27a035a9",
+        "https://github.com/dbt-labs/dbt-mcp/pull/789",
+        "https://github.com/dbt-labs/dbt-mcp/releases/tag/v1.20.0",
+        "https://github.com/dbt-labs/dbt-mcp/security/advisories/GHSA-jr33-mw75-7j8f"
+      ],
+      "published": "2026-09-14T17:17:48.547",
+      "fetched": "2026-09-15T08:41:33.455573+00:00"
+    },
+    {
+      "id": "CVE-2026-57145",
+      "source": "nvd",
+      "severity": "critical",
+      "cvss": 9.1,
+      "title": "PraisonAI is a multi-agent teams system. Prior to 4.6.62, src/praisonai/praisonai/tools/multiedit.py passes the LLM-controlled filepath parameter directly to open for reading and writing without trave",
+      "summary": "PraisonAI is a multi-agent teams system. Prior to 4.6.62, src/praisonai/praisonai/tools/multiedit.py passes the LLM-controlled filepath parameter directly to open for reading and writing without traversal rejection, symlink resolution, a workspace boundary, or protected-path checks. Prompt-influenced agents can read files through edit and diff behavior or overwrite files accessible to the process, exposing secrets and enabling persistence or application tampering. This issue is fixed in 4.6.62.",
+      "affected": "llm agent",
+      "references": [
+        "https://github.com/MervinPraison/PraisonAI/commit/2a855c470077c7d2e2479a575f7ef7f548d51c33",
+        "https://github.com/MervinPraison/PraisonAI/releases/tag/v4.6.62",
+        "https://github.com/MervinPraison/PraisonAI/security/advisories/GHSA-29w3-p9w9-wc47"
+      ],
+      "published": "2026-09-14T16:17:15.017",
+      "fetched": "2026-09-15T08:41:39.837775+00:00"
+    },
+    {
+      "id": "CVE-2026-57130",
+      "source": "nvd",
+      "severity": "high",
+      "cvss": 8.1,
+      "title": "PraisonAI is a multi-agent teams system. Prior to praisonaiagents 1.6.59, src/praisonai-agents/praisonaiagents/tools/email_tools.py interpolates LLM-controlled from_addr, subject, and query values dir",
+      "summary": "PraisonAI is a multi-agent teams system. Prior to praisonaiagents 1.6.59, src/praisonai-agents/praisonaiagents/tools/email_tools.py interpolates LLM-controlled from_addr, subject, and query values directly into quoted IMAP SEARCH criteria. Embedded quote, backslash, newline, or null characters can escape the intended criterion and alter IMAP operations when search_emails, reply_email, or archive_email is exposed to an agent with configured email credentials, allowing mailbox data access, modific",
+      "affected": "llm agent",
+      "references": [
+        "https://github.com/MervinPraison/PraisonAI/commit/b4270173d4123fb1ee8910588f0896668ee21b59",
+        "https://github.com/MervinPraison/PraisonAI/releases/tag/v4.6.59",
+        "https://github.com/MervinPraison/PraisonAI/security/advisories/GHSA-c969-5x3p-vq3v",
+        "https://github.com/MervinPraison/PraisonAI/security/advisories/GHSA-c969-5x3p-vq3v"
+      ],
+      "published": "2026-09-14T15:17:06.453",
+      "fetched": "2026-09-15T08:41:39.837772+00:00"
+    },
+    {
       "id": "GHSA-8wqc-v2q8-vff2",
       "source": "github-advisory",
       "severity": "medium",
@@ -5282,7 +5366,7 @@
       "fetched": "2026-08-04T06:34:53.913899+00:00"
     }
   ],
-  "updated": "2026-09-14T08:52:15.180429+00:00",
+  "updated": "2026-09-15T08:41:48.817048+00:00",
   "sources": [
     "osv",
     "nvd",
@@ -5301,16 +5385,16 @@
         "items": 0,
         "attempts": 1,
         "error": null,
-        "checked_at": "2026-09-14T08:51:54.060697+00:00",
+        "checked_at": "2026-09-15T08:41:27.053011+00:00",
         "consecutive_failures": 0,
         "degraded_since": null
       },
       "nvd": {
         "ok": true,
-        "items": 28,
+        "items": 33,
         "attempts": 1,
         "error": null,
-        "checked_at": "2026-09-14T08:52:12.669192+00:00",
+        "checked_at": "2026-09-15T08:41:45.838023+00:00",
         "consecutive_failures": 0,
         "degraded_since": null
       },
@@ -5319,22 +5403,22 @@
         "items": 34,
         "attempts": 1,
         "error": null,
-        "checked_at": "2026-09-14T08:52:15.180142+00:00",
+        "checked_at": "2026-09-15T08:41:48.816800+00:00",
         "consecutive_failures": 0,
         "degraded_since": null
       }
     },
     "degraded": [],
-    "last_success": "2026-09-14T08:52:15.180429+00:00",
-    "last_attempt": "2026-09-14T08:52:15.180429+00:00"
+    "last_success": "2026-09-15T08:41:48.817048+00:00",
+    "last_attempt": "2026-09-15T08:41:48.817048+00:00"
   },
   "stats": {
-    "medium": 105,
-    "high": 172,
-    "critical": 47,
+    "medium": 107,
+    "high": 174,
+    "critical": 48,
     "low": 5,
     "unknown": 30,
     "moderate": 1
   },
-  "total": 360
+  "total": 365
 }
