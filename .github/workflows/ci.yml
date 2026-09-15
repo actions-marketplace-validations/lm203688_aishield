@@ -338,28 +338,48 @@ jobs:
       - uses: actions/github-script@v7
         with:
           script: |
+            // GitHub API 偶发 5xx / 429：一次失败就静默丢告警。2026-09-15 实测
+            // 一次 HTTP 500 就让 0b456de8 的真实 CI 失败无人收到通知（job 自身
+            // 却报 failed）。指数退避重试，只在 5xx / 限流类错误上重试。
+            async function withRetry(fn, label, tries = 4) {
+              for (let i = 1; i <= tries; i++) {
+                try {
+                  return await fn();
+                } catch (e) {
+                  const status = (e && e.status) || 0;
+                  const retryable = status >= 500 || status === 429 || status === 403;
+                  if (i === tries || !retryable) throw e;
+                  console.warn(`⚠️ ${label} 第 ${i} 次失败（HTTP ${status}），退避后重试`);
+                  await new Promise(r => setTimeout(r, 2000 * i));
+                }
+              }
+            }
+
             const url = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
             // 标题不含 run id：否则每次失败都是"新标题"，去重永远不命中，
             // 于是每小时的红 CI 会堆出每小时一个新 issue。
             const title = '❌ AIShield CI 失败（持续告警）';
-            const { data: issues } = await github.rest.issues.listForRepo({
-              owner: context.repo.owner, repo: context.repo.repo, state: 'open', per_page: 100
-            });
+            const issues = await withRetry(async () => {
+              const { data } = await github.rest.issues.listForRepo({
+                owner: context.repo.owner, repo: context.repo.repo, state: 'open', per_page: 100
+              });
+              return data;
+            }, 'list open issues');
             const existing = issues.find(i => i.title === title && !i.pull_request);
             if (existing) {
-              await github.rest.issues.createComment({
+              await withRetry(async () => github.rest.issues.createComment({
                 owner: context.repo.owner, repo: context.repo.repo,
                 issue_number: existing.number,
                 body: `run ${context.runId} (${context.eventName} @ ${context.sha.slice(0,7)}) 失败：${url}`
-              });
+              }), 'append comment');
               console.log(`已追评到 issue #${existing.number}`);
               return;
             }
-            await github.rest.issues.create({
+            await withRetry(async () => github.rest.issues.create({
               owner: context.repo.owner, repo: context.repo.repo, title,
               body: `CI 流水线在 run ${context.runId} 失败，请查看：\n${url}\n\n后续失败会追加评论到本 issue。修复后请关闭。`,
               labels: ['ci','alert','automated']
-            });
+            }), 'create alert issue');
             console.log('已创建 CI 失败告警 issue');
 
   # ── 恢复即关闭：CI 成功时关掉历史失败告警 ────────────────────────────
@@ -377,22 +397,40 @@ jobs:
       - uses: actions/github-script@v7
         with:
           script: |
+            // 与告警侧对称：5xx 一次失败就让已恢复的告警 issue 长期挂着。
+            async function withRetry(fn, label, tries = 4) {
+              for (let i = 1; i <= tries; i++) {
+                try {
+                  return await fn();
+                } catch (e) {
+                  const status = (e && e.status) || 0;
+                  const retryable = status >= 500 || status === 429 || status === 403;
+                  if (i === tries || !retryable) throw e;
+                  console.warn(`⚠️ ${label} 第 ${i} 次失败（HTTP ${status}），退避后重试`);
+                  await new Promise(r => setTimeout(r, 2000 * i));
+                }
+              }
+            }
+
             const title = '❌ AIShield CI 失败（持续告警）';
-            const { data: issues } = await github.rest.issues.listForRepo({
-              owner: context.repo.owner, repo: context.repo.repo, state: 'open', per_page: 100
-            });
+            const issues = await withRetry(async () => {
+              const { data } = await github.rest.issues.listForRepo({
+                owner: context.repo.owner, repo: context.repo.repo, state: 'open', per_page: 100
+              });
+              return data;
+            }, 'list open issues');
             const existing = issues.find(i => i.title === title && !i.pull_request);
             if (!existing) {
               console.log('无开启中的 CI 失败告警，无需关闭');
               return;
             }
-            await github.rest.issues.createComment({
+            await withRetry(async () => github.rest.issues.createComment({
               owner: context.repo.owner, repo: context.repo.repo,
               issue_number: existing.number,
               body: `✅ CI 已恢复（run ${context.runId} @ ${context.sha.slice(0,7)}），自动关闭本告警。`
-            });
-            await github.rest.issues.update({
+            }), 'append comment');
+            await withRetry(async () => github.rest.issues.update({
               owner: context.repo.owner, repo: context.repo.repo,
               issue_number: existing.number, state: 'closed', state_reason: 'completed'
-            });
+            }), 'close issue');
             console.log(`已自动关闭 CI 失败告警 issue #${existing.number}`);
