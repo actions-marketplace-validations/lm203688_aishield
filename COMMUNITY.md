@@ -31,7 +31,7 @@
 1. 复验 Official MCP Registry 上架状态（避免「已发布」误判）。
 2. 建 `lm203688/aishield-action` 独立仓，打通 GitHub Marketplace。
 3. 每新增一个上架渠道，更新本表 + `distribution/published.json` 台账。
-4. **发布 TeamAI hook + CocoLoop listing**（资产已就绪，需账号操作）。
-5. **规则数基线已变为 238 MCP / 244 Skill**（2026-09-15 晋升 2 条 RSI L5 规则）；分散在各营销/品牌文档中的旧值 227/233 待统一 sweep（见 `MEMORY.md`）。
+4. **CocoLoop 上架**：文案已就绪，**等用户注册账号**（手机/微信 OTP）后在「社区投稿」入口粘贴 `distribution/cocoloop/LISTING.md`。TeamAI 无需账号，`teamai.yaml` 已在册。
+5. ✅ **规则数 drift 已 sweep（2026-09-15）**：基线 **238 MCP / 244 Skill**（含 2 条 RSI L5 规则）。37 个 live 面（README / `api/server.py` 元数据 / `api/static/*` 静态页 / `docs/*` GEO 资产 / registry / discovery 文件）已统一为 238/244，静态页版本号 4.2.2→4.3.0。带日期的历史报告（`eco/reports/`、`docs/intel/`、`_scan_*`、`docs/agent-ecosystem-distribution.md`、`raw_verify.md`）**刻意保留原值**，改之等于篡改史实。
 
 > 渠道状态以一手复验为准（curl / RDAP / 页面实测），不凭记忆。

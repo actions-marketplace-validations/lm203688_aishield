@@ -44,8 +44,8 @@
 ### 2.1 adopt（应集成 / 分发 / 借鉴）
 
 **分发渠道（最高杠杆、最低成本）**
-- **CocoLoop 商店**：国内最大 OpenClaw 技能商店（1.3 万–4.7 万 skills），所有上架技能强制过 CLS 安全认证。AIShield 可作为「认证工具 / 安全类技能」上架，触达海量 agent 用户。
-- **TeamAI hub**：腾讯开源，把 skills/rules/hooks/MCP 经 Git + MR 审核分发到 Claude Code / Codex / Cursor / **WorkBuddy** / Qoder 等 11 种 agent。AIShield 可作为 teamai 托管的 skill + 一个 `block-unscanned-skill` hook 分发（草稿见 `distribution/teamai/`）。
+- **CocoLoop 商店**：**当贝**旗下的 OpenClaw 技能商店（**2026-03-19 上线**；收录规模官方口径不一——站点实测 5000+，部分第三方称 1.3 万–4.7 万）。所有上架技能强制过 **CLS + BSS** 安全审核并给 **S+/S/A/B/C/D** 评级，另提供 VM 级隔离执行。⚠️ 同赛道竞品 **SkillScan**（`/skills/7590`，A 级，"Skill 安全准入网关"）**已在架**。AIShield 可作为「安全类技能」上架（**注册需手机/微信 OTP，须用户本人完成**）。
+- **TeamAI（腾讯，git-native）**：把 skills/rules/hooks/MCP 经 Git + MR 审核分发到 Claude Code / Codex / Cursor / **WorkBuddy** / Qoder / Kiro 等 11 种 agent。**无平台账号体系**——「上架」= 把 AIShield 仓库做成合法 source repo（✅ **已完成**：根 `teamai.yaml` 声明 `publicSkills: [aishield-scan]` + `skills/aishield-scan/SKILL.md`）；订阅方一行 `teamai source add https://github.com/lm203688/aishield.git --name aishield`。可选硬门禁 hook 见 `distribution/teamai/teamai-hook.yaml`（真实入口 `action_entrypoint.py`）。
 - 各 agent skill 市场（Claude Skill / GPT Store / HuggingFace / DeepSeek Harness / ClawHub 已有骨架）—— 多表面铺货是本项目既定策略。
 
 **威胁建模输入（强化 ASI 论述）**
@@ -127,6 +127,7 @@
 ## 6. 下一步（用户决策点）
 
 - [ ] **确认建 CF secret** → 解锁 P0（§5.1）
-- [ ] **确认 Reddit 标 known-blocked** → 消除永久误报（§5.2）
-- [ ] **确认是否发布** TeamAI / CocoLoop 分发草稿（需用户/连接器实际提交到对应平台）
-- [ ] **RSI L5 → ASI 规则映射**是否做成正式规则（defend 线，建议做；作为威胁建模输入扩写 `docs/` 与 GEO 资产）
+- [x] **Reddit 标 known-blocked** → 已落地（`KNOWN_BLOCKED_SOURCES`，2026-09-15）
+- [x] **TeamAI 分发** → 已落地为 source repo（`teamai.yaml` + `skills/aishield-scan/SKILL.md`，**无需账号**）
+- [ ] **CocoLoop 上架** → 文案已就绪（`distribution/cocoloop/LISTING.md`）；**待用户在 hub.cocoloop.cn 注册（手机/微信 OTP）后走「社区投稿」粘贴提交**
+- [x] **RSI L5 → ASI 规则映射** → 已正式化为 2 条规则（`docs/rsi-asi-mapping.md`，2026-09-15）

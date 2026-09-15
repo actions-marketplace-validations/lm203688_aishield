@@ -4,7 +4,7 @@
 
 ## Phase 1: 基础设施完善（已完成）
 
-- [x] OWASP MCP Top 10 对齐的 133 条安全规则
+- [x] OWASP MCP Top 10 对齐的 238 条安全规则
 - [x] MCP StreamableHTTP 端点（JSON-RPC 2.0）
 - [x] A2A Agent Card 自动发现
 - [x] Agent-First 一键入驻（注册 + API Key + 快速指引）
@@ -35,8 +35,8 @@
 - [x] 发布 MCP Server 到 Smithery.ai 目录（`smithery.yaml` 已备，实际 listing 待完成）
 - [x] 提交 Cursor Directory（等待安全扫描）
 - [x] 配置 Glama.ai Topics（已索引：glama.ai/mcp/servers/lm203688/aishield）
-- [x] 发布 `aishield-mcp-server` npm 包（**4.2.2 已上线**，2026-08 实测可安装）
-- [x] 上架官方 MCP Registry（`io.github.lm203688/aishield` 4.2.2 active/isLatest，由 `publish-mcp-registry.yml` 发版推送）
+- [x] 发布 `aishield-mcp-server` npm 包（**4.3.0 已上线**，2026-08 实测可安装）
+- [x] 上架官方 MCP Registry（`io.github.lm203688/aishield` 4.3.0 active/isLatest，由 `publish-mcp-registry.yml` 发版推送）
 - [ ] 申请 Claude Desktop 官方推荐
 - [ ] 申请 VS Code Copilot MCP 集成
 
@@ -75,7 +75,7 @@
 ### 规则库增长
 - [ ] 开放规则贡献接口
 - [ ] 建立规则评审流程
-- [ ] 目标：规则库从 133 条增长到 500 条
+- [ ] 目标：规则库从 238 条增长到 500 条
 - [ ] 引入社区 CVE 案例库
 
 ## Phase 4: 商业化与信任层（6-12 个月）

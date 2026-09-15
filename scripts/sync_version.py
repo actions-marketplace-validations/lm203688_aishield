@@ -6,7 +6,7 @@
 
 背景
 ----
-项目在 9 个位置各自声明版本号，实测曾漂移出 3 个不同的值：
+项目在 11 个配置位置各自声明版本号，实测曾漂移出 3 个不同的值：
 
     mcp-server/package.json   4.1.0   ← npm 实际发布的版本
     mcp-server/mcp.json       4.2.0   ← 有人升了这里，忘了其它
@@ -14,6 +14,11 @@
     registry/dify_openapi.yaml 4.1.0
     registry/dify_plugin.yaml  4.1.0
     setup.py                   4.1.0
+
+除配置外，还有一类**公开面自报版本**同样会漂移，且长期逃过门禁：
+`api/static/*.html` 的 `softwareVersion`、`humans.txt`、`smithery.yaml`。
+2026-09-15 规则数 sweep 时发现它们停在 4.2.2 而 npm 已是 4.3.0，
+故一并纳入 TARGETS。凡"用户能读到的版本声明"都应受门禁约束。
 
 版本漂移的危害不在于难看，而在于**下游分发渠道会各自宣称不同的版本**。
 用户从 Coze 装到的是"4.0.0"，从 npm 装到的是"4.1.0"，出问题时无法定位
@@ -100,6 +105,39 @@ TARGETS: List[Tuple[str, str, str]] = [
      r"\g<1>{v}\g<3>"),
     ("registry/server.json",
      r'("identifier": "aishield-mcp-server",\r?\n\s+"version": ")([^"]+)(")',
+     r"\g<1>{v}\g<3>"),
+    # 公开静态面 / 生态清单自报版本 —— 此前不在门禁内，于是长期停在 4.2.2
+    # 而 npm / registry 已是 4.3.0（2026-09-15 规则数 sweep 时才发现）。
+    # 每个声明位锚点不同，同一文件多处需各自一条（count=1 只替换首个命中）。
+    ("aishield_home.html",
+     r'("softwareVersion": ")([^"]+)(")',
+     r"\g<1>{v}\g<3>"),
+    ("aishield_home.html",
+     r'(<span>AIShield v)([0-9.]+)',
+     r"\g<1>{v}"),
+    ("api/static/index.html",
+     r'("softwareVersion": ")([^"]+)(")',
+     r"\g<1>{v}\g<3>"),
+    ("api/static/index.html",
+     r'(aishield-mcp-server@)([0-9.]+)',
+     r"\g<1>{v}"),
+    ("api/static/index.html",
+     r'(<span>AIShield v)([0-9.]+)',
+     r"\g<1>{v}"),
+    ("api/static/agent.html",
+     r'("softwareVersion": ")([^"]+)(")',
+     r"\g<1>{v}\g<3>"),
+    ("api/static/agent.html",
+     r'(AIShield v)([0-9.]+)',
+     r"\g<1>{v}"),
+    ("api/static/mcp-security-guide.html",
+     r'(AIShield v)([0-9.]+)',
+     r"\g<1>{v}"),
+    ("api/static/humans.txt",
+     r'(Version:\s*)([0-9.]+)',
+     r"\g<1>{v}"),
+    ("smithery.yaml",
+     r'(\nversion:\s*")([^"]+)(")',
      r"\g<1>{v}\g<3>"),
 ]
 
