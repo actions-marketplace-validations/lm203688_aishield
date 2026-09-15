@@ -1,0 +1,16 @@
+# TeamAI hook：在会话启动时扫描团队 skills / MCP 配置，低分即阻断
+# 放置于团队仓库 hooks/hooks.yaml，teamai pull 自动注入各 agent。
+# 注意：hook 只调 AIShield 扫目标路径，绝不执行被扫 skill 的代码。
+
+- id: block-unscanned-skill
+  description: 会话启动前扫描团队 skills 与 MCP 配置，安全分低于阈值则阻断
+  event: SessionStart
+  command: 'bash -lc "python -m scanner.cli scan --type skill --source ./skills --json | python -c \"import sys,json; d=json.load(sys.stdin); sys.exit(0 if d.get(''score'',0)>=70 else 1)\" || echo [AIShield] 低分 skill 未阻断仅告警（改为 exit 1 可强制阻断）"'
+  tools: [claude, codex, cursor, workbuddy, qoder, openclaw]
+
+# 对比 TeamAI 自带的 block-secret（仅密钥，且 || true 永不阻断）：
+# - id: block-secret
+#   event: PreToolUse
+#   matcher: Bash
+#   command: 'bash -lc "~/.teamai/team-scripts/scan-secret.sh" || true'
+# AIShield 的 hook 覆盖 tool poisoning / prompt injection / 越权 / 供应链 / ASI01-10，远超密钥扫描。

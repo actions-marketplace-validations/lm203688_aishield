@@ -518,6 +518,23 @@ class TestMetaMonitorM8(unittest.TestCase):
         r = self._check_with({"seen_ids": [], "runs": 46})
         self.assertIsNone(r["ok"], "升级前老状态不应判红")
 
+    def test_known_blocked_source_does_not_turn_m8_red(self):
+        """结构性不可达（state 里标了 known_blocked）仍计数但不升级，
+        否则 M8 每天重复报同一个救不了的故障（噪声淹没真信号）。"""
+        r = self._check_with({"source_health": {
+            "reddit": {"consecutive_failures": 30, "known_blocked": True},
+            "arxiv": {"consecutive_failures": 0}}})
+        self.assertTrue(r["ok"], "known-blocked 源不得把 M8 判红")
+        self.assertIn("已知不可达", r["detail"])
+
+    def test_known_blocked_does_not_mask_a_real_outage(self):
+        """known-blocked 只豁免被标记的源，真故障仍须判红。"""
+        r = self._check_with({"source_health": {
+            "reddit": {"consecutive_failures": 30, "known_blocked": True},
+            "arxiv": {"consecutive_failures": 9}}})
+        self.assertFalse(r["ok"])
+        self.assertIn("arxiv", r["detail"])
+
     def test_healthy_when_all_sources_fresh(self):
         r = self._check_with({"source_health": {
             "github": {"consecutive_failures": 0},

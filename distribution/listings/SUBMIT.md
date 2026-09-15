@@ -26,10 +26,13 @@
 **标题/Name**：`AIShield (local, open-source)`
 
 **一句话描述（Short）**：
-> Local-first, open-source AI-tool security scanner for MCP servers, AI skills, GPTs and prompts. OWASP MCP Top 10 + Agentic ASI01–10. 227 MCP / 233 skill rules. Runs fully offline — your code never leaves your machine.
+> Local-first, open-source AI-tool security scanner for MCP servers, AI skills, GPTs and prompts. OWASP MCP Top 10 + Agentic ASI01–10. 238 MCP / 244 skill rules. Runs fully offline — your code never leaves your machine.
+
+> ⚠️ **规则数基线（2026-09-15 起）**：**238 MCP / 244 Skill**（静态 210 + 情报 9 + 雷达 19）。
+> 本文件已同步；仓库内其余营销/品牌文档仍写着历史值 **227/233**，属已知 drift，待统一 sweep。
 
 **长描述（Long）**：
-> AIShield is a **local-first, open-source** security scanner for the agent ecosystem. It scans MCP servers, AI skills, GPTs and prompts for tool poisoning, prompt injection and supply-chain risks, aligned to OWASP MCP Top 10 + Agentic AI Top 10 (ASI01–ASI10). The rule base covers 227 MCP + 233 skill rules, with zero third-party runtime dependencies (urllib only) and an optional remote LLM semantic backend.
+> AIShield is a **local-first, open-source** security scanner for the agent ecosystem. It scans MCP servers, AI skills, GPTs and prompts for tool poisoning, prompt injection and supply-chain risks, aligned to OWASP MCP Top 10 + Agentic AI Top 10 (ASI01–ASI10). The rule base covers 238 MCP + 244 skill rules, with zero third-party runtime dependencies (urllib only) and an optional remote LLM semantic backend.
 >
 > **Why local-first matters:** AIShield runs entirely on your machine. It never uploads your code or config, never spawns commands found inside the artifact being scanned, and can run 100% offline. This is the open-source edition — distinct from the cloud SaaS `aishield.ai`.
 
@@ -117,6 +120,21 @@
 - **状态**：✅ 认领资产就绪 `distribution/deepseek-harness/`。
 - **去哪**：① deepbolt.xyz DSH Plugins 投我们的 listing（草稿 `DSH-PLUGINS-LISTING.md`）；② `npm publish dsh-aishield`（等 DSH Cordis API 稳再补 `index.js` 注册体）。
 
+## 10. Tencent TeamAI hub（HIGH · 资产就绪）
+
+- **状态**：🟡 **资产就绪**（2026-09-15 起草）：`distribution/teamai/README.md` + `teamai-hook.yaml`。
+- **为什么是杠杆点**：TeamAI 是腾讯开源的 agent 框架，分发面覆盖 **11 种 agent（含 WorkBuddy）**；它自带的安全能力只有 `block-secret`（仅密钥扫描，且**用了 `|| true`，永不阻断** = 门禁自毁反例），**缺「全量 skill / MCP 安全门禁」**——正好由我们的 hook 补位。
+- **提供物**：`block-unscanned-skill` hook —— 在 skill 装载前调用 AIShield 本地扫描，非阻断告警 / 可配置为阻断。
+- **去向**：TeamAI hub / 官方 hook 目录提交 → 见 `distribution/teamai/README.md` 的提交步骤。
+- **注意**：提交需用户账号；本地资产已可直接复制粘贴。
+
+## 11. CocoLoop / CLS-Certify（HIGH · 正面竞品，同时也是渠道）
+
+- **状态**：🟡 **草稿就绪**（2026-09-15 起草）：`distribution/cocoloop/LISTING.md`。
+- **竞品事实（WebSearch 复核）**：国内最大 OpenClaw 技能商店，收录 1.3 万–4.7 万 skills，提供 skill 安全扫描 + **六维 S–D 评级** + 报告（CLS-Certify）。
+- **我方差异化（文案已写入草稿）**：**本地零依赖 / 代码不上云 / 双维（MCP + ASI01–10）/ 中性信任机构 / 秒级静态规则**——实测其 `threat-scan.sh` 对千行 SKILL.md 60s 跑不完（依赖大模型 + 外部 API）。
+- **去向**：CocoLoop 商店上架（`LISTING.md` 含逐字段文案）。
+
 ---
 
 ## 发布状态速查（每周由自动化刷新）
@@ -138,6 +156,8 @@
 | HuggingFace | ❌ | ✅ README | 上传 |
 | A2A Registry | ❌ | ✅ agent-card | 注册 |
 | DSH | ❌ | ✅ 全套 | 投稿+npm |
+| TeamAI hub | 🟡 **资产就绪（2026-09-15）** | ✅ hook + README | 提交 hook |
+| CocoLoop / CLS | 🟡 **草稿就绪（2026-09-15）** | ✅ LISTING.md | 上架商店 |
 | aishield.tools 静态发现文件 | ✅ **已修复 4.3.0**（2026-09-05 复测：227 MCP/233 skill、6 工具名正确） | ✅ main 已是 4.3.0 正确 | 无（drift 随 4.3.0 发版消除，CF Pages Retry 不再需要） |
 | aishield.tools `/api/v1` 后端 | ✅ **已修复 4.3.0/228**（2026-09-05 复测；commit 93fcd10c，deployed 2026-09-01） | — | 无（随 4.3.0 发版部署，元数据已新鲜） |
 | GitHub Pages（github.io） | ⛔ **死端表面**：301→aishield.tools，内容不可达 | — | 无（勿再修，见下） |

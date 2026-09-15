@@ -661,5 +661,186 @@ class TestMigrateDrafts(unittest.TestCase):
         self.assertEqual(self._load(p)['status'], 'ready')
 
 
+# ══════════════════════════════════════════════════════════════
+# 10. known-blocked 源：永久不可达不得每天重复报红（2026-09-15）
+# ══════════════════════════════════════════════════════════════
+class TestKnownBlockedSources(unittest.TestCase):
+    """reddit 在本机出口结构性不可达，失败次数照记（绝不假绿），
+    但不得每天触发 DEGRADED —— 救不了的故障天天报＝噪声淹没真信号。"""
+
+    def test_update_marks_known_blocked_flag(self):
+        state = {}
+        tech_radar._update_source_health(
+            state, {"reddit": {"ok": False, "items": 0}},
+            ["reddit :: HTTP -1"])
+        h = state["source_health"]["reddit"]
+        self.assertEqual(h["consecutive_failures"], 1, '真实失败计数必须保留')
+        self.assertTrue(h["known_blocked"])
+        self.assertTrue(h["known_blocked_reason"])
+
+    def test_non_blocked_source_not_marked(self):
+        state = {}
+        tech_radar._update_source_health(
+            state, {"arxiv": {"ok": False, "items": 0}}, ["arxiv :: boom"])
+        self.assertNotIn("known_blocked", state["source_health"]["arxiv"])
+
+    def test_degraded_split_separates_actionable_from_blocked(self):
+        sh = {"reddit": {"consecutive_failures": 3, "known_blocked": True},
+              "arxiv": {"consecutive_failures": 4},
+              "hn": {"consecutive_failures": 0}}
+        actionable, blocked = tech_radar._degraded_sources(sh)
+        self.assertEqual(actionable, [("arxiv", 4)])
+        self.assertEqual(blocked, [("reddit", 3)])
+
+    def test_known_blocked_does_not_render_as_degraded(self):
+        health = {"reddit": {"consecutive_failures": 30, "last_success": None,
+                             "last_items": 4, "known_blocked": True}}
+        rep = tech_radar.render_report([], [], [], [], source_health=health)
+        self.assertIn("known-blocked", rep)
+        self.assertNotIn("DEGRADED", rep,
+                         'known-blocked 源不得再渲染为 DEGRADED（否则每天误报）')
+
+    def test_actionable_source_still_renders_as_degraded(self):
+        health = {"arxiv": {"consecutive_failures": 5, "last_success": None,
+                            "last_items": 0}}
+        rep = tech_radar.render_report([], [], [], [], source_health=health)
+        self.assertIn("DEGRADED", rep)
+
+
+# ══════════════════════════════════════════════════════════════
+# 11. publish 韧性：GET 失败不得退化成"静默跳过"（2026-09-15 事故）
+# ══════════════════════════════════════════════════════════════
+class TestPublishShaResilience(unittest.TestCase):
+    """事故：_gh_get_file 把「404 新文件」与「GET 传输失败」都返回 (None,None)，
+    于是已存在文件的 PUT 缺 sha 被 GitHub 422 拒（'"sha" wasn't supplied'），
+    index.md 与 tech_radar.json 当天被静默跳过。本类钉死三取值语义与重试。"""
+
+    def setUp(self):
+        self._orig_get = tech_radar._gh_get_file
+        self._orig_put = tech_radar._gh_api_put
+        self._tmp = tempfile.mkdtemp(prefix='aishield_pub_')
+        self._orig_root = tech_radar.ROOT
+        tech_radar.ROOT = self._tmp
+        with open(os.path.join(self._tmp, 'f.txt'), 'w', encoding='utf-8') as fh:
+            fh.write('hello')
+
+    def tearDown(self):
+        tech_radar._gh_get_file = self._orig_get
+        tech_radar._gh_api_put = self._orig_put
+        tech_radar.ROOT = self._orig_root
+        shutil.rmtree(self._tmp, ignore_errors=True)
+
+    def test_404_is_treated_as_new_file(self):
+        calls = []
+
+        def fake_get(rel, token, attempts=3):
+            return 404, None, None
+
+        def fake_put(rel, content, message, token, sha=None):
+            calls.append(sha)
+            return True, 'ok'
+
+        tech_radar._gh_get_file, tech_radar._gh_api_put = fake_get, fake_put
+        res = tech_radar._publish(['f.txt'], 'tok', 'msg')
+        self.assertTrue(res[0][1])
+        self.assertEqual(calls, [None], '新文件应不带 sha 直传')
+
+    def test_transport_failure_recovers_by_resolving_sha(self):
+        """GET 失败导致 PUT 422 'sha wasn't supplied' → 重新解析 sha 重试一次"""
+        seq = []
+
+        def fake_get(rel, token, attempts=3):
+            seq.append('get')
+            # 第一次未知状态 -> 第二次（重试路径）成功给出 sha
+            return (-1, None, None) if len(seq) == 1 else (200, 'deadbeef', '')
+
+        def fake_put(rel, content, message, token, sha=None):
+            if sha is None:
+                return False, '"sha" wasn\'t supplied'
+            return True, 'ok'
+
+        tech_radar._gh_get_file, tech_radar._gh_api_put = fake_get, fake_put
+        res = tech_radar._publish(['f.txt'], 'tok', 'msg')
+        self.assertTrue(res[0][1], '重新解析 sha 后必须成功，不得静默跳过')
+        self.assertGreaterEqual(len(seq), 2)
+
+    def test_unchanged_content_is_skipped(self):
+        import base64 as _b64
+        b64 = _b64.b64encode(b'hello').decode('ascii')
+        tech_radar._gh_get_file = lambda rel, token, attempts=3: (200, 'sha', b64)
+        tech_radar._gh_api_put = lambda *a, **k: (_ for _ in ()).throw(
+            AssertionError('unchanged file must not be PUT'))
+        res = tech_radar._publish(['f.txt'], 'tok', 'msg')
+        self.assertTrue(res[0][1])
+        self.assertIn('unchanged', res[0][2])
+
+    def test_missing_local_file_is_an_error_not_a_crash(self):
+        res = tech_radar._publish(['nope.txt'], 'tok', 'msg')
+        self.assertFalse(res[0][1])
+
+
+# ══════════════════════════════════════════════════════════════
+# 12. Theseus RSI L5 → ASI01/ASI10 映射（2026-09-15 正式化）
+# ══════════════════════════════════════════════════════════════
+class TestRsiL5Mapping(unittest.TestCase):
+    """L5＝递归改进「改进机制本身」。旧逻辑里它会被 R4-capability 抑制成
+    none（含 self-improv 关键词）＋被 DEFENSE_INDICATORS 的 guard 判为防御，
+    于是永远不起草。本类钉死两条豁免与"只匹配动作、不匹配描述"。"""
+
+    def test_action_shaped_guardrail_self_modification_is_attack(self):
+        sig = {'_source': 'arxiv', 'id': 'l5a',
+               'title': 'Agent rewrites its own guardrail to remove the '
+                        'constraint before acting', 'url': 'u'}
+        cat, sev, side = tech_radar.classify_signal(sig)
+        self.assertEqual(cat, 'guardrail-self-modification')
+        self.assertEqual(side, 'attack', 'L5 自改护栏必须落在攻击侧才会起草')
+
+    def test_oversight_tampering_maps_asi10(self):
+        sig = {'_source': 'arxiv', 'id': 'l5b',
+               'title': 'Disabling the verifier and blinding the monitor to '
+                        'escape oversight', 'url': 'u'}
+        cat, sev, side = tech_radar.classify_signal(sig)
+        self.assertEqual(cat, 'oversight-tampering')
+        self.assertEqual(side, 'attack')
+
+    def test_descriptive_mention_is_not_matched(self):
+        """仅描述该威胁（雷达日报自己就满篇如此）不得命中，否则误伤自有仓库"""
+        for t in ('Recursive self-improvement of the guardrail mechanism (L5)',
+                  'A survey of guardrail self-modification risks'):
+            cat, sev, side = tech_radar.classify_signal(
+                {'_source': 'arxiv', 'id': 'x', 'title': t, 'url': 'u'})
+            self.assertIsNone(cat, f'描述性文字不得命中: {t}')
+
+    def test_defensive_detector_stays_defense(self):
+        sig = {'_source': 'arxiv', 'id': 'l5c',
+               'title': 'We detect agents that disable their own guardrails',
+               'url': 'u'}
+        cat, sev, side = tech_radar.classify_signal(sig)
+        self.assertEqual(side, 'defense', '检测器/防御工具不得被判为攻击并起草')
+
+    def test_exempt_categories_are_declared(self):
+        for c in ('guardrail-self-modification', 'oversight-tampering'):
+            self.assertIn(c, tech_radar.R4_EXEMPT_CATEGORIES)
+            self.assertIn(c, tech_radar.CATEGORY_FIRST_PATTERN)
+
+    def test_new_patterns_do_not_fire_on_benign_corpus(self):
+        import re as _re
+        for c in ('guardrail-self-modification', 'oversight-tampering'):
+            pat = tech_radar.CATEGORY_FIRST_PATTERN[c]
+            compiled = _re.compile(pat, _re.IGNORECASE)
+            for i, s in enumerate(promote_rule.BENIGN_CORPUS):
+                self.assertIsNone(compiled.search(s),
+                                  f'{c} 在良性样本 #{i} 上误报')
+
+    def test_mapping_doc_exists_and_names_both_asi(self):
+        p = os.path.join(ROOT, 'docs', 'rsi-asi-mapping.md')
+        self.assertTrue(os.path.exists(p), 'L5 映射文档必须存在（正式化的一部分）')
+        with open(p, encoding='utf-8') as f:
+            txt = f.read()
+        self.assertIn('ASI01', txt)
+        self.assertIn('ASI10', txt)
+        self.assertIn('L5', txt)
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)

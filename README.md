@@ -9,7 +9,7 @@
   <a href="https://github.com/lm203688/aishield/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="MIT License"></a>
   <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/Python-3.9%2B-green.svg" alt="Python 3.9+"></a>
   <a href="https://owasp.org/www-project-mcp-security-top-10/"><img src="https://img.shields.io/badge/OWASP-MCP%20Top%2010-orange.svg" alt="OWASP MCP Top 10"></a>
-  <img src="https://img.shields.io/badge/Rules-236-blue.svg" alt="236 Rules (static 210 + intel 9 + radar 17)">
+  <img src="https://img.shields.io/badge/Rules-238-blue.svg" alt="238 Rules (static 210 + intel 9 + radar 19)">
   <img src="https://img.shields.io/badge/Dependencies-0-9cf.svg" alt="Zero Dependencies">
   <img src="https://img.shields.io/badge/Version-v4.3.0-brightgreen.svg" alt="v4.3.0">
 </p>
@@ -37,7 +37,7 @@
 
 ## 核心特性
 
-🛡️ **236 条规则（静态 210 + 情报 9 + 雷达 17）** — 对齐 OWASP MCP Top 10 (2025 v0.1) 与 OWASP Agentic AI Top 10 (ASI01–ASI10)，覆盖 Prompt 注入、越权访问、数据泄露、协议攻击、供应链风险、沙箱逃逸 6 大维度
+🛡️ **238 条规则（静态 210 + 情报 9 + 雷达 19）** — 对齐 OWASP MCP Top 10 (2025 v0.1) 与 OWASP Agentic AI Top 10 (ASI01–ASI10)，覆盖 Prompt 注入、越权访问、数据泄露、协议攻击、供应链风险、沙箱逃逸 6 大维度
 
 🧰 **Agent 计算机的内容安全平面** — Cloudflare Sandboxes、forgevm、E2B、Open Interpreter、Goose 这类运行时管的是**爆炸半径**（agent 能碰到什么），AIShield 管的是**内容可信**（agent 读进来的 MCP server、skill、工具描述该不该信）。两者互补：启动前工作区预扫 → 沙箱硬化规则 → 每次调用准入 → 持续鉴证。详见 [Agent 计算机的两个安全平面](docs/agent-computer-security-plane.md)
 

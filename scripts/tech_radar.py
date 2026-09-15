@@ -94,6 +94,17 @@ CRITICAL_TAGS = {"new-cve", "protocol-vuln", "fundamental-bypass"}
 # 正是"源挂了但流程全绿"的典型——逐源留痕后必须可单独判红。
 SOURCE_FAIL_THRESHOLD = 3
 
+# 结构性不可达的源：从**本机出口**永久无法访问，失败次数照记（绝不假绿），
+# 但不再计入 DEGRADED 升级/告警 —— 否则每天都报同一个救不了的故障，
+# 噪声淹没真信号（2026-09-15 首现 `[health] DEGRADED sources: reddit(3)`）。
+# 这是"分类"不是"调阈值"：源确实挂了，只是这个挂法不是新信息。
+# 若某天该源真的通了，consecutive_failures 自然归零，无需人工摘除。
+# key -> 人类可读的原因（会写进 state 与报告，供审计）。
+KNOWN_BLOCKED_SOURCES = {
+    "reddit": "本机网络出口对 reddit.com 结构性不可达（4 子版长期 HTTP -1/502），"
+              "非源侧故障；CI/VPS 出口是否可达需另行探测。",
+}
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -653,6 +664,22 @@ ATTACK_PATTERNS = [
     (r"(malicious|poison\w*|backdoor\w*)\s+skill",           "skill-poisoning"),
     (r"skill\s*(file|system)s?\b.*\b(risk|attack|malicious)", "skill-poisoning"),
     (r"skill\s*injection",                                    "skill-poisoning"),
+    # -- L5 recursive self-modification (Theseus RSI L5 -> ASI01/ASI10) -------
+    # L5 = an agent that recursively improves "the improvement mechanism itself",
+    # i.e. edits/removes the very guardrail that constrains it. Mapping and
+    # rationale: docs/rsi-asi-mapping.md. Only *action-shaped* patterns live here
+    # (verb + ownership/oversight target) -- a sentence that merely *describes*
+    # "guardrail self-modification" must NOT match, or the radar's own reports
+    # would trip its own rule (the project's "false positive is worse than no
+    # rule" iron law).
+    (r"(?:overwrite|rewrite|patch|edit|modify|disable|delete|remove|bypass)\w*"
+     r"\s+(?:its|their|the)\s+own\s+"
+     r"(?:guardrail|safety|policy|constraint|rule|filter|detector|oversight|check)",
+                                                              "guardrail-self-modification"),
+    (r"(?:disable|bypass|remove|patch|overwrite|blind|tamper\w*)\w*\s+"
+     r"(?:the\s+)?(?:verifier|supervisor|monitor|audit\s*log|oversight|"
+     r"evaluator|critic|safety\s*check)",
+                                                              "oversight-tampering"),
     # -- Memory / trajectory / self-evolving state ---------------------------
     (r"trajectory\s*poison",                                  "trajectory-poisoning"),
     (r"memory\s*(poison|injection|corruption)",               "memory-poisoning"),
@@ -854,6 +881,23 @@ _EXPLOIT_HARD = ["bypass", "exploit", "weaponiz", "rce",
                  "arbitrary code", "remote code", "0day", "zero-day",
                  "in the wild", "proof-of-concept", "poc"]
 
+# Categories that are *inherently* about an agent subverting its own controls,
+# so the R4-capability suppression must NOT swallow them. A paper titled
+# "recursive self-improvement of the safety mechanism" contains a capability
+# indicator ("self-improv") and would otherwise be suppressed to "none" -- yet
+# that IS the threat (Theseus RSI L5 -> ASI01/ASI10). The suppression exists to
+# filter *benign capability* research, not genuine control-subversion research.
+# See docs/rsi-asi-mapping.md.
+R4_EXEMPT_CATEGORIES = {"guardrail-self-modification", "oversight-tampering"}
+
+# For the R4-exempt categories the *target* noun is itself the defence
+# vocabulary ("guardrail" contains "guard", "monitor"/"oversight" read as
+# protective), so the broad DEFENSE_INDICATORS list would demote a genuine
+# attack signal to the defence side and it would never be drafted. Only an
+# explicit research/defence marker demotes these categories.
+_R4_DEFENSE_MARKERS = ["defen", "mitigat", "detect", "benchmark", "survey",
+                       "countermeasure", "prevention", "harden"]
+
 
 def _is_capability_side(text, title):
     """True if the signal is agent-capability / self-evolution research that
@@ -907,8 +951,11 @@ def classify_signal(sig):
     # Suppress to "none" (never drafted) unless explicit exploit language proves
     # a concrete technique is described. This stops the rotting-draft spiral
     # (e.g. "Self-Evolving Agents … Trajectory Poisoning" → none, not attack).
+    # EXCEPTION: categories in R4_EXEMPT_CATEGORIES describe an agent subverting
+    # its own controls -- that is the threat itself, not benign capability, so
+    # the suppression must not swallow them (Theseus RSI L5 -> ASI01/ASI10).
     _title = (sig.get("title") or "").lower()
-    if _is_capability_side(text, _title):
+    if cat not in R4_EXEMPT_CATEGORIES and _is_capability_side(text, _title):
         return None, None, "none"
 
     title = (sig.get("title") or "").lower()
@@ -922,7 +969,12 @@ def classify_signal(sig):
         sev = "high"
 
     # attack vs. defence side
-    side = "defense" if _is_defense_side(text, title) else "attack"
+    if cat in R4_EXEMPT_CATEGORIES:
+        # Defined by an agent attacking its own controls -> attack side unless an
+        # explicit research/defence marker is present (see _R4_DEFENSE_MARKERS).
+        side = "defense" if any(k in text for k in _R4_DEFENSE_MARKERS) else "attack"
+    else:
+        side = "defense" if _is_defense_side(text, title) else "attack"
     if side == "defense":
         if sev == "critical":
             # explicit exploit language (bypass/exploit/rce/...) means this is a
@@ -1128,22 +1180,46 @@ def create_github_issue(pat, sig, cat, sev):
 # (closes the "occupation loop": a dated, continuous, machine-readable trail
 #  that proves we have tracked the ecosystem since date X)
 # ---------------------------------------------------------------------------
-def _gh_get_file(rel_path, token):
-    """Return (sha, base64_content) for a file on main, or (None, None)."""
+def _gh_get_file(rel_path, token, attempts=3):
+    """Return (status, sha, base64_content) for a file on main.
+
+    status semantics the caller MUST honour:
+      * 200 -> file exists; sha is populated (sha may still be None if the
+               body parsed but carried no "sha", which is treated as unknown);
+      * 404 -> file does not exist (a genuinely NEW file -- PUT without sha);
+      * -1  -> transport failure (curl/urllib error) -- UNKNOWN state;
+      * -2  -> HTTP 200 but the body would not parse -- UNKNOWN state.
+
+    Why this three-value form (2026-09-15 incident): the old helper collapsed
+    "404, brand-new file" and "GET failed, we have no idea" both into
+    `(None, None)`.  `_publish` then PUT *without* a sha; GitHub happily accepts
+    that for a new path but rejects an existing one with the opaque
+    `'"sha" wasn\'t supplied'` -- so a transient GET failure silently skipped
+    `docs/intel/index.md` and `data/state/tech_radar.json` while the report
+    upload succeeded.  This is the project's "transport-layer false green"
+    pattern: a failure must be distinguishable, never degraded to a lookalike
+    success value.  Transport/5xx failures are retried here before returning.
+    """
     url = (f"https://api.github.com/repos/{REPO}/contents/"
            f"{rel_path.replace(os.sep, '/')}?ref=main")
-    status, body = _fetch(
-        url,
-        headers={"Authorization": f"Bearer {token}",
-                 "Accept": "application/vnd.github+json"},
-        method="GET", timeout=20)
+    status, body = -1, ""
+    for i in range(max(1, attempts)):
+        status, body = _fetch(
+            url,
+            headers={"Authorization": f"Bearer {token}",
+                     "Accept": "application/vnd.github+json"},
+            method="GET", timeout=20)
+        if status in (200, 404):
+            break
+        if i < attempts - 1:
+            time.sleep(1.5 * (i + 1))          # transient -- back off and retry
     if status != 200:
-        return None, None
+        return status, None, None
     try:
         obj = json.loads(body or "{}")
-        return obj.get("sha"), (obj.get("content") or "").replace("\n", "")
+        return 200, obj.get("sha"), (obj.get("content") or "").replace("\n", "")
     except Exception:
-        return None, None
+        return -2, None, None
 
 
 def _gh_api_put(rel_path, content_str, message, token, sha=None):
@@ -1221,7 +1297,15 @@ def _build_index():
 
 def _publish(rel_paths, token, message):
     """Best-effort publish of local files to public main. Returns list of
-    (rel_path, ok, info). Never raises -- publishing must not break the scan."""
+    (rel_path, ok, info). Never raises -- publishing must not break the scan.
+
+    2026-09-15: two hardenings after the `'"sha" wasn't supplied'` incident.
+      (a) `_gh_get_file` now returns an explicit status, so a failed sha lookup
+          is no longer indistinguishable from "file is new".
+      (b) if GitHub still rejects a PUT for a missing sha (the file exists
+          remotely but our lookup failed), we re-resolve the sha once and retry
+          -- instead of silently skipping the file for the day.
+    """
     results = []
     for rel in rel_paths:
         abs_p = os.path.join(ROOT, rel)
@@ -1230,11 +1314,28 @@ def _publish(rel_paths, token, message):
             continue
         content = open(abs_p, encoding="utf-8").read()
         my_b64 = base64.b64encode(content.encode("utf-8")).decode("ascii")
-        sha, cur_b64 = _gh_get_file(rel, token)
-        if sha and cur_b64 == my_b64:
+
+        status, sha, cur_b64 = _gh_get_file(rel, token)
+        if status == 200 and sha and cur_b64 == my_b64:
             results.append((rel, True, "unchanged (skipped)"))
             continue
+        if status not in (200, 404):
+            # Unknown remote state: we cannot tell "new" from "existing". Send
+            # the PUT anyway (a genuinely new file needs no sha) but be ready to
+            # recover below if GitHub says the path already exists.
+            print(f"  [publish] {rel}: sha lookup status={status} "
+                  f"(unknown remote state; attempting PUT)")
+
         ok, info = _gh_api_put(rel, content, message, token, sha)
+        low = (info or "").lower()
+        if not ok and "sha" in low and ("suppl" in low or "wasn't" in low or "required" in low):
+            # GitHub refused because the path exists and we had no sha. Re-resolve
+            # (with retries) and retry exactly once -- the file is NOT new.
+            status2, sha2, _ = _gh_get_file(rel, token, attempts=3)
+            if sha2:
+                ok, info = _gh_api_put(rel, content, message, token, sha2)
+            else:
+                info = f"{info} (sha re-lookup status={status2})"
         results.append((rel, ok, info))
     return results
 
@@ -1266,8 +1367,38 @@ def _update_source_health(state, source_results, errors):
             h["consecutive_failures"] = 0
             h["last_success"] = now_iso
         h["last_items"] = res.get("items", 0)
+        # 结构性不可达的源：分类标记（仍保留真实失败计数），供升级判定/元监控豁免。
+        if name in KNOWN_BLOCKED_SOURCES:
+            h["known_blocked"] = True
+            h["known_blocked_reason"] = KNOWN_BLOCKED_SOURCES[name]
+        else:
+            h.pop("known_blocked", None)
+            h.pop("known_blocked_reason", None)
     state["source_health"] = health
     return health
+
+
+def _degraded_sources(source_health):
+    """Split over-threshold sources into (actionable, known_blocked).
+
+    Each returned item is (name, consecutive_failures). known_blocked sources
+    are structurally unreachable from this host: they are still printed (we
+    never fake green) but must NOT be escalated -- a permanent, already-known
+    failure that fires every day is noise, and noise is what hides the next
+    real outage. Shared by render_report() and main() so the two never drift.
+    """
+    actionable, blocked = [], []
+    for name, h in (source_health or {}).items():
+        if not isinstance(h, dict):
+            continue
+        try:
+            n = int(h.get("consecutive_failures") or 0)
+        except Exception:
+            n = 0
+        if n < SOURCE_FAIL_THRESHOLD:
+            continue
+        (blocked if h.get("known_blocked") else actionable).append((name, n))
+    return actionable, blocked
 
 
 # ---------------------------------------------------------------------------
@@ -1306,8 +1437,7 @@ def render_report(signals, drafted_rules, created_issues, errors, source_health=
 
     # Source health (consecutive-failure visibility) —— 让"某源死了多少天"可见
     if source_health:
-        degraded = {s: h for s, h in source_health.items()
-                    if int(h.get("consecutive_failures", 0) or 0) >= SOURCE_FAIL_THRESHOLD}
+        actionable, blocked = _degraded_sources(source_health)
         lines.append("## 🏥 Source health")
         lines.append("")
         lines.append("| Source | Consecutive failures | Last success |")
@@ -1316,16 +1446,28 @@ def render_report(signals, drafted_rules, created_issues, errors, source_health=
                             key=lambda kv: -int(kv[1].get("consecutive_failures", 0) or 0)):
             cf = int(h.get("consecutive_failures", 0) or 0)
             ls = (h.get("last_success") or "—")
-            flag = " ⚠️ DEGRADED" if cf >= SOURCE_FAIL_THRESHOLD else ""
+            if h.get("known_blocked"):
+                flag = " ⏭ known-blocked"
+            elif cf >= SOURCE_FAIL_THRESHOLD:
+                flag = " ⚠️ DEGRADED"
+            else:
+                flag = ""
             lines.append(f"| {s} | {cf}{flag} | {ls} |")
         lines.append("")
-        if degraded:
+        if actionable:
             lines.append("> ⚠️ **"
-                         + str(len(degraded))
+                         + str(len(actionable))
                          + " source(s) degraded** (≥"
                          + str(SOURCE_FAIL_THRESHOLD)
                          + " consecutive failed runs). Likely permanently "
                            "unreachable from this host — add a fallback or drop it.")
+            lines.append("")
+        if blocked:
+            names = ", ".join(f"`{n}`" for n, _ in blocked)
+            lines.append("> ⏭ **known-blocked (no action):** " + names
+                         + " — structurally unreachable from this host; failures "
+                           "are still counted but not escalated. See "
+                           "`KNOWN_BLOCKED_SOURCES` in `scripts/tech_radar.py`.")
             lines.append("")
 
     # Per-source sections
@@ -1559,11 +1701,13 @@ def main():
           f"issues={len(created_issues)} errors={len(errors)}")
 
     # 让"源挂了 N 天"在 stdout / 守夜 digest 里一眼可见（不再淹没在 errors 聚合里）
-    degraded = {s: h for s, h in state.get("source_health", {}).items()
-                if int(h.get("consecutive_failures", 0) or 0) >= SOURCE_FAIL_THRESHOLD}
-    if degraded:
+    actionable, blocked = _degraded_sources(state.get("source_health", {}))
+    if actionable:
         print(f"[health] DEGRADED sources: " + ", ".join(
-            f"{s}({h['consecutive_failures']})" for s, h in degraded.items()))
+            f"{s}({n})" for s, n in actionable))
+    if blocked:
+        print(f"[health] known-blocked sources (no action): " + ", ".join(
+            f"{s}({n})" for s, n in blocked))
     return 0
 
 

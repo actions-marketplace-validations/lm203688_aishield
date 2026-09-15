@@ -1,0 +1,29 @@
+{
+  "status": "ready",
+  "auto_ready": true,
+  "_instructions": [
+    "来源：Theseus Labs RSI 报告五级自主权框架 L5（递归改进“改进机制本身”）。",
+    "映射：L5 -> OWASP Agentic ASI01（Agentic Goal/Plan 篡改）+ ASI10（Rogue Agent）。",
+    "该 pattern 为 hand-authored 的「动作型」正则：必须是 动词 + 自指所有格 + 控制面名词，",
+    "因此只命中“agent 改写自己的护栏”这一动作，不会命中仅仅描述该威胁的文字",
+    "（本项目铁律：误报比没有规则更糟 —— 雷达日报自己就满篇讨论威胁名）。",
+    "已通过 promote_rule 六道闸门预检：specific / 非平凡 / 非重复 / 良性语料零误报。"
+  ],
+  "drafted_at": "2026-09-15",
+  "signal": {
+    "id": "theseus-rsi-l5",
+    "title": "Theseus Labs RSI report: L5 recurses on the improvement mechanism itself (agent edits its own guardrail)",
+    "url": "https://arxiv.org/abs/2609.11873",
+    "source": "standards"
+  },
+  "attack_category": "guardrail-self-modification",
+  "severity": "high",
+  "rules": [
+    {
+      "pattern": "(?:overwrite|rewrite|patch|edit|modify|disable|delete|remove|bypass)\\w*\\s+(?:its|their|the)\\s+own\\s+(?:guardrail|safety|policy|constraint|rule|filter|detector|oversight|check)",
+      "description": "L5 递归自改：agent 覆写/禁用「自己的」护栏、安全策略或约束（Theseus RSI L5 -> ASI01 目标篡改）",
+      "severity": "high"
+    }
+  ],
+  "review_notes": ""
+}

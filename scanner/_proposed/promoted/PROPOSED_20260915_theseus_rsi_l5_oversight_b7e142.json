@@ -1,0 +1,28 @@
+{
+  "status": "ready",
+  "auto_ready": true,
+  "_instructions": [
+    "来源：Theseus Labs RSI 报告五级自主权框架 L5（递归改进“改进机制本身”）。",
+    "映射：L5 -> OWASP Agentic ASI10（Rogue Agent：关闭/致盲监督机制以逃脱约束）。",
+    "该 pattern 为 hand-authored 的「动作型」正则：必须是 动词 + 监督面名词，",
+    "因此只命中“关闭/致盲验证器、监督器、审计日志”这一动作，不会命中仅描述该威胁的文字。",
+    "已通过 promote_rule 六道闸门预检：specific / 非平凡 / 非重复 / 良性语料零误报。"
+  ],
+  "drafted_at": "2026-09-15",
+  "signal": {
+    "id": "theseus-rsi-l5-oversight",
+    "title": "Theseus Labs RSI report: L5 autonomy blinds/removes the verifier, monitor or audit log (oversight tampering)",
+    "url": "https://arxiv.org/abs/2609.11873",
+    "source": "standards"
+  },
+  "attack_category": "oversight-tampering",
+  "severity": "high",
+  "rules": [
+    {
+      "pattern": "(?:disable|bypass|remove|patch|overwrite|blind|tamper\\w*)\\w*\\s+(?:the\\s+)?(?:verifier|supervisor|monitor|audit\\s*log|oversight|evaluator|critic|safety\\s*check)",
+      "description": "L5 监督面篡改：关闭/致盲验证器、监督器或审计日志以逃脱约束（Theseus RSI L5 -> ASI10 失控 agent）",
+      "severity": "high"
+    }
+  ],
+  "review_notes": ""
+}
