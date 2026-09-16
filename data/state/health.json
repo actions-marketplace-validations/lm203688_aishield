@@ -6,74 +6,14 @@
     "score": 4,
     "max_score": 4,
     "http": 200,
-    "latency": 0.54,
-    "checked_at": "2026-09-14T21:55:01.071471+00:00",
+    "latency": 0.764,
+    "checked_at": "2026-09-15T21:31:37.294910+00:00",
     "consecutive_failures": 0,
-    "last_healthy_at": "2026-09-14T21:55:01.071471+00:00",
+    "last_healthy_at": "2026-09-15T21:31:37.294910+00:00",
     "_source": "health_probe",
-    "_ts": "2026-09-14T21:55:01.072270+00:00"
+    "_ts": "2026-09-15T21:31:37.295588+00:00"
   },
   "history": [
-    {
-      "ts": "2026-09-02T04:47:14.195853+00:00",
-      "source": "health_probe",
-      "state": {
-        "healthy": true,
-        "level": "healthy",
-        "score": 4,
-        "max_score": 4,
-        "http": 200,
-        "latency": 0.441,
-        "checked_at": "2026-09-02T04:47:14.194877+00:00",
-        "consecutive_failures": 0,
-        "last_healthy_at": "2026-09-02T04:47:14.194877+00:00"
-      }
-    },
-    {
-      "ts": "2026-09-02T11:29:51.309679+00:00",
-      "source": "health_probe",
-      "state": {
-        "healthy": true,
-        "level": "healthy",
-        "score": 4,
-        "max_score": 4,
-        "http": 200,
-        "latency": 0.402,
-        "checked_at": "2026-09-02T11:29:51.308965+00:00",
-        "consecutive_failures": 0,
-        "last_healthy_at": "2026-09-02T11:29:51.308965+00:00"
-      }
-    },
-    {
-      "ts": "2026-09-02T16:42:14.134010+00:00",
-      "source": "health_probe",
-      "state": {
-        "healthy": true,
-        "level": "healthy",
-        "score": 4,
-        "max_score": 4,
-        "http": 200,
-        "latency": 0.946,
-        "checked_at": "2026-09-02T16:42:14.133130+00:00",
-        "consecutive_failures": 0,
-        "last_healthy_at": "2026-09-02T16:42:14.133130+00:00"
-      }
-    },
-    {
-      "ts": "2026-09-02T21:08:59.539160+00:00",
-      "source": "health_probe",
-      "state": {
-        "healthy": true,
-        "level": "healthy",
-        "score": 4,
-        "max_score": 4,
-        "http": 200,
-        "latency": 0.717,
-        "checked_at": "2026-09-02T21:08:59.538400+00:00",
-        "consecutive_failures": 0,
-        "last_healthy_at": "2026-09-02T21:08:59.538400+00:00"
-      }
-    },
     {
       "ts": "2026-09-03T04:44:07.210086+00:00",
       "source": "health_probe",
@@ -763,8 +703,68 @@
         "consecutive_failures": 0,
         "last_healthy_at": "2026-09-14T21:55:01.071471+00:00"
       }
+    },
+    {
+      "ts": "2026-09-15T05:03:15.526312+00:00",
+      "source": "health_probe",
+      "state": {
+        "healthy": true,
+        "level": "healthy",
+        "score": 4,
+        "max_score": 4,
+        "http": 200,
+        "latency": 0.42,
+        "checked_at": "2026-09-15T05:03:15.525564+00:00",
+        "consecutive_failures": 0,
+        "last_healthy_at": "2026-09-15T05:03:15.525564+00:00"
+      }
+    },
+    {
+      "ts": "2026-09-15T11:54:43.425986+00:00",
+      "source": "health_probe",
+      "state": {
+        "healthy": true,
+        "level": "healthy",
+        "score": 4,
+        "max_score": 4,
+        "http": 200,
+        "latency": 0.535,
+        "checked_at": "2026-09-15T11:54:43.425304+00:00",
+        "consecutive_failures": 0,
+        "last_healthy_at": "2026-09-15T11:54:43.425304+00:00"
+      }
+    },
+    {
+      "ts": "2026-09-15T17:09:17.437428+00:00",
+      "source": "health_probe",
+      "state": {
+        "healthy": true,
+        "level": "healthy",
+        "score": 4,
+        "max_score": 4,
+        "http": 200,
+        "latency": 0.782,
+        "checked_at": "2026-09-15T17:09:17.436626+00:00",
+        "consecutive_failures": 0,
+        "last_healthy_at": "2026-09-15T17:09:17.436626+00:00"
+      }
+    },
+    {
+      "ts": "2026-09-15T21:31:37.295599+00:00",
+      "source": "health_probe",
+      "state": {
+        "healthy": true,
+        "level": "healthy",
+        "score": 4,
+        "max_score": 4,
+        "http": 200,
+        "latency": 0.764,
+        "checked_at": "2026-09-15T21:31:37.294910+00:00",
+        "consecutive_failures": 0,
+        "last_healthy_at": "2026-09-15T21:31:37.294910+00:00"
+      }
     }
   ],
-  "updated": "2026-09-14T21:55:01.072288+00:00",
+  "updated": "2026-09-15T21:31:37.295604+00:00",
   "desc": "线上服务健康事实（由三路探测写入）"
 }

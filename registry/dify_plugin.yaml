@@ -13,7 +13,7 @@ identity:
   description:
     en_US: >
       AI Agent Security Scanner aligned with OWASP MCP Top 10 (2025 v0.1).
-      133 detection rules, 5-dimension scoring (Security, Permissions,
+      238 detection rules, 5-dimension scoring (Security, Permissions,
       Data Handling, Supply Chain, Reliability). Detects tool poisoning,
       command injection, prompt injection, supply chain attacks, SSRF,
       secret exposure, and privilege escalation.

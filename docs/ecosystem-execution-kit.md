@@ -63,7 +63,7 @@ the schema with whatever the WG standardizes.
 4. 填定位（建议文案）：
    - **Tagline**: `Local-first, offline AI Agent security scanner & neutral trust authority for MCP / A2A`
    - **Category**: Security / Dev Tools
-   - **Description**: `227 MCP + 233 Skill OWASP-aligned rules; scans content (prompt injection, tool poisoning), agent identity, network/Mesh reachability, Authentik NHI, A2A AgentCard, AI-slop evasion and x402 payment scope. Never spawns the scanned config.`
+   - **Description**: `238 MCP + 244 Skill OWASP-aligned rules; scans content (prompt injection, tool poisoning), agent identity, network/Mesh reachability, Authentik NHI, A2A AgentCard, AI-slop evasion and x402 payment scope. Never spawns the scanned config.`
 5. 保存 → listing 变为 Claimed，出现在 Glama 发现流。
 
 ---

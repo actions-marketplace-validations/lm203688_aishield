@@ -1,0 +1,28 @@
+# TeamAI hook — drop this file at `hooks/hooks.yaml` in *your own* team repo.
+# TeamAI injects it into every supported agent on `teamai pull`.
+#
+# Unlike TeamAI's built-in `block-secret` (secrets only, and `|| true` so it can
+# never actually block), this gate covers tool poisoning, prompt injection,
+# over-broad permissions, supply chain and ASI01–10 — and it *can* block.
+#
+# AIShield is local-first and zero-dependency. It scans statically + with offline
+# threat intel and NEVER executes the scanned code (proven by `--prove-isolation`).
+
+hooks:
+  - id: aishield-scan-skills
+    description: >-
+      Scan the project's skills and MCP configs with AIShield before the session
+      starts. Blocks only on CRITICAL findings; always prints score + risk level.
+    event: SessionStart
+    # Real, verified entrypoint: action_entrypoint.py is AIShield's env-driven
+    # one-shot CLI (the same code the GitHub Action runs). It clones AIShield
+    # once into $AISHIELD_HOME (default ~/.aishield) and caches it.
+    command: >-
+      bash -lc 'AISH="${AISHIELD_HOME:-$HOME/.aishield}"; [ -f "$AISH/action_entrypoint.py" ] || git clone -q --depth 1 https://github.com/lm203688/aishield "$AISH"; INPUT_SOURCE_URL=. INPUT_TOOL_TYPE=skill INPUT_FAIL_ON=critical python3 "$AISH/action_entrypoint.py"'
+    tools: [claude, codex, cursor, workbuddy, qoder, kiro]
+
+# Tuning:
+#   - Want a softer gate?  set INPUT_FAIL_ON=high  (or append  || true  to warn only)
+#   - Want it stricter?    set INPUT_FAIL_ON=medium
+#   - Pin a version:       git clone --depth 1 --branch v4.3.0 ... (instead of default branch)
+#   - Air-gapped hosts:    pre-clone AIShield once and export AISHIELD_HOME=/path/to/aishield

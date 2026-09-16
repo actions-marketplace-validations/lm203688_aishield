@@ -157,7 +157,7 @@
 │  MCP Server · npm Package · GitHub Action · VS Code Ext    │
 ├─────────────────────────────────────────────────────────────┤
 │                     能力层 (Capability)                      │
-│  227 MCP Rules · 233 Skill Rules · 11 Agentic Modules      │
+│  238 MCP Rules · 244 Skill Rules · 11 Agentic Modules      │
 │  差分扫描 · Fuzzing · 攻击回放 · 垂直风险 · Trust API       │
 ├─────────────────────────────────────────────────────────────┤
 │                     引擎层 (Engine)                          │

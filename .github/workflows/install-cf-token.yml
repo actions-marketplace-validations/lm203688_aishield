@@ -1,0 +1,132 @@
+# ---------------------------------------------------------------------------
+# install-cf-token.yml — 把 GitHub Secret CF_TUNNEL_TOKEN 一次性写入 VPS
+# ---------------------------------------------------------------------------
+# 背景
+#   scripts/deploy-named-tunnel.sh 与 scripts/deploy-quick-tunnel.sh 曾把一个
+#   base64 编码的 Cloudflare API token 硬编码在仓库里。本仓库是 **public** 的，
+#   那个 token 拥有 aishield.tools 的 Zone Read + DNS Records Edit +
+#   Zone Settings Edit —— 足以把域名 CNAME 劫持到攻击者服务器。
+#
+#   2026-09-15 起两个脚本改为运行期解析 token（scripts/cf-token-loader.sh）：
+#     1. env  $CF_TUNNEL_TOKEN
+#     2. 文件 /root/.aishield/cf-token      ← 本 workflow 负责写这一步
+#
+# 一次性使用方法
+#   1. https://dash.cloudflare.com/profile/api-tokens  → Create Token
+#      权限按 docs/cf-token-rotation.md 的最小集勾选
+#   2. https://github.com/lm203688/aishield/settings/secrets/actions
+#      → New repository secret → 名称 CF_TUNNEL_TOKEN
+#   3. Actions → 本 workflow → Run workflow → 运行一次
+#
+# 安全说明
+#   * token 只经 scp 加密通道传输，不出现在任何进程 argv、脚本文本或日志里；
+#     GitHub Actions 另会自动对 secret 值做日志脱敏。
+#   * 落地权限：目录 700 / 文件 600 / umask 077。
+#   * 校验只打印"是否可用、能访问哪个 zone、能读到几条 DNS 记录"，不打印 token。
+# ---------------------------------------------------------------------------
+name: install CF token to VPS
+
+on:
+  workflow_dispatch:
+
+jobs:
+  install:
+    name: Write token to VPS + verify
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    env:
+      # zone id 不是 secret，直接写明，便于排错。
+      CF_ZONE_ID: 7625fc8ab719b3974e12aa2b6bf25489
+
+    steps:
+      - name: Pre-flight — CF_TUNNEL_TOKEN must exist
+        env:
+          TOKEN: ${{ secrets.CF_TUNNEL_TOKEN }}
+        run: |
+          if [ -z "$TOKEN" ]; then
+            echo "::error title=缺少 CF_TUNNEL_TOKEN::仓库 Secrets 里还没有 CF_TUNNEL_TOKEN"
+            echo ""
+            echo "请先完成前两步："
+            echo "  1) https://dash.cloudflare.com/profile/api-tokens  → Create Token"
+            echo "  2) https://github.com/lm203688/aishield/settings/secrets/actions"
+            echo "     → New repository secret → Name = CF_TUNNEL_TOKEN"
+            exit 1
+          fi
+          echo "CF_TUNNEL_TOKEN present (length ${#TOKEN})"
+
+      - name: Write token to VPS (over ssh/scp)
+        env:
+          SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+          SERVER_PORT: ${{ secrets.SERVER_PORT || 22 }}
+          CF_TOKEN: ${{ secrets.CF_TUNNEL_TOKEN }}
+        run: |
+          set -e
+          # 与 deploy-server.yml 完全相同的 SSH 建立方式（该通道是常年验证可用的）。
+          mkdir -p ~/.ssh
+          printf '%s' "$SSH_KEY" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H "$SERVER_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+          SCP="scp -o StrictHostKeyChecking=no -P ${SERVER_PORT:-22}"
+          SSH="ssh -o StrictHostKeyChecking=no -p ${SERVER_PORT:-22} $SERVER_USER@$SERVER_HOST"
+
+          $SSH 'umask 077; install -d -m 700 /root/.aishield'
+
+          # token 走 scp 文件通道：不进 argv、不进日志、不进脚本文本。
+          umask 077
+          printf '%s' "$CF_TOKEN" > /tmp/cf-token
+          chmod 600 /tmp/cf-token
+          $SCP /tmp/cf-token "$SERVER_USER@$SERVER_HOST:/root/.aishield/cf-token"
+          rm -f /tmp/cf-token
+
+          $SSH 'chmod 600 /root/.aishield/cf-token'
+          $SSH 'ls -la /root/.aishield/cf-token'
+          $SSH 'echo "written bytes: $(wc -c < /root/.aishield/cf-token)"'
+
+      - name: Verify token from the VPS itself
+        env:
+          SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+          SERVER_PORT: ${{ secrets.SERVER_PORT || 22 }}
+        run: |
+          set -e
+          mkdir -p ~/.ssh
+          printf '%s' "$SSH_KEY" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H "$SERVER_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+          SSH="ssh -o StrictHostKeyChecking=no -p ${SERVER_PORT:-22} $SERVER_USER@$SERVER_HOST"
+
+          # 校验读的是磁盘上的文件，因此这一步同时证明了 deploy 脚本
+          # 将要读取的那个文件确实可用。每条检查独立成行，避免嵌套引号。
+          echo "=== 0. token 落在磁盘上 ==="
+          $SSH "wc -c < /root/.aishield/cf-token"
+
+          echo "=== 1. token 自身有效 ==="
+          $SSH "T=\$(tr -d '[:space:]' < /root/.aishield/cf-token); curl -s --max-time 20 https://api.cloudflare.com/client/v4/user/tokens/verify -H \"Authorization: Bearer \$T\" | python3 -c \"import sys,json;d=json.load(sys.stdin);r=d.get('result') or {};print('  success:',d.get('success'),' token_id:',str(r.get('id'))[:12])\""
+
+          echo "=== 2. 能读目标 zone（deploy 必需）==="
+          $SSH "T=\$(tr -d '[:space:]' < /root/.aishield/cf-token); curl -s --max-time 20 https://api.cloudflare.com/client/v4/zones/$CF_ZONE_ID -H \"Authorization: Bearer \$T\" | python3 -c \"import sys,json;d=json.load(sys.stdin);r=d.get('result') or {};a=r.get('account') or {};print('  zone:',r.get('name'),' account:',a.get('id'),' err:',(d.get('errors') or [{}])[0].get('message',''))\""
+
+          echo "=== 3. 能读 DNS 记录（deploy 必需）==="
+          $SSH "T=\$(tr -d '[:space:]' < /root/.aishield/cf-token); curl -s --max-time 20 \"https://api.cloudflare.com/client/v4/zones/$CF_ZONE_ID/dns_records?name=aishield.tools\" -H \"Authorization: Bearer \$T\" | python3 -c \"import sys,json;d=json.load(sys.stdin);print('  success:',d.get('success'),' records:',len(d.get('result') or []))\""
+
+          echo "=== 4. loader 能否解析到它 ==="
+          $SSH "cd /opt/aishield 2>/dev/null || cd ~/aishield 2>/dev/null || true; if [ -f scripts/cf-token-loader.sh ]; then . scripts/cf-token-loader.sh; load_cf_token && echo '  loader OK via '$(cf_token_source) || echo '  loader FAIL'; else echo '  loader 尚未同步到磁盘（下次 deploy 会带上）'; [ -r /root/.aishield/cf-token ] && echo '  file readable: YES'; fi"
+
+      - name: Next step — revoke the old token
+        run: |
+          echo ""
+          echo "✅ token 已就位：scripts/deploy-*.sh 现在从 /root/.aishield/cf-token 读取。"
+          echo ""
+          echo "⚠️  还剩最后一步，且必须由你手动完成："
+          echo "    到 https://dash.cloudflare.com/profile/api-tokens"
+          echo "    **删除**那个旧的、曾硬编码在仓库里的 token。"
+          echo "    （它在 public 仓库的完整历史里，任何 clone 过的人都已读到。）"
+          echo ""
+          echo "    删除后 aishield.tools 立即改用新 token，不影响在线服务。"

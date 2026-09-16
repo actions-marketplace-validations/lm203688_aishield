@@ -1,7 +1,7 @@
 # AIShield 自动化台账
 
 > **本文件由 `scripts/gen_task_registry.py` 自动生成，请勿手工编辑。**
-> 生成时间：2026-09-10 15:32 UTC
+> 生成时间：2026-09-15 10:02 UTC
 
 历史教训：本台账曾手工声称「二十八项定时任务在跑」，而仓库实际只有十四个 workflow，其中 self-heal 因 YAML 语法错静默失效 48 天。台账一旦脱离现实，就会把「看起来很自动化」的幻觉喂给每一次决策。现改为从 workflow 真实内容派生。
 
@@ -9,9 +9,9 @@
 
 | 指标 | 数值 |
 |------|------|
-| 本仓库 workflow 总数 | 18 个任务 |
+| 本仓库 workflow 总数 | 19 个任务 |
 | 其中定时驱动 | 5 个 |
-| 其中事件驱动 | 13 个 |
+| 其中事件驱动 | 14 个 |
 | 存在断链/语法问题 | 0 个 |
 
 ## 定时任务
@@ -33,6 +33,7 @@
 | `data-scan-flywheel.yml` | AIShield Data Flywheel (Batch Scan to Self-Built Database) | workflow_call / 手动 | 2 |
 | `deploy-server.yml` | Deploy to Production Server | workflow_call / 手动 | 2 |
 | `feature-closed-loop.yml` | AIShield Intelligence-to-Feature Closed-Loop | workflow_call / Issue 事件 / 手动 | 5 |
+| `install-cf-token.yml` | install CF token to VPS | 手动 | 1 |
 | `issue-labeler.yml` | Auto Label Issues | Issue 事件 / 手动 | 1 |
 | `pages.yml` | Pages Site (内容站构建与发布) | push(main) / workflow_run / 手动 | 4 |
 | `project-digest.yml` | AIShield Project Digest (统一迭代汇报) | workflow_call / 手动 | 1 |
@@ -51,8 +52,8 @@
 | distribution | 2026-08-04 09:36:23 |
 | feature | 2026-08-04 06:41:12 |
 | health | 2026-08-05 01:22:22 |
-| intel | 2026-08-04 06:35:13 |
-| meta | 2026-09-10 15:30:31 |
+| intel | 2026-09-10 15:47:44 |
+| meta | 2026-09-10 15:37:52 |
 | registry | 2026-08-04 09:33:55 |
 | rules | 2026-08-04 06:37:09 |
 | selfheal | 2026-08-04 15:33:55 |

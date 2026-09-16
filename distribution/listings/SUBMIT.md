@@ -26,10 +26,13 @@
 **标题/Name**：`AIShield (local, open-source)`
 
 **一句话描述（Short）**：
-> Local-first, open-source AI-tool security scanner for MCP servers, AI skills, GPTs and prompts. OWASP MCP Top 10 + Agentic ASI01–10. 227 MCP / 233 skill rules. Runs fully offline — your code never leaves your machine.
+> Local-first, open-source AI-tool security scanner for MCP servers, AI skills, GPTs and prompts. OWASP MCP Top 10 + Agentic ASI01–10. 238 MCP / 244 skill rules. Runs fully offline — your code never leaves your machine.
+
+> ⚠️ **规则数基线（2026-09-15 起）**：**238 MCP / 244 Skill**（静态 210 + 情报 9 + 雷达 19）。
+> 本文件已同步；仓库内其余营销/品牌文档仍写着历史值 **227/233**，属已知 drift，待统一 sweep。
 
 **长描述（Long）**：
-> AIShield is a **local-first, open-source** security scanner for the agent ecosystem. It scans MCP servers, AI skills, GPTs and prompts for tool poisoning, prompt injection and supply-chain risks, aligned to OWASP MCP Top 10 + Agentic AI Top 10 (ASI01–ASI10). The rule base covers 227 MCP + 233 skill rules, with zero third-party runtime dependencies (urllib only) and an optional remote LLM semantic backend.
+> AIShield is a **local-first, open-source** security scanner for the agent ecosystem. It scans MCP servers, AI skills, GPTs and prompts for tool poisoning, prompt injection and supply-chain risks, aligned to OWASP MCP Top 10 + Agentic AI Top 10 (ASI01–ASI10). The rule base covers 238 MCP + 244 skill rules, with zero third-party runtime dependencies (urllib only) and an optional remote LLM semantic backend.
 >
 > **Why local-first matters:** AIShield runs entirely on your machine. It never uploads your code or config, never spawns commands found inside the artifact being scanned, and can run 100% offline. This is the open-source edition — distinct from the cloud SaaS `aishield.ai`.
 
@@ -64,7 +67,7 @@
   | remotes | `streamable-http` → `https://aishield.tools/api/v1/mcp` |
 
 - **无需提 PR**：条目已在册（推测由 `.github/workflows/publish-mcp-registry.yml` 发布）。此前「fork + 提 PR」的指引**作废**，勿重复提交造成重复条目。
-- **⚠️ 唯一遗留缺陷**：在册条目的 `remotes` 指向 `aishield.tools/api/v1/mcp`。该端点**并未失效**（POST JSON-RPC 实测 200，返回 8 个工具、工具名正确为 `aishield_*`），但**其自报版本/规则数陈旧**（`/api/v1/health` 返回 `version: "4.2"`、`rules_count: 133`，基线应为 4.2.2 / 227）。即 agent 若走 remote 通道可用，但会读到过时元数据。
+- **✅ 已消除（2026-09-15 实测 curl）**：在册条目的 `remotes` 指向 `aishield.tools/api/v1/mcp`。该端点**并未失效**（POST JSON-RPC 实测 200，工具名正确为 `aishield_*`），且**后端元数据已新鲜**——`GET https://aishield.tools/api/v1/health` 实测返回 `version: "4.3.0"`、`rules_count: 238`（`rules_breakdown: {static:210, generated:9, radar:19}`）、`deployed_at: 2026-09-15T08:46:52Z`。此前记录的「4.2 / 133 rules / 227」陈旧问题**已不复现**。
 - **⚠️ 本地 `registry/server.json` 与在册条目不一致**：本地版本已被删掉 `remotes` 段（当时误判其为死端）。既然实测 remote 活着，**是否要在下次发版时移除 remote 变成 stdio-only，是一个待用户拍板的决策**（移除 = 少一个可发现表面；保留 = 需先修后端 stale 元数据）。
 - **更新方式**：发新版本时由 `publish-mcp-registry.yml` 推送，不走 PR。
 
@@ -117,6 +120,24 @@
 - **状态**：✅ 认领资产就绪 `distribution/deepseek-harness/`。
 - **去哪**：① deepbolt.xyz DSH Plugins 投我们的 listing（草稿 `DSH-PLUGINS-LISTING.md`）；② `npm publish dsh-aishield`（等 DSH Cordis API 稳再补 `index.js` 注册体）。
 
+## 10. Tencent TeamAI（HIGH · ✅ source 已就绪，无需账号）
+
+- **状态**：✅ **已就绪（2026-09-15）**。TeamAI 是 **git-native**，**没有平台账号体系** —— 团队共享仓库本身就是分发通道。因此「上架」= 把 AIShield 仓库做成合法 source repo，**AI 已直接完成**：
+  - 根 `teamai.yaml` → 声明 `publicSkills: [aishield-scan]`（只有显式列出的 skill 才会分发给订阅方）。
+  - `skills/aishield-scan/SKILL.md` → 实际下发的 skill。
+  - 订阅方一行命令：`teamai source add https://github.com/lm203688/aishield.git --name aishield`
+- **为什么是杠杆点**：分发面覆盖 **11 种 agent（含 WorkBuddy）**；它自带的安全能力只有 `block-secret`（仅密钥扫描，且**用了 `|| true`，永不阻断** = 门禁自毁反例），**缺「全量 skill / MCP 安全门禁」**。
+- **可选硬门禁（用户团队侧）**：`distribution/teamai/teamai-hook.yaml` —— `SessionStart` hook 调用**真实入口** `action_entrypoint.py`（env 驱动的一次性 CLI，与 GitHub Action 同源；实测 `exit 0/1` 符合 `fail_on`），默认仅 CRITICAL 阻断。
+- **订正**：早期草稿里的 `python -m scanner.cli scan` **是臆造的**（该文件在仓库中不存在），已替换为真实入口。
+
+## 11. CocoLoop（HIGH · 正面竞品，同时也是渠道）
+
+- **状态**：🟡 **文案就绪，待用户注册**：`distribution/cocoloop/LISTING.md`。
+- **平台事实（2026-09-15 实地核实）**：**当贝**推出的 OpenClaw 类 AI Agent 技能商店，**2026-03-19 上线**，收录 5000+ Skills；上架强制 **CLS（平台专属）+ BSS（行业通用）** 安全审核并出 **S+/S/A/B/C/D** 评级；另提供 VM 级（Docker）隔离执行环境。
+- **⚠️ 竞品已在架**：`SkillScan`（`/skills/7590`，评级 A，"Skill 安全准入网关 · 风险智能分级拦截"）—— 同赛道**正面撞车**。
+- **我方差异化（已写入草稿）**：**本地零依赖 / 代码不上云 / 双维（MCP + ASI01–10）/ 秒级静态规则**；`scripts/prove_isolation.py` 可自证「spawn 0 子进程」。
+- **⛔ 注册 AI 无法代做**：登录/投稿入口为**客户端渲染**（`/login`、`/submit`、`/upload` 等直连均 404），且账号需**手机号 / 微信 OTP**。操作路径：打开 <https://hub.cocoloop.cn/> → 登录 → 「社区投稿 / 分享自制 Skill」→ 粘贴 `LISTING.md` 文案提交公开仓库。
+
 ---
 
 ## 发布状态速查（每周由自动化刷新）
@@ -138,8 +159,10 @@
 | HuggingFace | ❌ | ✅ README | 上传 |
 | A2A Registry | ❌ | ✅ agent-card | 注册 |
 | DSH | ❌ | ✅ 全套 | 投稿+npm |
-| aishield.tools 静态发现文件 | ✅ **已修复 4.3.0**（2026-09-05 复测：227 MCP/233 skill、6 工具名正确） | ✅ main 已是 4.3.0 正确 | 无（drift 随 4.3.0 发版消除，CF Pages Retry 不再需要） |
-| aishield.tools `/api/v1` 后端 | ✅ **已修复 4.3.0/228**（2026-09-05 复测；commit 93fcd10c，deployed 2026-09-01） | — | 无（随 4.3.0 发版部署，元数据已新鲜） |
+| TeamAI | ✅ **source 已就绪（2026-09-15，无需账号）** | ✅ `teamai.yaml` + `skills/aishield-scan/SKILL.md` | 无 |
+| CocoLoop | 🟡 **文案就绪，待注册**（2026-09-15） | ✅ LISTING.md | 注册 + 社区投稿 |
+| aishield.tools 静态发现文件 | ✅ **已修复 4.3.0 → 238 MCP/244 Skill**（2026-09-15 sweep 复测） | ✅ main 已同步 | 无 |
+| aishield.tools `/api/v1` 后端 | ✅ **已修复 4.3.0/238**（2026-09-15；规则数为服务端计算） | — | 无 |
 | GitHub Pages（github.io） | ⛔ **死端表面**：301→aishield.tools，内容不可达 | — | 无（勿再修，见下） |
 
 ### 表面拓扑（2026-08-22 实测厘清）

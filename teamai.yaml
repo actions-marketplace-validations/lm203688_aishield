@@ -1,0 +1,10 @@
+# TeamAI source manifest — makes AIShield subscribable by any TeamAI team.
+#
+# A TeamAI team subscribes with a single command (no account, no signup —
+# TeamAI is git-native, the repo *is* the distribution channel):
+#
+#     teamai source add https://github.com/lm203688/aishield.git --name aishield
+#
+# Only the skills listed under `publicSkills` are shared with subscriber teams.
+publicSkills:
+  - aishield-scan

@@ -153,8 +153,19 @@ if [ -n "$TUNNEL_URL" ]; then
     TUNNEL_HOST=$(echo "$TUNNEL_URL" | sed 's|https://||')
     log "目标: aishield.tools -> $TUNNEL_HOST"
 
-    CF_API_TOKEN=$(echo 'Y2Z1dF9Nb2hJTlhSTFBpaWQ2cHpDZUJuOVZCVUxxZWdvR29sSmVESEFwZDR1YWE1NDM5ZGI=' | base64 -d)
+    # CF token 从 env/文件解析，绝不硬编码（本仓库 public，见 cf-token-loader.sh）
+    [ -f "$(dirname "$0")/cf-token-loader.sh" ] && . "$(dirname "$0")/cf-token-loader.sh"
     CF_ZONE_ID='7625fc8ab719b3974e12aa2b6bf25489'
+
+    if ! load_cf_token; then
+        log "ERROR: 无 CF API token（env \$CF_TUNNEL_TOKEN 与 ${CF_TOKEN_FILE} 均缺），"
+        log "        无法更新 aishield.tools DNS。Quick Tunnel 已生成但域名仍指旧目标。"
+        log "        修复：GitHub Secrets 添加 CF_TUNNEL_TOKEN，再运行"
+        log "        Actions → install CF token to VPS（docs/cf-token-rotation.md）。"
+        unset CF_API_TOKEN
+        exit 2
+    fi
+    log "CF token 来源: $(cf_token_source)"
 
     # 查询现有 DNS 记录
     DNS_RESULT=$(curl -s "https://api.cloudflare.com/client/v4/zones/$CF_ZONE_ID/dns_records?name=aishield.tools" \

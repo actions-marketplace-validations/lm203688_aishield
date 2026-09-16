@@ -514,6 +514,7 @@ def check_radar_sources() -> Dict[str, Any]:
         return {"ok": None, "detail": "雷达状态尚无 source_health 字段，跳过"}
 
     bad: List[str] = []
+    blocked: List[str] = []
     for name, h in health.items():
         if not isinstance(h, dict):
             continue
@@ -521,7 +522,14 @@ def check_radar_sources() -> Dict[str, Any]:
             n = int(h.get("consecutive_failures") or 0)
         except Exception:
             n = 0
-        if n >= RADAR_FAIL_THRESHOLD:
+        if n < RADAR_FAIL_THRESHOLD:
+            continue
+        if h.get("known_blocked"):
+            # 结构性不可达（如 reddit 在本机出口）——仍计数但不升级，与
+            # tech_radar._degraded_sources 同一判据，避免每天重复报同一个
+            # 救不了的故障（噪声淹没真信号）。
+            blocked.append(f"{name} 已知不可达 {n} 次")
+        else:
             bad.append(f"{name} 连续 {n} 次失败")
 
     if bad:
@@ -530,7 +538,9 @@ def check_radar_sources() -> Dict[str, Any]:
     ok_n = sum(1 for h in health.values()
                if isinstance(h, dict)
                and int(h.get("consecutive_failures", 0) or 0) == 0)
-    return {"ok": True, "detail": f"雷达情报源健康（{ok_n}/{len(health)} 正常）"}
+    tail = ("；已知不可达（不升级）：" + "；".join(blocked)) if blocked else ""
+    return {"ok": True,
+            "detail": f"雷达情报源健康（{ok_n}/{len(health)} 正常）{tail}"}
 
 
 # --------------------------------------------------------------------------
