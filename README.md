@@ -37,7 +37,15 @@
 
 ## 核心特性
 
-🛡️ **238 条规则（静态 210 + 情报 9 + 雷达 19）** — 对齐 OWASP MCP Top 10 (2025 v0.1) 与 OWASP Agentic AI Top 10 (ASI01–ASI10)，覆盖 Prompt 注入、越权访问、数据泄露、协议攻击、供应链风险、沙箱逃逸 6 大维度
+🛡️ **238 条规则（静态 210 + 情报 9 + 雷达 19）** — 对齐 OWASP MCP Top 10 (2025 v0.1) 与 OWASP Agentic AI Top 10 (2026) 的全部 10 类风险，覆盖 Prompt 注入、越权访问、数据泄露、协议攻击、供应链风险、沙箱逃逸 6 大维度
+
+> **编号体系说明（重要）**：报告中 `owasp_category` 字段的 `ASI01–ASI10` 是**本库内部归纳编号**，
+> 与 OWASP 官方 *Top 10 for Agentic Applications 2026* 的编号**不是同一套**——仅 ASI01/ASI02/ASI03
+> 恰好同号。例如本库 `ASI04`（记忆操纵与投毒）在官方体系中是 `ASI06 Memory & Context Poisoning`，
+> 而官方 `ASI04` 是 Agentic Supply Chain。逐条交叉表见 `scanner/compliance.py` 的
+> `INTERNAL_ASI_TO_OWASP`（也随 `compliance_summary()` 返回）与
+> [`docs/owasp-agentic-taxonomy-alignment.md`](docs/owasp-agentic-taxonomy-alignment.md)。
+> 引用 OWASP 官方措辞前必须经此换算。
 
 🧰 **Agent 计算机的内容安全平面** — Cloudflare Sandboxes、forgevm、E2B、Open Interpreter、Goose 这类运行时管的是**爆炸半径**（agent 能碰到什么），AIShield 管的是**内容可信**（agent 读进来的 MCP server、skill、工具描述该不该信）。两者互补：启动前工作区预扫 → 沙箱硬化规则 → 每次调用准入 → 持续鉴证。详见 [Agent 计算机的两个安全平面](docs/agent-computer-security-plane.md)
 
