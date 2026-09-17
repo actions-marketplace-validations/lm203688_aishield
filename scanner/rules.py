@@ -672,14 +672,69 @@ def get_generated_rules_meta():
 # 混在一起会让雷达晋升的规则在下一次情报刷新时被静默抹掉。
 RADAR_RULES = {}
 _RADAR_META = {}
+_RADAR_QUARANTINE = {}
+
+# 雷达规则的字段契约。data/radar_rules.json 是机器生成的数据，不是手写常量，
+# 所以它的字段必须在**载入时**校验，不能等第一次扫描才暴露。
+#
+# 旧实现是 `try: desc, severity = meta[0], meta[1] except: continue`—
+# 结构不对就静默丢弃，坏条目从此消失在日志之外（假绿）。而且 severity
+# 完全不校验、正则也完全不在加载期编译：一条坏正则会等到扫描时才 re.error，
+# 把整次扫描打崩。借鉴 CosmosMind RSIH Genome 的「互斥字段所有权 + 越界写
+# 加载期即失败」：越界的条目在加载期就被拒收并可见地报告，而不是在运行期
+# 炸掉或被无声吞掉。
+_RADAR_VALID_SEVERITIES = {"critical", "high", "medium", "low", "info"}
+
+
+def _validate_radar_entry(pattern, meta):
+    """校验单条雷达规则。返回问题列表；空列表 = 通过字段契约。
+
+    刻意不抛异常：本函数只在模块 import 时被调用，任何异常都会让扫描器
+    整体不可用。不确定一律记为问题，由调用方隔离该条目。
+    """
+    problems = []
+    if not isinstance(pattern, str) or not pattern.strip():
+        problems.append("pattern key 为空或非字符串")
+        return problems
+    if not isinstance(meta, (list, tuple)) or len(meta) != 2:
+        problems.append("value 必须是长度为 2 的 [描述, 严重级别]")
+        return problems
+
+    desc, severity = meta[0], meta[1]
+    if not isinstance(desc, str) or not desc.strip():
+        problems.append("description 为空或非字符串")
+    elif desc.strip().upper().startswith("TODO"):
+        problems.append("description 仍是 TODO 占位符")
+
+    if not isinstance(severity, str):
+        problems.append("severity 非字符串")
+    elif severity.strip().lower() not in _RADAR_VALID_SEVERITIES:
+        problems.append("severity %r 不在 %s" % (severity,
+                                                sorted(_RADAR_VALID_SEVERITIES)))
+
+    try:
+        compiled = re.compile(pattern, re.IGNORECASE)
+    except re.error as e:
+        problems.append("正则无法编译: %s" % e)
+        return problems  # 不确定的正则不再往下判，避免二次异常
+    if compiled.search("") or compiled.search("a"):
+        problems.append("正则可匹配空串或平凡输入，过宽")
+    return problems
 
 
 def _load_radar_rules():
-    """载入 data/radar_rules.json。文件缺失或损坏时静默降级，不影响基础规则。"""
-    global RADAR_RULES, _RADAR_META
+    """载入 data/radar_rules.json 并执行字段契约。
+
+    文件缺失或整体损坏时静默降级（基础规则不受影响）；**条目级**问题
+    不再静默丢弃，而是隔离进 _RADAR_QUARANTINE，可通过
+    get_radar_load_warnings() 读取。绝不抛异常—加载期失败的正确答案
+    是「少一条规则 + 一条可见告警」，而不是整个扫描器 import 失败。
+    """
+    global RADAR_RULES, _RADAR_META, _RADAR_QUARANTINE
     import json as _json
     import os as _os
 
+    _RADAR_QUARANTINE = {}
     path = _os.path.join(
         _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))),
         "data", "radar_rules.json",
@@ -691,17 +746,22 @@ def _load_radar_rules():
             data = _json.load(f)
     except Exception:
         return
+    if not isinstance(data, dict):
+        return
 
     for pattern, meta in (data.get("rules") or {}).items():
-        try:
-            desc, severity = meta[0], meta[1]
-        except (TypeError, IndexError, KeyError):
+        problems = _validate_radar_entry(pattern, meta)
+        if problems:
+            key = pattern if isinstance(pattern, str) and pattern.strip() \
+                else repr(pattern)
+            _RADAR_QUARANTINE[key] = problems
             continue
-        RADAR_RULES[pattern] = (f"[雷达] {desc}", severity)
+        RADAR_RULES[pattern] = (f"[雷达] {meta[0]}", meta[1].strip().lower())
 
     _RADAR_META = {
         "total_rules": len(RADAR_RULES),
         "provenance": data.get("provenance", {}),
+        "quarantined": len(_RADAR_QUARANTINE),
     }
 
 
@@ -712,6 +772,16 @@ ALL_RULES.update(RADAR_RULES)
 def get_radar_rules_meta():
     """返回雷达晋升规则的元信息（含每条规则的情报溯源）。"""
     return dict(_RADAR_META)
+
+
+def get_radar_load_warnings():
+    """返回加载期被字段契约拒收的雷达条目 {pattern: [原因, ...]}。
+
+    空 dict = 数据文件干净。非空必须被 CI / self_scan 看见：静默丢弃
+    坏条目是本仓库明确的反模式（假绿）—一条被吞的规则等于一条不存在的
+    规则，而报告里不会体现任何差异。
+    """
+    return {k: list(v) for k, v in _RADAR_QUARANTINE.items()}
 
 
 # 危险npm包（已知恶意）
