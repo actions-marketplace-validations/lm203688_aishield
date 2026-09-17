@@ -1,0 +1,171 @@
+{
+  "$schema": "https://agents.well-known.dev/v1",
+  "name": "AIShield",
+  "service_version": "4.3.0",
+  "description": "Open-source, local-first AI Agent security scanner and trust authority for the MCP / Agentic AI economy. OWASP MCP Top 10 + OWASP Agentic AI Top 10 (ASI01-ASI10) aligned, 238 MCP rule categories / 244 skill rule categories. Static analysis only - it never spawns or executes the configuration it scans.",
+  "url": "https://aishield.tools",
+  "category": "Agent 安全 / MCP Security",
+  "language": "en",
+  "license": "MIT",
+  "api": {
+    "type": "rest",
+    "base_url": "https://aishield.tools/api/v1",
+    "openapi": "https://aishield.tools/openapi.json",
+    "protocol": "https://aishield.tools/mcp",
+    "mcp_stdio": "npx aishield-mcp-server",
+    "endpoints": [
+      {
+        "path": "/api/v1/health",
+        "method": "GET",
+        "description": "Status, version, rules count, commit and deploy timestamp",
+        "content_type": "application/json"
+      },
+      {
+        "path": "/api/v1/audit",
+        "method": "POST",
+        "description": "Security audit for MCP servers, AI skills and agent configurations",
+        "content_type": "application/json"
+      },
+      {
+        "path": "/api/v1/prompt-check",
+        "method": "POST",
+        "description": "Prompt injection / jailbreak detection (Chinese + English)",
+        "content_type": "application/json"
+      },
+      {
+        "path": "/api/v1/banned-words",
+        "method": "POST",
+        "description": "Banned/sensitive word detection for 6 Chinese content platforms",
+        "content_type": "application/json"
+      },
+      {
+        "path": "/api/v1/mcp",
+        "method": "POST",
+        "description": "MCP tool audit: rug pull, dependency and supply-chain risk",
+        "content_type": "application/json"
+      },
+      {
+        "path": "/api/v1/agent/setup",
+        "method": "GET",
+        "description": "Agent onboarding: install steps, API key, DID identity",
+        "content_type": "application/json"
+      },
+      {
+        "path": "/api/v1/identity/register",
+        "method": "POST",
+        "description": "Register an agent and receive a trust attestation (aishield-trust/v1)",
+        "content_type": "application/json"
+      },
+      {
+        "path": "/api/v1/identity/agents",
+        "method": "GET",
+        "description": "List registered agents and their trust scores",
+        "content_type": "application/json"
+      },
+      {
+        "path": "/api/v1/trust",
+        "method": "GET",
+        "description": "Trust API: scores, registry lookup, attestation receipts",
+        "content_type": "application/json"
+      },
+      {
+        "path": "/api/v1/billing/plans",
+        "method": "GET",
+        "description": "Available pricing plans",
+        "content_type": "application/json"
+      }
+    ]
+  },
+  "capabilities": [
+    "mcp_configuration_scan",
+    "skill_scan",
+    "agent_identity_scan",
+    "prompt_injection_detection",
+    "banned_words_detection",
+    "rug_pull_detection",
+    "slopsquatting_detection",
+    "sandbox_hardening_scan",
+    "identity_verification",
+    "network_exposure_scan",
+    "trust_attestation",
+    "ci_security_gate"
+  ],
+  "content_types": [
+    "application/json",
+    "text/plain",
+    "text/html",
+    "application/xml",
+    "application/atom+xml"
+  ],
+  "discovery_assets": {
+    "mcp_server_card": "https://aishield.tools/.well-known/mcp/server-card.json",
+    "a2a_agent_card": "https://aishield.tools/.well-known/agent-card.json",
+    "ai_plugin": "https://aishield.tools/.well-known/ai-plugin.json",
+    "agent_discovery": "https://aishield.tools/agent-discovery.json",
+    "llms_txt": "https://aishield.tools/llms.txt",
+    "llms_full": "https://aishield.tools/llms-full.txt",
+    "security_txt": "https://aishield.tools/.well-known/security.txt",
+    "trust_standard": "https://aishield.tools/aishield-trust-standard-v0.1",
+    "attestation_spec": "https://aishield.tools/trust-attestation-spec"
+  },
+  "safety": {
+    "spawns_scanned_configs": false,
+    "sends_code_to_cloud": false,
+    "requires_network_for_local_scan": false,
+    "zero_dependency": true
+  },
+  "auth": {
+    "type": "none",
+    "free_tier": "Core endpoints are open; local open-source edition is free and unlimited",
+    "paid_tier": "API key issued by /api/v1/agent/setup for extended quotas and trust attestation"
+  },
+  "standards": [
+    "OWASP MCP Top 10 (2025 v0.1)",
+    "OWASP Agentic AI Top 10 (ASI01-ASI10)"
+  ],
+  "rules": {
+    "total": 238,
+    "static": 210,
+    "generated": 9,
+    "radar": 19,
+    "skill_categories": 244
+  },
+  "contact": "61960005@qq.com",
+  "links": [
+    {
+      "rel": "repository",
+      "href": "https://github.com/lm203688/aishield",
+      "title": "AIShield on GitHub (MIT)"
+    },
+    {
+      "rel": "documentation",
+      "href": "https://aishield.tools/docs",
+      "title": "AIShield documentation"
+    },
+    {
+      "rel": "guide",
+      "href": "https://aishield.tools/mcp-security-guide",
+      "title": "MCP Security Guide"
+    },
+    {
+      "rel": "standard",
+      "href": "https://aishield.tools/aishield-trust-standard-v0.1",
+      "title": "AIShield Trust Standard v0.1"
+    },
+    {
+      "rel": "pricing",
+      "href": "https://aishield.tools/pricing",
+      "title": "Pricing"
+    },
+    {
+      "rel": "related",
+      "href": "https://aishield.tools/agent-computer-security-plane",
+      "title": "Agent Computer Security Plane (isolation vs content trust)"
+    },
+    {
+      "rel": "related",
+      "href": "https://aishield.tools/agent-mesh-trust-layer",
+      "title": "Neutral trust layer of the agent pathway"
+    }
+  ]
+}
