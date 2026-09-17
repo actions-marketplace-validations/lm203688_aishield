@@ -3,6 +3,12 @@
 Security scanner for AI Agent tools, aligned with **OWASP MCP Top 10** and
 **OWASP Agentic AI Top 10 (ASI)**. 201 local rules, 5-dimension scoring.
 
+> `owasp_category` values `ASI01`–`ASI10` are AIShield's **internal** category IDs, not the
+> official OWASP Top 10 for Agentic Applications (2026) identifiers. Only `ASI01`/`ASI02`/`ASI03`
+> coincide; internal `ASI04` (memory poisoning) is official `ASI06`, and official `ASI04` is
+> Agentic Supply Chain. Crosswalk: `internal_to_owasp_agentic` in the `compliance_summary`
+> payload, source `scanner/compliance.py::INTERNAL_ASI_TO_OWASP`.
+
 Scans never execute the code under review — AIShield reads configuration and
 source statically, and never spawns commands from the config it is inspecting.
 
