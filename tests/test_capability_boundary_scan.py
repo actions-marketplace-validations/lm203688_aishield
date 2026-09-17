@@ -166,7 +166,7 @@ class TestPipelineIntegration(unittest.TestCase):
                     "tool_integrity_scan", "registry_supply_scan", "provenance_scan",
                     "memory_scan", "antitamper_scan", "least_agency_scan",
                     "scope_composition_scan", "goal_hijack_scan", "dark_pattern_scan",
-                    "mcp_oauth_scan", "computeruse_scan"):
+                    "mcp_oauth_scan", "computeruse_scan", "memory_integrity_scan"):
             self.assertEqual(rep.get(key, {}).get("findings", []), [],
                              f"{key} 不应在良性样本产生 finding")
         self.assertIn("agentcard_scan", rep)
@@ -176,7 +176,8 @@ class TestPipelineIntegration(unittest.TestCase):
         for key in ("tool_integrity_scan", "registry_supply_scan", "provenance_scan",
                     "memory_scan", "antitamper_scan", "least_agency_scan",
                     "scope_composition_scan", "goal_hijack_scan", "dark_pattern_scan",
-                    "mcp_oauth_scan", "computeruse_scan"):
+                    "mcp_oauth_scan", "computeruse_scan",
+                    "memory_integrity_scan"):
             self.assertIn(key, rep)
 
     def test_malicious_pipeline_still_blocks(self):
