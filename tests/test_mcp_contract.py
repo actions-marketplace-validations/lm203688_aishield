@@ -200,6 +200,30 @@ class TestPublishedDocsTellTheTruth(unittest.TestCase):
             self.assertIn(t, self.readme, 'README 未记录工具 %s' % t)
 
 
+    def test_readme_carries_a_provenance_statement(self):
+        """README 必须写明 provenance 的边界 —— 否则用户把"装得上"当成"可信"。
+
+        借鉴 AgentShield(ecc-agentshield) 的 runner provenance 声明：
+        "Registry publication alone does not establish an audit."
+        """
+        self.assertIn('Provenance', self.readme, 'README 缺少 provenance 段')
+        self.assertIn('npm audit signatures', self.readme,
+                      'README 未给出可执行的校验命令 —— 用户无从验证')
+        self.assertRegex(
+            self.readme, r'does not establish an audit|not a security review',
+            'README 未说明 provenance 不覆盖的范围')
+
+    def test_publish_workflow_actually_signs_provenance(self):
+        """README 的 provenance 承诺必须由 workflow 真实兑现，不能只写在文档里"""
+        wf = os.path.join(ROOT, '.github', 'workflows', 'publish-npm.yml')
+        if not os.path.exists(wf):
+            self.skipTest('publish-npm.yml 不存在')
+        src = _read(wf)
+        self.assertIn('--provenance', src, '发布未启用 npm provenance')
+        self.assertIn('id-token: write', src,
+                      '缺少 id-token 权限，provenance 根本无法签发')
+
+
 # ══════════════════════════════════════════════════════════════
 # 第二层：stdio 端到端（缺 node / 构建产物时跳过）
 # ══════════════════════════════════════════════════════════════
