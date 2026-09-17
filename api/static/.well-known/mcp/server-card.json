@@ -19,9 +19,14 @@
       "inputSchema": {
         "type": "object",
         "properties": {
-          "source_url": {"type": "string", "description": "GitHub or repo URL of the MCP server / skill / agent to scan"}
+          "source_url": {
+            "type": "string",
+            "description": "GitHub or repo URL of the MCP server / skill / agent to scan"
+          }
         },
-        "required": ["source_url"]
+        "required": [
+          "source_url"
+        ]
       }
     },
     {
@@ -30,9 +35,14 @@
       "inputSchema": {
         "type": "object",
         "properties": {
-          "source_url": {"type": "string", "description": "GitHub or repo URL of the MCP server to evaluate before install"}
+          "source_url": {
+            "type": "string",
+            "description": "GitHub or repo URL of the MCP server to evaluate before install"
+          }
         },
-        "required": ["source_url"]
+        "required": [
+          "source_url"
+        ]
       }
     },
     {
@@ -41,9 +51,14 @@
       "inputSchema": {
         "type": "object",
         "properties": {
-          "prompt": {"type": "string", "description": "Text to check for prompt injection"}
+          "prompt": {
+            "type": "string",
+            "description": "Text to check for prompt injection"
+          }
         },
-        "required": ["prompt"]
+        "required": [
+          "prompt"
+        ]
       }
     },
     {
@@ -52,10 +67,27 @@
       "inputSchema": {
         "type": "object",
         "properties": {
-          "text": {"type": "string", "description": "Text to check"},
-          "platform": {"type": "string", "enum": ["all", "wechat", "douyin", "xiaohongshu", "bilibili", "weibo", "kuaishou"], "default": "all"}
+          "text": {
+            "type": "string",
+            "description": "Text to check"
+          },
+          "platform": {
+            "type": "string",
+            "enum": [
+              "all",
+              "wechat",
+              "douyin",
+              "xiaohongshu",
+              "bilibili",
+              "weibo",
+              "kuaishou"
+            ],
+            "default": "all"
+          }
         },
-        "required": ["text"]
+        "required": [
+          "text"
+        ]
       }
     },
     {
@@ -64,9 +96,14 @@
       "inputSchema": {
         "type": "object",
         "properties": {
-          "source_url": {"type": "string", "description": "GitHub repository URL"}
+          "source_url": {
+            "type": "string",
+            "description": "GitHub repository URL"
+          }
         },
-        "required": ["source_url"]
+        "required": [
+          "source_url"
+        ]
       }
     },
     {
@@ -75,9 +112,14 @@
       "inputSchema": {
         "type": "object",
         "properties": {
-          "source_url": {"type": "string", "description": "GitHub or package URL to verify"}
+          "source_url": {
+            "type": "string",
+            "description": "GitHub or package URL to verify"
+          }
         },
-        "required": ["source_url"]
+        "required": [
+          "source_url"
+        ]
       }
     }
   ],
@@ -86,5 +128,6 @@
     "local_first": true,
     "open_source": "MIT",
     "verification": "self-attested, open-source — no third-party audit claimed"
-  }
+  },
+  "category_id_note": "The owasp_category values ASI01-ASI10 are AIShield's INTERNAL category IDs, not the official OWASP Top 10 for Agentic Applications (2026) identifiers. Only ASI01/ASI02/ASI03 coincide. Internal ASI04 (memory poisoning) = official ASI06 Memory & Context Poisoning; official ASI04 = Agentic Supply Chain. Internal ASI09 (cascading failure) = official ASI08. Official ASI05 (Unexpected Code Execution) has no dedicated internal category. The field carries TWO namespaces: MCP01-MCP10 are official OWASP MCP Top 10 codes; ASI01-ASI10 are AIShield internal. Most Agentic scanners emit MCP0x - of the 11 Agentic modules only scanner/memory_integrity_scan.py emits an internal ASI code (ASI04) - so filtering reports on ASI0x misses the majority of Agentic findings. Machine-readable crosswalk: the internal_to_owasp_agentic key returned by compliance_summary(). Source of truth: scanner/compliance.py (INTERNAL_ASI_TO_OWASP, OWASP_AGENTIC_2026, OWASP_AGENTIC_THREATS T1-T17)."
 }
