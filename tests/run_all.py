@@ -62,6 +62,15 @@ def main():
         'tests.test_isolation_invariants',
         'tests.test_sync_version_targets',
         'tests.test_no_hardcoded_cf_token',
+        # 2026-09-16 补登记：下列三个文件此前不在列表中，被 run_all 静默跳过。
+        # 本清单是硬编码的，新增测试文件若忘记登记就不会被执行（假绿），
+        # tests/test_ci_contract.py::TestRunnerCoverage 会把这件事钉死。
+        'tests.test_geo',
+        'tests.test_indexnow',
+        'tests.test_gap_fill',
+        'tests.test_rule_promotion_rollback',
+        # 2026-09-17 新增扫描器（ASI04 记忆完整性）的回归测试
+        'tests.test_memory_integrity_scan',
     ]
 
     loaded = 0
