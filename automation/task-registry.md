@@ -1,7 +1,7 @@
 # AIShield 自动化台账
 
 > **本文件由 `scripts/gen_task_registry.py` 自动生成，请勿手工编辑。**
-> 生成时间：2026-09-15 10:02 UTC
+> 生成时间：2026-09-17 07:33 UTC
 
 历史教训：本台账曾手工声称「二十八项定时任务在跑」，而仓库实际只有十四个 workflow，其中 self-heal 因 YAML 语法错静默失效 48 天。台账一旦脱离现实，就会把「看起来很自动化」的幻觉喂给每一次决策。现改为从 workflow 真实内容派生。
 
@@ -9,8 +9,8 @@
 
 | 指标 | 数值 |
 |------|------|
-| 本仓库 workflow 总数 | 19 个任务 |
-| 其中定时驱动 | 5 个 |
+| 本仓库 workflow 总数 | 20 个任务 |
+| 其中定时驱动 | 6 个 |
 | 其中事件驱动 | 14 个 |
 | 存在断链/语法问题 | 0 个 |
 
@@ -19,6 +19,7 @@
 | Workflow | 名称 | 调度 | Jobs | 闭环环节 |
 |----------|------|------|------|----------|
 | `closed-loop-spine.yml` | AIShield Closed-Loop Spine (情报→修复→提升→迭代) | 每日 03:17 UTC | 9 | 检测✓动作✓验证✓ ⚠️缺告警 |
+| `geo-indexnow-submit.yml` | AIShield GEO IndexNow Submit (收录加速) | 每日 09:20 UTC | 3 | 检测✓动作✓验证✓告警✓ |
 | `meta-monitor.yml` | AIShield Meta-Monitor (监控自动化体系本身) | 每 8 小时（第 15 分）UTC | 2 | 检测✓动作✓验证✓告警✓ |
 | `npm-self-heal.yml` | npm self-heal | 每 12 小时（第 12 分）UTC | 1 | 动作✓验证✓ ⚠️缺检测告警 |
 | `self-heal-closed-loop.yml` | AIShield Auto Self-Heal Closed-Loop | 每 6 小时（第 23 分）UTC | 6 | 检测✓动作✓验证✓告警✓ |
