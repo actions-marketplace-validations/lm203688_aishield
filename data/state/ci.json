@@ -1,7 +1,7 @@
 {
-  "updated": "2026-09-17T07:35:56Z",
-  "run_id": "35195281823",
-  "sha": "bd4cee11bfca0fc2b8039f9dd2a89e32f67e423e",
+  "updated": "2026-09-17T07:36:09Z",
+  "run_id": "35195276503",
+  "sha": "5307105dc7a822ce57a862b79f1154b7246b5e65",
   "overall": "failure",
   "source": "ci.yml",
   "jobs": {
@@ -11,6 +11,6 @@
     "security-scan": "success",
     "dependency-check": "success",
     "performance-test": "success",
-    "docker-test": "success"
+    "docker-test": "failure"
   }
 }
