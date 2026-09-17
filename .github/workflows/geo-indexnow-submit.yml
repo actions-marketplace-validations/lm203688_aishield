@@ -1,0 +1,201 @@
+name: AIShield GEO IndexNow Submit (收录加速)
+
+# GEO 收录链路补齐（2026-09-15）
+#
+# 断点 1：scripts/content_pipeline.py 里只有一句「通过 IndexNow 提交新 URL 加速
+#   收录」的手动 TODO，仓库里没有任何提交实现 —— 内容持续生产但搜索引擎从未收到
+#   主动通知。
+# 断点 2（根因，更隐蔽）：IndexNow 规范要求 https://<host>/<key>.txt 返回 key
+#   原文，否则 Bing/Yandex 拒绝提交。api/static/indexnow-key.txt 一直躺在仓库里
+#   但从未挂路由（线上实测 404），key 不可校验 —— 就算写了提交脚本也会被静默拒收，
+#   表现为「提交成功、收录为零」。
+# 本版两步都做：api/server.py 补 key 校验路由 + 本 workflow 每天真实提交，
+# 且 job 1 先验 key，把「静默拒收」变成显式红灯。
+
+on:
+  schedule:
+    # 每天 09:20 UTC（北京时间 17:20）—— 与 spine 03:17 错开，避免抢资源
+    - cron: '20 9 * * *'
+  workflow_dispatch:
+    inputs:
+      urls:
+        description: '要提交的 URL（逗号分隔），留空则提交整个 sitemap'
+        required: false
+        type: string
+  push:
+    paths:
+      - 'api/static/sitemap.xml'
+      - 'api/static/robots.txt'
+      - 'api/static/llms.txt'
+      - 'api/static/llms-full.txt'
+      - 'api/static/agent-discovery.json'
+      - 'api/static/.well-known/ai-plugin.json'
+      - 'api/static/.well-known/agent.json'
+      - 'api/static/geo-faqs.json'
+      - 'api/static/indexnow-key.txt'
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: geo-indexnow
+  cancel-in-progress: false
+
+jobs:
+  # ── 1. 前置：key 必须可校验，否则提交必被拒收 ─────────────────────────
+  key-check:
+    name: 1-Verify IndexNow Key Is Verifiable
+    runs-on: ubuntu-latest
+    outputs:
+      status: ${{ steps.check.outputs.http_status }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Verify https://aishield.tools/<key>.txt returns the key
+        id: check
+        run: |
+          python -m py_compile scripts/indexnow_submit.py
+          set +e
+          python scripts/indexnow_submit.py --check-key > /tmp/keycheck.json 2>&1
+          RC=$?
+          set -e
+          cat /tmp/keycheck.json
+          STATUS=$(python -c "import json;print(json.load(open('/tmp/keycheck.json')).get('status'))" 2>/dev/null || echo "")
+          echo "http_status=$STATUS" >> "$GITHUB_OUTPUT"
+          if [ "$RC" -eq 3 ]; then
+            echo "::error::IndexNow key 不可校验 —— https://aishield.tools/<key>.txt 没有返回 key 原文，Bing/Yandex 会拒收所有提交。先确认 api/server.py 的 key 校验路由已部署。"
+            exit 1
+          fi
+          if [ "$RC" -eq 5 ]; then
+            echo "::warning::无法连通 aishield.tools，key 校验被跳过（不是成功）。"
+          fi
+
+  # ── 2. 提交 ─────────────────────────────────────────────────────────
+  submit:
+    name: 2-Submit Sitemap to IndexNow
+    needs: key-check
+    if: needs.key-check.outputs.status != ''
+    runs-on: ubuntu-latest
+    outputs:
+      submitted: ${{ steps.sub.outputs.submitted }}
+      result: ${{ steps.sub.outputs.result }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Submit sitemap (or explicit URL list)
+        id: sub
+        env:
+          INDEXNOW_URLS: ${{ inputs.urls }}
+        run: |
+          if [ -n "$INDEXNOW_URLS" ]; then
+            # 逗号分隔 → 逐个 --url
+            ARGS=()
+            IFS=',' read -ra URLS <<< "$INDEXNOW_URLS"
+            for u in "${URLS[@]}"; do ARGS+=("--url" "${u// /}"); done
+            python scripts/indexnow_submit.py "${ARGS[@]}" > /tmp/submit.json 2>&1
+          else
+            python scripts/indexnow_submit.py --all-endpoints --ping-bing > /tmp/submit.json 2>&1
+          fi
+          RC=$?
+          cat /tmp/submit.json
+          SUBMITTED=$(python -c "import json;print(json.load(open('/tmp/submit.json')).get('submitted','?'))" 2>/dev/null || echo "?")
+          echo "submitted=$SUBMITTED" >> "$GITHUB_OUTPUT"
+          echo "result=$RC" >> "$GITHUB_OUTPUT"
+          if [ "$RC" -eq 5 ]; then
+            echo "::warning::网络不可达，无法确认提交结果（不算成功）。"
+            exit 1
+          fi
+          if [ "$RC" -eq 4 ]; then
+            echo "::error::所有 IndexNow 端点提交失败。"
+            exit 1
+          fi
+          if [ "$RC" -ne 0 ]; then
+            exit "$RC"
+          fi
+          echo "提交成功：$SUBMITTED 个 URL"
+
+  # ── 3. 验证 + 告警 + 状态总线心跳 ──────────────────────────────────
+  verify:
+    name: 3-Verify & Heartbeat
+    needs: [key-check, submit]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Assert GEO assets are actually served live
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          FAIL=0
+          for p in /llms.txt /llms-full.txt /agent-discovery.json \
+                   /.well-known/ai-plugin.json /.well-known/agent.json; do
+            CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 "https://aishield.tools$p" || echo 000)
+            if [ "$CODE" != "200" ]; then
+              echo "::error::线上 $p 返回 $CODE（期望 200）—— GEO 资产不可达"
+              FAIL=1
+            else
+              echo "$p -> $CODE"
+            fi
+          done
+          [ "$FAIL" = "0" ] || exit 1
+
+      - name: Escalate on failure
+        if: failure()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NOTIFY_WEBHOOK: ${{ secrets.NOTIFY_WEBHOOK }}
+        run: |
+          {
+            printf '%s\n' "GEO 收录链路未通过。"
+            printf '%s\n' "- key 校验: ${{ needs.key-check.result }}（HTTP ${{ needs.key-check.outputs.status || 'n/a' }}）"
+            printf '%s\n' "- 提交: ${{ needs.submit.result || '未执行' }}（${{ needs.submit.outputs.submitted || 0 }} 个 URL）"
+            printf '%s\n' ""
+            printf '%s\n' "历史教训：IndexNow key 未挂校验路由时，提交会被搜索引擎静默拒收，"
+            printf '%s\n' "表现为「提交成功、收录为零」。job 1 的作用就是把这种假绿变成红灯。"
+            printf '%s\n' "运行链接: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          } > /tmp/indexnow_fail.md
+          python scripts/notify.py --level P2 \
+            --title "GEO IndexNow 收录链路未通过" \
+            --fingerprint geo-indexnow-broken \
+            --body "$(cat /tmp/indexnow_fail.md)"
+
+      - name: Resolve alert on success
+        if: success()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NOTIFY_WEBHOOK: ${{ secrets.NOTIFY_WEBHOOK }}
+        run: |
+          python scripts/notify.py --resolve \
+            --fingerprint geo-indexnow-broken \
+            --title "GEO 收录链路恢复" \
+            --body "IndexNow key 可校验，${{ needs.submit.outputs.submitted }} 个 URL 已提交。"
+
+      - name: Heartbeat & commit state bus (distribution)
+        if: always()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python scripts/state_bus.py set distribution \
+            "{\"indexnow_last_run\":\"key=${{ needs.key-check.result }}:submit=${{ needs.submit.result || 'skipped'}}\",\"indexnow_submitted\":${{ needs.submit.outputs.submitted || 0 }}}\" \
+            --source geo-indexnow || true
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/state/distribution.json 2>/dev/null || true
+          if ! git diff --cached --quiet; then
+            git commit -m "auto: GEO IndexNow 状态域心跳 [skip ci]" || true
+            bash scripts/git_push_safe.sh
+          fi
