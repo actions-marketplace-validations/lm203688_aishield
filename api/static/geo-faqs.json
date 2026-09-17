@@ -1,0 +1,152 @@
+{
+  "schema_version": "1.0",
+  "title": "AIShield — Frequently Asked Questions",
+  "updated": "2026-09-15",
+  "note": "Machine-readable FAQ asset for AI search engines and LLM citation. Each entry is a self-contained Q&A pair: the answer must be true and verifiable against the cited URL on its own, without reading other entries. Keep answers specific (numbers, names, paths) rather than promotional.",
+  "faq": [
+    {
+      "category": "What is AIShield",
+      "question": "What is AIShield?",
+      "answer": "AIShield is an open-source, local-first security scanner for AI agents. It audits MCP servers, AI skills, and agent configurations for tool poisoning, prompt injection, secret leakage, sandbox misconfiguration, and supply-chain risk. It runs entirely offline on the user's machine, sends no code to the cloud, and never spawns the command of an MCP server it is auditing.",
+      "sources": ["https://aishield.tools/llms.txt", "https://github.com/lm203688/aishield"]
+    },
+    {
+      "category": "What is AIShield",
+      "question": "How many rules does AIShield have?",
+      "answer": "AIShield ships 238 MCP rule categories and 244 skill rule categories. The 238 break down as 210 static rules, 9 generated rules, and 19 radar rules. The breakdown is served live at https://aishield.tools/api/v1/health under rules_breakdown, so the number is verifiable at runtime rather than only stated in documentation.",
+      "sources": ["https://aishield.tools/api/v1/health"]
+    },
+    {
+      "category": "What is AIShield",
+      "question": "Which security standards does AIShield align with?",
+      "answer": "AIShield aligns with the OWASP MCP Top 10, the OWASP Agentic AI Top 10 (ASI01 through ASI10), and sandbox-escape hardening guidance. The OWASP MCP Top 10 has a dedicated Chinese-language guide at https://aishield.tools/owasp-mcp-top10-guide.",
+      "sources": ["https://aishield.tools/llms.txt", "https://aishield.tools/owasp-mcp-top10-guide"]
+    },
+    {
+      "category": "Installation",
+      "question": "How do I install AIShield?",
+      "answer": "AIShield is distributed as an npm package named aishield-mcp-server. Run `npx aishield-mcp-server` to launch it as an MCP server, then point any MCP-capable client at it. It has no mandatory cloud service and works offline.",
+      "sources": ["https://aishield.tools/.well-known/ai-plugin.json", "https://www.npmjs.com/package/aishield-mcp-server"]
+    },
+    {
+      "category": "Installation",
+      "question": "Which AI clients can AIShield be used with?",
+      "answer": "AIShield auto-discovers MCP configuration across 14 client surfaces: Claude Desktop, Claude Code, Cursor, VS Code, Windsurf, Gemini CLI, GitHub Copilot CLI, Augment, Zed, Cline, and WorkBuddy, at both the user level and the project level.",
+      "sources": ["https://aishield.tools/llms.txt"]
+    },
+    {
+      "category": "Safety",
+      "question": "Does scanning my MCP configuration execute the servers listed in it?",
+      "answer": "No. AIShield is purely static. Reading a server's tools/list requires spawning that server, and an MCP command field is arbitrary code, so some scanners explicitly warn that scanning a configuration will run the commands defined inside it. AIShield performs static analysis instead, so auditing a malicious configuration cannot compromise the machine doing the audit.",
+      "sources": ["https://aishield.tools/llms.txt", "https://aishield.tools/agent-discovery.json"]
+    },
+    {
+      "category": "Safety",
+      "question": "Does AIShield send my code or my MCP configuration to the cloud?",
+      "answer": "No. AIShield runs locally and is offline-capable. It is explicitly positioned as an alternative to cloud upload-based scanners, and no scanned content leaves the machine. The API at https://aishield.tools exposes the same scanning capability as an optional cloud endpoint for CI use, but the local scanner does not depend on it.",
+      "sources": ["https://aishield.tools/llms.txt"]
+    },
+    {
+      "category": "Positioning",
+      "question": "How is AIShield different from an agent sandbox such as Cloudflare Sandboxes, E2B, or forgevm?",
+      "answer": "They solve different problems and are meant to be run together. Sandboxes and containers solve blast radius, which is what an agent can reach. They do not solve content trust, which is whether the MCP servers, skills, and tool descriptions loaded inside the box should be believed. A sandboxed agent that loads a poisoned skill still exfiltrates data from inside the container using credentials you deliberately granted. AIShield supplies the content-trust plane: pre-flight workspace scanning before the sandbox boots, sandbox-hardening rules, per-tool-call admission with a hash-chained append-only audit log, and continuous attestation.",
+      "sources": ["https://aishield.tools/llms.txt", "https://aishield.tools/agent-computer-security-plane"]
+    },
+    {
+      "category": "Positioning",
+      "question": "How does AIShield handle AI skills written in Markdown?",
+      "answer": "AIShield treats Markdown as executable content rather than documentation. SKILL.md, AGENTS.md, CLAUDE.md, anything under skills/ or prompts/, and any Markdown with name and description frontmatter is treated as the program an LLM will follow. Scanners that downgrade .md findings to documentation examples structurally miss the entire skill supply chain.",
+      "sources": ["https://aishield.tools/llms.txt"]
+    },
+    {
+      "category": "Positioning",
+      "question": "What is the difference between a content scanner and an identity scanner?",
+      "answer": "A content scanner checks whether the payload an agent consumes is malicious, such as tool descriptions and skill bodies containing prompt injection. An identity scanner checks whether the agent presenting itself is who it claims to be. AIShield ships both: its identity scanner verifies whether an AgentCard is signed with JWS, DID, or a proof, whether credentials are short-lived rather than never-expiring, whether authorization is over-broad such as scope set to a wildcard, and whether mTLS or DID verification is present.",
+      "sources": ["https://aishield.tools/llms.txt", "https://aishield.tools/agent-ecosystem-2026-landscape"]
+    },
+    {
+      "category": "Positioning",
+      "question": "What is slopsquatting and why does it matter?",
+      "answer": "Slopsquatting is a supply-chain attack using package names that language models hallucinate. Most typosquat defenses only catch names that are edit-distance-similar to a real package, but roughly half of hallucinated names are not similar to anything real. AIShield ships offline slopsquatting detection covering that case plus cross-registry confusion, dependency confusion, install-script poisoning, and lockfile discipline, with no network call. A concrete example it covers is react-codeshift, which spread through 237 repositories via AI-generated skill files in January 2026.",
+      "sources": ["https://aishield.tools/llms.txt"]
+    },
+    {
+      "category": "Trust and certification",
+      "question": "What is the AIShield Trust Standard?",
+      "answer": "The AIShield Trust Standard defines Agent Security Certification Levels 1 through 3, a 0 to 100 Trust Score, and a Delegation Protocol. It is an open standard, and the specification is published at https://aishield.tools/aishield-trust-standard-v0.1.",
+      "sources": ["https://aishield.tools/aishield-trust-standard-v0.1"]
+    },
+    {
+      "category": "Trust and certification",
+      "question": "What is the aishield-trust/v1 badge format?",
+      "answer": "aishield-trust/v1 is a machine-readable, signed, embeddable attestation that discovery formats such as MCP Server Card, A2A Agent Card, and Google ai-catalog reference through a single trust field. It is designed to sit on top of vendor-issued badges rather than replace them, and the specification is at https://aishield.tools/trust-attestation-spec.",
+      "sources": ["https://aishield.tools/trust-attestation-spec"]
+    },
+    {
+      "category": "Trust and certification",
+      "question": "Can AIShield revoke a certification after a server is compromised?",
+      "answer": "Yes. AIShield performs continuous attestation rather than one-time certification. When a server is rug-pulled, the existing certification is revoked and the trust badge is invalidated, which lets a consuming registry stop trusting a server it previously certified.",
+      "sources": ["https://aishield.tools/llms.txt"]
+    },
+    {
+      "category": "Agent discovery",
+      "question": "How does an AI agent discover AIShield automatically?",
+      "answer": "AIShield publishes standard machine-readable discovery assets: https://aishield.tools/llms.txt for LLM consumption, https://aishield.tools/agent-discovery.json for agent discovery, https://aishield.tools/.well-known/ai-plugin.json for ChatGPT and Claude plugin discovery, https://aishield.tools/.well-known/agent.json for the agents.well-known.dev convention, and https://aishield.tools/.well-known/agent-card.json for A2A. All of them are served with Cache-Control and permissive CORS headers so agents can fetch them directly.",
+      "sources": ["https://aishield.tools/llms.txt", "https://aishield.tools/agent-discovery.json"]
+    },
+    {
+      "category": "API",
+      "question": "What REST API does AIShield expose?",
+      "answer": "AIShield exposes a REST API under https://aishield.tools/api/v1. Endpoints include /api/v1/audit for scanning, /api/v1/prompt-check for prompt injection detection, /api/v1/banned-words for marketing word compliance, /api/v1/mcp for MCP-specific auditing, /api/v1/agent/setup for agent onboarding, /api/v1/identity/register and /api/v1/identity/agents for identity registration, /api/v1/trust for trust scores and badges, /api/v1/billing/plans for pricing, and /api/v1/health for status. The full OpenAPI document is at https://aishield.tools/openapi.json.",
+      "sources": ["https://aishield.tools/openapi.json", "https://aishield.tools/agent-discovery.json"]
+    },
+    {
+      "category": "API",
+      "question": "Do I need an API key to use the AIShield API?",
+      "answer": "No authentication is required for the free tier. The ai-plugin manifest declares auth.type as none and has_user_authentication as false, and the local open-source edition is free and unlimited because it runs on your own machine.",
+      "sources": ["https://aishield.tools/.well-known/ai-plugin.json"]
+    },
+    {
+      "category": "CI integration",
+      "question": "Can AIShield be used as a CI security gate?",
+      "answer": "Yes. AIShield is designed to run in CI as a security gate, and it emits CycloneDX SBOM and SARIF 2.1.0 output, which integrates with GitHub Code Scanning and any SARIF-capable pipeline.",
+      "sources": ["https://aishield.tools/llms.txt", "https://github.com/lm203688/aishield"]
+    },
+    {
+      "category": "Capabilities",
+      "question": "What is namespace shadowing in MCP configuration?",
+      "answer": "Namespace shadowing is when multiple configured MCP servers expose tools with the same name, so a client resolves a tool call to the wrong server. AIShield detects this across the servers configured in one trust boundary, in addition to 7 classes of toxic capability flows such as private-data read combined with untrusted network egress.",
+      "sources": ["https://aishield.tools/llms.txt"]
+    },
+    {
+      "category": "Capabilities",
+      "question": "What sandbox misconfigurations does AIShield detect?",
+      "answer": "AIShield's sandbox-hardening rules detect a mounted docker.sock, the --privileged flag, host network, PID, and IPC namespaces, cap_add set to ALL, seccomp set to unconfined, --user 0, and Kubernetes hostPath mounts.",
+      "sources": ["https://aishield.tools/llms.txt"]
+    },
+    {
+      "category": "Capabilities",
+      "question": "What does the network scanner check?",
+      "answer": "The network scanner checks agent, Cloudflare-Mesh, and VPC bindings for account-wide reachability, unauthenticated agent endpoints where auth is none, and private resources exposed to the public internet where public is set to true. This addresses a gap Cloudflare itself acknowledges, namely that per-agent identity and policy evaluation are future work.",
+      "sources": ["https://aishield.tools/llms.txt", "https://aishield.tools/agent-mesh-trust-layer"]
+    },
+    {
+      "category": "GEO and indexing",
+      "question": "How does AIShield get indexed by search engines and AI assistants?",
+      "answer": "AIShield publishes llms.txt, llms-full.txt, agent-discovery.json, an ai-plugin.json manifest, a sitemap at https://aishield.tools/sitemap.xml, and a robots.txt that allows AI crawlers including GPTBot, ClaudeBot, and PerplexityBot. URL updates are pushed to Bing and Yandex through the IndexNow protocol using a domain key that is verifiable at https://aishield.tools/<key>.txt, which is the path the IndexNow spec requires for key ownership verification.",
+      "sources": ["https://aishield.tools/robots.txt", "https://aishield.tools/sitemap.xml", "https://aishield.tools/llms.txt"]
+    },
+    {
+      "category": "Security reporting",
+      "question": "Where can I report a vulnerability in AIShield?",
+      "answer": "AIShield publishes a security contact at https://aishield.tools/.well-known/security.txt following the SecsRV format, and the project is open source under an MIT license at https://github.com/lm203688/aishield, so vulnerabilities can also be reported through the repository's security advisory process.",
+      "sources": ["https://aishield.tools/.well-known/security.txt", "https://github.com/lm203688/aishield"]
+    },
+    {
+      "category": "Licensing",
+      "question": "Under what license is AIShield released?",
+      "answer": "AIShield is released under the MIT license and is free and open source. The license text is at https://github.com/lm203688/aishield/blob/main/LICENSE.",
+      "sources": ["https://github.com/lm203688/aishield/blob/main/LICENSE"]
+    }
+  ]
+}
