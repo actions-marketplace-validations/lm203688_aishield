@@ -18,6 +18,16 @@
       DE.CM / ID.AM / ID.RA 等类别码
     - ISO/IEC 27001:2022 Annex A（A.5.x 组织 / A.8.x 技术控制）
     - PCI DSS v4.0 要求编号
+    - CSA MAESTRO 7 层参考架构（+ OWASP 表内单列的 Cross-Layer 第 8 层），
+      对齐 OWASP GenAI Security Project「Multi-Agentic system Threat
+      Modelling Guide」v1.0。锚点码 L1–L8，对应 OWASP ASI 威胁编号
+      T1–T15 见 MAESTRO_THREAT_CODES。
+
+MAESTRO 与前三者的形态差异（选型者须知）:
+    NIST / ISO / PCI 是**控制项型**——回答"该上哪条控制"。
+    MAESTRO 是**架构分层型**——回答"这条风险落在哪一层信任边界"，
+    对多 agent 系统才是可操作的问题（模型层 / 数据层 / 生态层）。
+    两者互补而非替代，故并存于同一份 summary。
 """
 from __future__ import annotations
 
@@ -128,7 +138,89 @@ CATEGORY_CONTROLS: Dict[str, Dict[str, List[str]]] = {
     },
 }
 
-FRAMEWORKS = ("nist_csf", "iso27001", "pci_dss")
+# ── CSA MAESTRO（Cloud Security Alliance 多智能体威胁建模框架，7 层）────────
+# 采纳依据（2026-09-17）：OWASP GenAI Security Project「Multi-Agentic system
+# Threat Modelling Guide」v1.0 把 MAESTRO 分层与 OWASP Agentic Security
+# Initiative 的 15 条威胁（T1–T15）逐项对齐。这是本库既有 3 个"控制项型"框架
+# 之外的第 4 个锚点，但形态不同：MAESTRO 是**架构分层**而非控制编号，
+# 因此 code 取 L1–L8（第 8 层为 OWASP 表中单列的 Cross-Layer 涌现行为），
+# 对应的 T-code 另由 MAESTRO_THREAT_CODES 单独暴露，不混进聚合视图。
+#
+# 用途：多 agent 系统里"这条 finding 属于哪一层信任边界"是选型者真正要问的
+# 问题（NIST/ISO 回答不了"是模型层还是生态层"）。
+MAESTRO_LAYER_NAMES = {
+    "L1": "Foundation Model",
+    "L2": "Data Operations",
+    "L3": "Agent Framework",
+    "L4": "Deployment Infrastructure",
+    "L5": "Evaluation & Observability",
+    "L6": "Security & Compliance",
+    "L7": "Agent Ecosystem",
+    "L8": "Cross-Layer (Emergent)",
+}
+
+# OWASP ASI Threat → 主要 MAESTRO 层（取每类别最相关的 2–3 层，避免噪音）
+_CATEGORY_MAESTRO = {
+    "MCP01": ["L4", "L6"],
+    "MCP02": ["L4", "L6"],
+    "MCP03": ["L3", "L6"],
+    "MCP04": ["L6", "L8"],
+    "MCP05": ["L3", "L4"],
+    "MCP06": ["L1", "L3"],
+    "MCP07": ["L4", "L7"],
+    "MCP08": ["L5"],
+    "MCP09": ["L7"],
+    "MCP10": ["L3", "L4"],
+    "ASI01": ["L1", "L3"],
+    "ASI02": ["L3", "L4"],
+    "ASI03": ["L4", "L6"],
+    "ASI04": ["L2", "L8"],
+    "ASI05": ["L4", "L7"],
+    "ASI06": ["L3", "L8"],
+    "ASI07": ["L4", "L5"],
+    "ASI08": ["L5"],
+    "ASI09": ["L8", "L7"],
+    "ASI10": ["L3", "L7", "L8"],
+}
+
+# OWASP ASI Threat（T1–T15, Agentic AI Threats and Mitigations v1.0）→ 类别。
+# 这是 OWASP 官方的威胁编号；本库的 ASI01–ASI10 是 10 类归纳，两者不是同一个
+# 编号体系，此表用于把"我们的类别"翻译成"OWASP 的威胁条目"。
+#
+# 精度声明（诚实边界）：层映射（L1–L8）由本库类别语义推导，可自证；
+# T-code 逐条对应关系依据 OWASP GenAI Security Project 的 Agentic Security
+# Initiative 威胁清单整理，属**近似锚点**。对外报告（客户/审计场景）引用具体
+# T-code 措辞前，须回到 OWASP 原文核对，不要直接搬运本表里的编号当引用。
+MAESTRO_THREAT_CODES = {
+    "MCP01": ["T1", "T3"],
+    "MCP02": ["T2", "T3"],
+    "MCP03": ["T2", "T6"],
+    "MCP04": ["T12"],
+    "MCP05": ["T2", "T3", "T11"],
+    "MCP06": ["T6", "T12", "T7"],
+    "MCP07": ["T3", "T9"],
+    "MCP08": ["T8", "T10"],
+    "MCP09": ["T9", "T13"],
+    "MCP10": ["T12", "T3"],
+    "ASI01": ["T6", "T1"],
+    "ASI02": ["T2"],
+    "ASI03": ["T3", "T4"],
+    "ASI04": ["T1", "T12"],
+    "ASI05": ["T9", "T15"],
+    "ASI06": ["T12", "T13"],
+    "ASI07": ["T4"],
+    "ASI08": ["T8", "T10"],
+    "ASI09": ["T5", "T13", "T14"],
+    "ASI10": ["T13", "T14", "T15"],
+}
+
+# 把 maestro 层锚点注入 CATEGORY_CONTROLS，让 compliance_summary() 无需改动
+# 即可把它当作第 4 个框架聚合。code 用裸层号（L1–L8），层名由
+# MAESTRO_LAYER_NAMES 单独提供，保持与 NIST/ISO 的"裸编号"风格一致。
+for _cat, _layers in _CATEGORY_MAESTRO.items():
+    CATEGORY_CONTROLS.setdefault(_cat, {})["maestro"] = list(_layers)
+
+FRAMEWORKS = ("nist_csf", "iso27001", "pci_dss", "maestro")
 
 _SEV_RANK = {"critical": 4, "high": 3, "medium": 2, "low": 1, "info": 0}
 
