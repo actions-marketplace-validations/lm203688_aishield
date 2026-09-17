@@ -2,7 +2,24 @@
 
 > Open-source, local-first AI Agent security scanner and trust authority for the MCP / Agentic AI economy.
 
-AIShield scans MCP servers, AI skills and AI agents for tool poisoning, prompt injection, secret leakage, sandbox misconfiguration and supply-chain risk. It detects **238 MCP rule categories / 244 skill rule categories** aligned with **OWASP MCP Top 10**, **OWASP Agentic AI Top 10 (ASI01–ASI10)** and sandbox-escape hardening, runs fully offline / locally (zero cost, no code sent to the cloud), and acts as a CI security gate.
+AIShield scans MCP servers, AI skills and AI agents for tool poisoning, prompt injection, secret leakage, sandbox misconfiguration and supply-chain risk. It detects **238 MCP rule categories / 244 skill rule categories** aligned with **OWASP MCP Top 10**, **all 10 risk categories of the OWASP Agentic AI Top 10 (2026)** and sandbox-escape hardening, runs fully offline / locally (zero cost, no code sent to the cloud), and acts as a CI security gate.
+
+> **Namespace note (read before citing report fields):** the `owasp_category` field carries
+> **two namespaces**. `MCP01`–`MCP10` are the official OWASP MCP Top 10 codes. `ASI01`–`ASI10`
+> are **AIShield's internal category IDs, not official OWASP identifiers** — only
+> `ASI01`/`ASI02`/`ASI03` happen to match. Internal `ASI04` (memory poisoning) is official
+> `ASI06 Memory & Context Poisoning`; official `ASI04` is Agentic Supply Chain Vulnerabilities.
+> Internal `ASI09` (cascading failure) is official `ASI08`. Full crosswalk: the
+> `internal_to_owasp_agentic` key returned by `compliance_summary()` (source of truth
+> `scanner/compliance.py::INTERNAL_ASI_TO_OWASP`) and
+> https://aishield.tools/owasp-agentic-taxonomy-alignment.md . Official `ASI05`
+> (Unexpected Code Execution) has no dedicated internal category — it is covered under MCP-side
+> and general code-execution rules (e.g. `least_agency_scan` for `os.system`/`eval`/`pip | sh`,
+> `provenance_scan` for unpinned install sources), not by a dedicated ASI category.
+> Note that **most Agentic scanners emit `MCP0x`, not `ASI0x`** — of the 11 Agentic modules
+> only `scanner/memory_integrity_scan.py` emits an internal ASI code (`ASI04`). If you filter
+> reports on `ASI0x` you will miss the majority of Agentic findings; the `ASI0x` labels in the
+> module documentation above refer to the **official** OWASP numbering, not to the emitted value.
 
 **AIShield is the content-trust plane for agent computers — complementary to isolation runtimes, not a competitor to them.** Cloudflare Sandboxes/Containers, forgevm / agent-forge, E2B, Open Interpreter and Goose give an agent its own computer and solve *blast radius*: what the agent can reach. They do not solve *content trust*: whether the MCP servers, skills and tool descriptions loaded inside that box should be believed. A sandboxed agent that loads a poisoned skill still exfiltrates data — from inside the container, using credentials you deliberately granted. AIShield supplies the missing plane: **pre-flight workspace scanning before the sandbox boots**, **sandbox-hardening rules** (mounted `docker.sock`, `--privileged`, host network/PID/IPC namespaces, `cap_add: ALL`, `seccomp=unconfined`, `--user 0`, Kubernetes `hostPath`), **per-tool-call admission with a hash-chained append-only audit log**, and **continuous attestation** that revokes certification when a server is rug-pulled. Run both planes together. Full writeup: https://aishield.tools/agent-computer-security-plane
 
