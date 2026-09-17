@@ -73,6 +73,7 @@ def main():
         'tests.test_rule_promotion_rollback',
         # 2026-09-17 新增扫描器（ASI04 记忆完整性）的回归测试
         'tests.test_memory_integrity_scan',
+        'tests.test_promote_rule_shadow',  # shadow/enforce 双模式 + 雷达加载期字段契约
     ]
 
     loaded = 0
