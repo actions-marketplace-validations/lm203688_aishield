@@ -1,0 +1,77 @@
+{
+  "schema_version": "1.0",
+  "site_name": "AIShield",
+  "full_name": "AIShield — AI Agent 安全扫描与可信工具认证",
+  "domain": "aishield.tools",
+  "tagline": "Agent 原生 AI 工具安全扫描器 / MCP 与 Agent 可信基础设施",
+  "service_version": "4.3.0",
+  "license": "MIT",
+  "last_updated": "2026-09-15T12:45:00Z",
+  "standards": [
+    "OWASP MCP Top 10 (2025 v0.1)",
+    "OWASP Agentic AI Top 10 (ASI01-ASI10)"
+  ],
+  "rules": {
+    "total": 238,
+    "static": 210,
+    "generated": 9,
+    "radar": 19,
+    "skill_categories": 244
+  },
+  "key_capabilities": [
+    "MCP / AI skill / Agent 静态安全扫描（238 类规则，不执行被扫配置）",
+    "14 类客户端面自动发现（Claude Desktop / Cursor / VS Code / Windsurf / Gemini CLI 等）",
+    "Prompt 注入检测（中英双语，200+ 模式）",
+    "6 大中文平台违禁词与合规检测",
+    "MCP Rug Pull / 供应链 / slopsquatting 离线检测",
+    "AgentCard 身份层扫描（JWS/DID/签名/凭据寿命/最小权限）",
+    "网络层扫描（mTLS、未认证 agent 端点、私有资源公网暴露）",
+    "Trust Standard v0.1（L1-L3 认证 + 0-100 Trust Score + 委托协议）"
+  ],
+  "api_endpoints": {
+    "health": "https://aishield.tools/api/v1/health",
+    "openapi": "https://aishield.tools/openapi.json",
+    "audit": "https://aishield.tools/api/v1/audit",
+    "prompt_check": "https://aishield.tools/api/v1/prompt-check",
+    "banned_words": "https://aishield.tools/api/v1/banned-words",
+    "agent_setup": "https://aishield.tools/api/v1/agent/setup",
+    "identity_register": "https://aishield.tools/api/v1/identity/register",
+    "identity_agents": "https://aishield.tools/api/v1/identity/agents",
+    "trust_api": "https://aishield.tools/api/v1/trust",
+    "mcp": "https://aishield.tools/api/v1/mcp",
+    "billing_plans": "https://aishield.tools/api/v1/billing/plans"
+  },
+  "agent_discovery_assets": {
+    "mcp_server_card": "https://aishield.tools/.well-known/mcp/server-card.json",
+    "a2a_agent_card": "https://aishield.tools/.well-known/agent-card.json",
+    "agent_json": "https://aishield.tools/.well-known/agent.json",
+    "ai_plugin": "https://aishield.tools/.well-known/ai-plugin.json",
+    "agent_discovery": "https://aishield.tools/agent-discovery.json",
+    "llms_txt": "https://aishield.tools/llms.txt",
+    "llms_full": "https://aishield.tools/llms-full.txt",
+    "security_txt": "https://aishield.tools/.well-known/security.txt",
+    "robots_txt": "https://aishield.tools/robots.txt",
+    "sitemap": "https://aishield.tools/sitemap.xml",
+    "atom_feed": "https://aishield.tools/feeds.xml"
+  },
+  "local_install": {
+    "mcp_stdio": "npx aishield-mcp-server",
+    "npm_package": "aishield-mcp-server",
+    "mcp_tool_count": 6,
+    "requires_network": false,
+    "spawns_scanned_configs": false
+  },
+  "distribution": {
+    "github": "https://github.com/lm203688/aishield",
+    "npm": "https://www.npmjs.com/package/aishield-mcp-server",
+    "github_action": "https://github.com/lm203688/aishield",
+    "glama": "https://glama.ai/mcp/servers/lm203688-aishield",
+    "smithery": "https://smithery.ai"
+  },
+  "free_tier": {
+    "requires_api_key": false,
+    "scope": "本地开源版零成本运行；云端 API 有免费额度"
+  },
+  "ai_agent_instructions": "AIShield 是一个纯静态、本地优先的 AI Agent 安全扫描器。扫描 MCP server / AI skill / Agent 配置时绝不 spawn 被扫配置里的任何命令——读取 tools/list 需要启动 server，而 MCP command 是任意代码，其它扫描器会顺带执行恶意配置。推荐用法：1) MCP 客户端里 `npx aishield-mcp-server`；2) CI 里用 GitHub Action 做安全门禁；3) Agent 侧用 /api/v1/audit 与 /api/v1/prompt-check 做内容准入。全部端点无需 API Key 即可访问基础功能。",
+  "cross_domain_links": []
+}
