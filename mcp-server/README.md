@@ -111,6 +111,49 @@ The Skill total adds 6 skill-specific rules on top of the MCP set.
 > exact split as `rules_breakdown: {static, generated, radar, total}` — compare
 > it against the numbers above instead of guessing which side is stale.
 
+## Provenance & verification
+
+Registry publication alone does not establish an audit. Installing a package
+from npm or the MCP registry tells you nothing about whether anyone reviewed the
+code inside it — so here is what is actually verifiable, and what is not.
+
+**What the npm provenance attestation does cover.** Every release is built by
+`.github/workflows/publish-npm.yml` with `id-token: write` and published using
+`npm publish --provenance`. That attestation binds the tarball to a specific
+commit of `github.com/lm203688/aishield` that ran on GitHub Actions, and is
+signed by sigstore. Verify it rather than trusting the version number:
+
+```bash
+npm install aishield-mcp-server@4.3.0
+npm audit signatures          # npm >= 9.5
+```
+
+The signature check tells you the tarball is the one Actions built at that
+commit. Then confirm the commit is one you recognize:
+
+```bash
+git clone https://github.com/lm203688/aishield
+cd aishield && git checkout <commit> && npm run build   # rebuild and diff dist/
+```
+
+**What it does not cover.**
+
+- It is not a security review. A malicious maintainer with a compromised token
+  can produce a valid provenance attestation for code they wrote.
+- It is not a guarantee about the version number on the page above. `dist/` is
+  built in CI, not hand-edited, but nothing stops a bad release from being
+  published with a valid signature.
+- **The build has a fallback path.** If provenance signing fails, the workflow
+  retries without `--provenance` and only emits a `::warning::` in the log.
+  A version can therefore be published *without* an attestation and still look
+  normal. That is why the check above is the `npm audit signatures` step, not
+  "check the version string". If a version has no signature, treat it as
+  unverified and pin the commit instead.
+
+**Record what you rely on.** For anything you depend on, write down the release
+you selected, the source commit you reviewed, and the package integrity check
+you ran. The registry page is not that record — it can change.
+
 ## License
 
 MIT
