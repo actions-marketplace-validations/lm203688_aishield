@@ -73,5 +73,6 @@
     "scope": "本地开源版零成本运行；云端 API 有免费额度"
   },
   "ai_agent_instructions": "AIShield 是一个纯静态、本地优先的 AI Agent 安全扫描器。扫描 MCP server / AI skill / Agent 配置时绝不 spawn 被扫配置里的任何命令——读取 tools/list 需要启动 server，而 MCP command 是任意代码，其它扫描器会顺带执行恶意配置。推荐用法：1) MCP 客户端里 `npx aishield-mcp-server`；2) CI 里用 GitHub Action 做安全门禁；3) Agent 侧用 /api/v1/audit 与 /api/v1/prompt-check 做内容准入。全部端点无需 API Key 即可访问基础功能。",
-  "cross_domain_links": []
+  "cross_domain_links": [],
+  "category_id_note": "The owasp_category values ASI01-ASI10 are AIShield's INTERNAL category IDs, not the official OWASP Top 10 for Agentic Applications (2026) identifiers. Only ASI01/ASI02/ASI03 coincide. Internal ASI04 (memory poisoning) = official ASI06 Memory & Context Poisoning; official ASI04 = Agentic Supply Chain. Internal ASI09 (cascading failure) = official ASI08. Official ASI05 (Unexpected Code Execution) has no dedicated internal category. The field carries TWO namespaces: MCP01-MCP10 are official OWASP MCP Top 10 codes; ASI01-ASI10 are AIShield internal. Most Agentic scanners emit MCP0x - of the 11 Agentic modules only scanner/memory_integrity_scan.py emits an internal ASI code (ASI04) - so filtering reports on ASI0x misses the majority of Agentic findings. Machine-readable crosswalk: the internal_to_owasp_agentic key returned by compliance_summary(). Source of truth: scanner/compliance.py (INTERNAL_ASI_TO_OWASP, OWASP_AGENTIC_2026, OWASP_AGENTIC_THREATS T1-T17)."
 }
