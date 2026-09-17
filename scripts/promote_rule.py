@@ -30,13 +30,25 @@ radar-promoted rules on its next run.
 
 Usage:
   python scripts/promote_rule.py --check                # validate all drafts
-  python scripts/promote_rule.py --promote <file.json>  # promote one
+  python scripts/promote_rule.py --shadow               # DRY RUN: full verdict, writes nothing
+  python scripts/promote_rule.py --promote <file.json>  # promote one (enforce)
   python scripts/promote_rule.py --promote-all          # promote every "ready"
+  python scripts/promote_rule.py --promote-all --strict # ...but refuse dead rules
   python scripts/promote_rule.py --list                 # show live radar rules
   python scripts/promote_rule.py --list-snapshots       # show rollback points
   python scripts/promote_rule.py --rollback             # roll back to newest
   python scripts/promote_rule.py --rollback <snap.json> # roll back to one
   python scripts/promote_rule.py --ledger               # show promote/rollback log
+
+Shadow vs enforce (see the module docstring of the shadow section below):
+  shadow   -- observe only. Runs validation + effect measurement against a
+              simulated store, writes nothing, exits 1 if anything is wrong.
+              Wire this into CI so the gate is observable without committing.
+  enforce  -- --promote / --promote-all. Refuses on validation failure or a
+              benign-corpus false positive (always). A zero-catch ("dead")
+              rule is refused only under --strict; otherwise it is promoted
+              with a loud warning, because a brand-new attack type will not
+              appear in the fixed ATTACK_SAMPLES corpus.
 """
 from __future__ import annotations
 
@@ -65,6 +77,14 @@ VALID_SEVERITIES = {"critical", "high", "medium", "low", "info"}
 # 良性语料单一真源在 scripts/rule_corpus.py（此前与 radar_effect.py 各存一份
 # 互为镜像，扩宽时互相看不见 —— 见该模块 docstring）。
 from rule_corpus import BENIGN_CORPUS  # noqa: E402
+
+
+def _import_radar_effect():
+    """Late import: radar_effect pulls in the corpus too; keep the chain lazy."""
+    if SCRIPTS_DIR not in sys.path:
+        sys.path.insert(0, SCRIPTS_DIR)
+    import radar_effect
+    return radar_effect
 
 
 # ---------------------------------------------------------------------------
@@ -302,6 +322,175 @@ def validate(path, data, known_patterns=None):
 
 
 # ---------------------------------------------------------------------------
+# Shadow / enforce dual mode
+# ---------------------------------------------------------------------------
+# 借鉴 TypeSafe pi-jev 的 shadow / enforce 双模式：闸门可以"只观测、不改变"地
+# 连续运行（shadow），也可以真正生效（enforce）。
+#
+# 只借这个**模式区分**，明确不借它的默认值——pi-jev 的所有错误路径都 fail-OPEN
+# （缺 key / 超时 / 429 全部放行工具调用）。本工具的品牌就是 fail-closed，
+# 任何不确定一律拒，所以 shadow 只用于观测，判定失败不会降级成放行。
+#
+# 三种判定，按严格度递增：
+#   promote -- 校验通过且能在攻击语料上命中
+#   warn    -- 校验通过但零命中（catch=false）：规则是死重，不是安全问题
+#   refuse  -- 校验失败或误报良性语料：绝不落库
+#
+# 为什么 warn 不直接等于 refuse：雷达规则来自**新**信号，ATTACK_SAMPLES 是固定
+# 语料，全新攻击类型天然不在其中。把 catch=false 当硬拒绝会让循环彻底停摆
+# （假阴性陷阱）；把它当安全问题又是过度收紧。所以 warn 走"默认放行 + 大声
+# 告警 + --strict 显式收紧"，而不是二元。
+
+SHADOW_ARCHIVE_SUBDIR = "shadow-refused"
+
+
+def _live_counts():
+    """Current rule counts from the live engine; None if unreadable.
+
+    Deliberately never raises — a shadow run must be observable even when the
+    scanner package cannot be imported in the current environment.
+    """
+    try:
+        if ROOT not in sys.path:
+            sys.path.insert(0, ROOT)
+        import importlib
+        import scanner.rules as scanner_rules
+        importlib.reload(scanner_rules)
+        return scanner_rules.get_rule_count("mcp"), scanner_rules.get_rule_count("skill")
+    except Exception:
+        return None
+
+
+def simulate(store, data):
+    """Apply a candidate's rules onto a COPY of `store`. Writes nothing."""
+    import copy
+    sim = copy.deepcopy(store)
+    sim.setdefault("rules", {})
+    sim.setdefault("provenance", {})
+    for r in data["rules"]:
+        pattern = r["pattern"].strip()
+        sim["rules"][pattern] = [
+            r["description"].strip(),
+            r["severity"].strip().lower(),
+        ]
+        sim["provenance"][pattern] = {
+            "signal_title": (data.get("signal") or {}).get("title", ""),
+            "signal_url": (data.get("signal") or {}).get("url", ""),
+            "source": (data.get("signal") or {}).get("source", ""),
+            "attack_category": data.get("attack_category", ""),
+            "promoted_from": os.path.basename(data.get("promoted_from_path", "")) or "",
+            "drafted_at": data.get("drafted_at", ""),
+        }
+    return sim
+
+
+def shadow(path, data, known_patterns=None):
+    """Dry-run a promotion and return a verdict. Mutates nothing on disk.
+
+    The preview runs the *same* three axes the live loop checks afterwards
+    (schema / benign false-positive / attack catch), just against a simulated
+    store — so CI can observe "would this rule have been worth promoting"
+    before the transaction commits. ``radar_effect.evaluate()`` is called with
+    ``save=False``; nothing is written to radar_rules.json, radar_effect.json,
+    the ledger, or the proposal queue.
+    """
+    store = load_radar_rules()
+    ok, problems = validate(path, data, known_patterns)
+    sim = simulate(store, data)
+    # save=False: effect measurement is read-only in shadow mode.
+    eff = _import_radar_effect().evaluate(store=sim, save=False)
+    erules = eff.get("rules", {}) or {}
+
+    per_rule = []
+    zero_catch = 0
+    false_positives = 0
+    for r in data["rules"]:
+        pat = r["pattern"].strip()
+        rec = erules.get(pat, {})
+        catch = bool(rec.get("catch"))
+        fp = bool(rec.get("false_positive"))
+        zero_catch += 0 if catch else 1
+        false_positives += 0 if not fp else 1
+        per_rule.append({
+            "pattern": pat,
+            "description": r["description"].strip(),
+            "severity": r["severity"].strip().lower(),
+            "catch": catch,
+            "catch_samples": int(rec.get("catch_samples", 0) or 0),
+            "false_positive": fp,
+            "fp_sample": rec.get("fp_sample"),
+        })
+
+    if problems:
+        verdict = "refuse"
+    elif false_positives:
+        verdict = "refuse"
+    elif zero_catch:
+        verdict = "warn"
+    else:
+        verdict = "promote"
+
+    counts = _live_counts()
+    return {
+        "mode": "shadow",
+        "candidate": os.path.basename(path),
+        "verdict": verdict,
+        "problems": problems,
+        "would_add": [r["pattern"].strip() for r in data["rules"]],
+        "rules": per_rule,
+        "zero_catch": zero_catch,
+        "false_positives": false_positives,
+        "radar_rules_before": len(store.get("rules", {})),
+        "radar_rules_after": len(sim.get("rules", {})),
+        "live_counts_before": {"mcp": counts[0], "skill": counts[1]} if counts else None,
+        "effect_summary": eff.get("summary", {}),
+        "wrote": [],  # empty by construction; asserted by the tests
+    }
+
+
+def shadow_all(known_patterns=None):
+    """Shadow-evaluate every outstanding candidate. Returns (list, exit_code).
+
+    Exit code 1 if ANY candidate is refused or would promote a dead rule, so
+    this can sit in CI as a non-mutating gate.
+    """
+    out = []
+    known = known_patterns if known_patterns is not None else live_patterns()
+    for path, data in load_candidates():
+        if data.get("status") == "rejected":
+            continue
+        out.append(shadow(path, data, known))
+    bad = [v for v in out if v["verdict"] != "promote"]
+    return out, (1 if bad else 0)
+
+
+def render_shadow(verdicts):
+    if not verdicts:
+        return "shadow: no outstanding candidates in scanner/_proposed/"
+    lines = []
+    counts = {}
+    for v in verdicts:
+        counts[v["verdict"]] = counts.get(v["verdict"], 0) + 1
+    lines.append("shadow verdicts: %s  (would add %d rule(s); writes nothing)"
+                 % (", ".join("%s=%d" % (k, counts[k])
+                              for k in sorted(counts)),
+                    sum(len(v["would_add"]) for v in verdicts)))
+    for v in verdicts:
+        lines.append("\n  [%-7s] %s" % (v["verdict"].upper(), v["candidate"]))
+        if v["problems"]:
+            for p in v["problems"]:
+                lines.append("    - %s" % p)
+        for r in v["rules"]:
+            flags = []
+            flags.append("catch=%d" % r["catch_samples"])
+            if r["false_positive"]:
+                flags.append("FALSE POSITIVE: %r" % (r["fp_sample"] or ""))
+            lines.append("    [%-6s] %-22s %s" % (r["severity"], " ".join(flags),
+                                                  r["pattern"]))
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
 # Promotion
 # ---------------------------------------------------------------------------
 def promote(path, data):
@@ -467,10 +656,44 @@ def _evaluate_effect():
         print(f"  warning: effect evaluation skipped ({e})")
 
 
-def cmd_promote(target):
+def _try_promote_one(path, data, known, strict):
+    """Enforce-mode decision for a single candidate.
+
+    Returns (promoted: bool, code: int, note: str).
+      code 0  -- promoted
+      code 2  -- refused by a hard gate (validation or benign false positive)
+      code 3  -- skipped as a dead rule (zero catch) under --strict
+    """
+    verdict = shadow(path, data, known)
+    if verdict["verdict"] == "refuse":
+        print("REFUSED -- candidate failed validation:")
+        for msg in verdict["problems"]:
+            print("  - %s" % msg)
+        return False, 2, verdict["candidate"]
+    if verdict["verdict"] == "warn":
+        msg = ("%d of %d rule(s) catch nothing on the attack corpus (dead weight)"
+               % (verdict["zero_catch"], len(verdict["rules"])))
+        if strict:
+            print("SKIPPED --strict: %s -- %s" % (verdict["candidate"], msg))
+            return False, 3, verdict["candidate"]
+        print("WARNING: promoting anyway -- %s -- %s" % (verdict["candidate"], msg))
+    n = promote(path, data)
+    print("promoted %d rule(s) from %s -> data/radar_rules.json"
+          % (n, os.path.basename(path)))
+    return True, 0, verdict["candidate"]
+
+
+def cmd_shadow():
+    verdicts, code = shadow_all()
+    print(render_shadow(verdicts))
+    print("\nshadow mode: no files were written")
+    return code
+
+
+def cmd_promote(target, strict=False):
     path = target if os.path.isabs(target) else os.path.join(PROPOSED_DIR, target)
     if not os.path.exists(path):
-        print(f"not found: {path}")
+        print("not found: %s" % path)
         return 1
     with open(path, encoding="utf-8") as f:
         data = json.load(f)
@@ -478,25 +701,32 @@ def cmd_promote(target):
     if not ok:
         print("REFUSED -- candidate failed validation:")
         for msg in problems:
-            print(f"  - {msg}")
+            print("  - %s" % msg)
         return 1
-    n = promote(path, data)
-    print(f"promoted {n} rule(s) from {os.path.basename(path)} -> data/radar_rules.json")
+    _ok, code, _note = _try_promote_one(path, data, live_patterns(), strict)
     _evaluate_effect()
-    return 0
+    return 0 if code == 0 else code
 
 
-def cmd_promote_all():
+def cmd_promote_all(strict=False):
     known = live_patterns()
-    promoted = 0
+    promoted = refused = skipped = 0
     for path, data in load_candidates():
         ok, _ = validate(path, data, known)
-        if ok:
-            promoted += promote(path, data)
+        if not ok:
+            continue  # cmd_check already reports these; enforce never writes them
+        did, code, _note = _try_promote_one(path, data, known, strict)
+        if did:
+            promoted += 1
             known |= {r["pattern"].strip() for r in data["rules"]}
-    print(f"promoted {promoted} rule(s)")
+        elif code == 2:
+            refused += 1
+        elif code == 3:
+            skipped += 1
+    print("promoted %d candidate(s) | refused %d | skipped as dead %d"
+          % (promoted, refused, skipped))
     _evaluate_effect()
-    return 0
+    return 1 if (refused or skipped) else 0
 
 
 def cmd_list():
@@ -556,8 +786,13 @@ def cmd_ledger():
 
 def main():
     ap = argparse.ArgumentParser(description="AIShield rule promotion gate")
+    ap.add_argument("--strict", action="store_true",
+                    help="Refuse zero-catch (dead) rules instead of promoting "
+                         "them with a warning")
     g = ap.add_mutually_exclusive_group(required=True)
     g.add_argument("--check", action="store_true", help="Validate all candidates")
+    g.add_argument("--shadow", action="store_true",
+                   help="Dry run: full verdict for every candidate, writes nothing")
     g.add_argument("--promote", metavar="FILE", help="Promote one candidate")
     g.add_argument("--promote-all", action="store_true",
                    help="Promote every candidate that passes validation")
@@ -571,10 +806,12 @@ def main():
 
     if args.check:
         return cmd_check()
+    if args.shadow:
+        return cmd_shadow()
     if args.promote:
-        return cmd_promote(args.promote)
+        return cmd_promote(args.promote, strict=args.strict)
     if args.promote_all:
-        return cmd_promote_all()
+        return cmd_promote_all(strict=args.strict)
     if args.list:
         return cmd_list()
     if args.list_snapshots:
