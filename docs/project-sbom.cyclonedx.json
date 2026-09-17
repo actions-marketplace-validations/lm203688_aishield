@@ -660,6 +660,20 @@
     },
     {
       "type": "library",
+      "name": "scanner/memory_integrity_scan.py",
+      "version": "4.3.0",
+      "bom-ref": "comp-scanner/memory_integrity_scan.py",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    },
+    {
+      "type": "library",
       "name": "scanner/memory_scan.py",
       "version": "4.3.0",
       "bom-ref": "comp-scanner/memory_scan.py",
@@ -1268,6 +1282,12 @@
     },
     {
       "ref": "comp-scanner/mcp_oauth_scan.py",
+      "dependsOn": [
+        "comp-python-stdlib"
+      ]
+    },
+    {
+      "ref": "comp-scanner/memory_integrity_scan.py",
       "dependsOn": [
         "comp-python-stdlib"
       ]
