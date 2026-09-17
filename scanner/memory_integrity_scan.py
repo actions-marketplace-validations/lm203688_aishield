@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-持久记忆完整性 / 信任边界检测（ASI04 记忆操纵 · OWASP ASI T1 Memory Poisoning）
+持久记忆完整性 / 信任边界检测（官方 OWASP Agentic ASI06 Memory & Context Poisoning · 威胁 T1）
 
 背景（2026-09-17 采纳）：Princeton 团队对 ElizaOS 的公开研究证明，跨 session
 的持久记忆只要**没有写入方完整性校验**，就能被任意有消息权限的一方投毒——
@@ -18,8 +18,8 @@
      若同文件还从不可信消息入口取数（discord / webhook / websocket / 请求体），
      升级为 high——那正是 ElizaOS 的初始访问向量。
   2. shared_memory_unpartitioned     —— 多 agent 共享记忆，但看不到租户/命名空间/
-     隔离边界（对应 OWASP 威胁模型里的 "Insufficient Isolation Between Agent
-     Actions"，一个 agent 被攻破会污染其余全部）。
+     隔离边界（对应 OWASP 官方 ASI07 Insecure Inter-Agent Communication 与
+     ASI08 Cascading Failures：一个 agent 被攻破会污染其余全部）。
 
 判定纪律：只报告**存在持久化写入**的文件。没有记忆机制的项目不会被误伤——
 "没有记忆"不是一处漏洞。误报面由双条件（存储信号 AND 无完整性信号）共同约束。
@@ -27,7 +27,8 @@
 
 import re
 
-_OWASP = "ASI04"   # 记忆操纵与投毒
+_OWASP = "ASI04"   # 本库内部编号：记忆操纵与投毒（= OWASP 官方 ASI06
+                    # Memory & Context Poisoning；官方 ASI04 是供应链，勿混淆）
 
 # ── 持久记忆写入信号 ──────────────────────────────────────────────────────
 # 分两级：显式记忆 API（强）与通用存储 + 记忆名词（弱，需同行共现）。
@@ -155,6 +156,6 @@ def memory_integrity_analysis(files):
         "severity_counts": sev_c,
         "files_with_persistent_memory": n_stores,
         "files_scanned": len(files),
-        "note": "持久记忆完整性/信任边界检测（ASI04 · OWASP ASI T1）",
+        "note": "持久记忆完整性/信任边界检测（本库内部编号 ASI04 = 官方 OWASP ASI06 · 威胁 T1）",
     }
     return {"findings": findings, "summary": summary}
