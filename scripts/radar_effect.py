@@ -108,9 +108,16 @@ def record_hits(patterns):
     return n
 
 
-def evaluate(save=True):
-    """Re-measure catch / false-positive for every promoted radar rule."""
-    store = radar_rules()
+def evaluate(store=None, save=True):
+    """Re-measure catch / false-positive for every promoted radar rule.
+
+    Pass ``store`` (a full ``radar_rules.json``-shaped dict) to measure a
+    *hypothetical* rule set without writing ``data/radar_rules.json`` — this is
+    what ``promote_rule.py --shadow`` uses to preview a promotion transaction
+    without mutating live state. Default (``store=None``) keeps the historical
+    behaviour of reading the live file.
+    """
+    store = store if store is not None else radar_rules()
     rules = store.get("rules", {}) or {}
     prov = store.get("provenance", {}) or {}
     eff = load_effect()
