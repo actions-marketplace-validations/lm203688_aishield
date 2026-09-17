@@ -948,15 +948,26 @@ class TestNotRootGuard(unittest.TestCase):
         self.assertIn('AISHIELD_ALLOW_ROOT', self.source)
 
     def _patch(self, srv):
-        """注入假 geteuid 并清空绕过开关；Windows 无 geteuid 需显式挂载。"""
-        had_g = hasattr(srv.os, 'geteuid')
-        if not had_g:
-            srv.os.geteuid = lambda: 0
-        return had_g, srv.os.environ.pop('AISHIELD_ALLOW_ROOT', None)
+        """强制 geteuid()==0 并清空绕过开关，返回原函数以便还原。
 
-    def _unpatch(self, srv, had_g, allow_root):
-        if not had_g:
-            del srv.os.geteuid
+        必须**始终**打桩，不能只判断 hasattr：Windows 没有 geteuid 所以要挂载，
+        而 Linux 上 geteuid 确实存在、真实 uid 却未必是 0（GitHub Actions 的
+        runner 是 uid 1001）。只判断 hasattr 会让 test_root_refused 在非 root 的
+        Linux CI 上测到真实 uid、护栏正确不触发，于是误报「SystemExit not raised」
+        —— 2026-09-17 起 CI/CD 因此每次必红。
+        """
+        old = getattr(srv.os, 'geteuid', None)
+        srv.os.geteuid = lambda: 0
+        return old, srv.os.environ.pop('AISHIELD_ALLOW_ROOT', None)
+
+    def _unpatch(self, srv, old_geteuid, allow_root):
+        if old_geteuid is None:
+            try:
+                del srv.os.geteuid
+            except AttributeError:
+                pass
+        else:
+            srv.os.geteuid = old_geteuid
         if allow_root is not None:
             srv.os.environ['AISHIELD_ALLOW_ROOT'] = allow_root
 
