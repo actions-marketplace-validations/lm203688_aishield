@@ -321,6 +321,51 @@ class AIShieldHandler(BaseHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Request-ID")
         self.end_headers()
+
+    def do_HEAD(self):
+        """HEAD = GET 的完整路由 + 响应头，但不写响应体。
+
+        为什么必须实现：BaseHTTPRequestHandler 对未实现的方法返回 501
+        Not Implemented。大量 AI 爬虫、链接检查器、CDN 预取器与
+        IndexNow/Bing 爬虫在做 URL 存活预检时先发 HEAD，收到 501 会直接
+        判定该 URL 不可用并放弃抓取——表现为"文件在仓库、线上提交成功、
+        收录为零"。历史上 AIShield 的 GEO 资产（/llms.txt、
+        /.well-known/agent.json 等）就吃过这种假绿。
+
+        实现方式：临时替换 wfile 为「end_headers() 之后丢弃写入」的代理。
+        已审计：server.py 中全部 29 处 self.wfile.write 都紧跟在
+        self.end_headers() 之后，因此响应头一定先落到真实 socket，
+        只有响应体被丢弃。Content-Length 保留原值（HEAD 语义要求）。
+        """
+        _real_wfile = self.wfile
+        _state = {"body_mode": False}
+
+        class _HeadBodyProxy:
+            def write(self, data):
+                if _state["body_mode"]:
+                    return len(data)
+                return _real_wfile.write(data)
+
+            def flush(self):
+                return _real_wfile.flush()
+
+            def close(self):
+                return _real_wfile.close()
+
+        _orig_end_headers = self.end_headers
+
+        def _end_headers_then_flip():
+            _orig_end_headers()
+            _state["body_mode"] = True
+
+        self.wfile = _HeadBodyProxy()
+        self.end_headers = _end_headers_then_flip
+        try:
+            self.do_GET()
+        finally:
+            self.wfile = _real_wfile
+            self.end_headers = _orig_end_headers
+
     def do_GET(self):
         parsed = urlparse(self.path)
         path = parsed.path
@@ -563,6 +608,62 @@ class AIShieldHandler(BaseHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(body)
                 return
+
+        # ── GEO / Agent 发现资产 ──
+        # 这六个路径是 Agent 与 LLM 自动发现 AIShield 的入口。此前文件只躺在
+        # docs/ 里、未挂路由，线上全部 404（2026-09-15 实测），等于对 Agent
+        # 不可见；schema 参考自 13 站知识库生态已验证的 agent-discovery /
+        # ai-plugin / agent.json 三件套。geo-faqs.json 是 Q&A 形态的引用资产，
+        # 每条答案都必须能单独被检索命中并自证，不依赖其他条目。
+        # 缺失时不落在这里，交给末尾统一 404。
+        _GEO_ASSETS = {
+            "/llms.txt": ("llms.txt", "text/plain; charset=utf-8"),
+            "/llms-full.txt": ("llms-full.txt", "text/plain; charset=utf-8"),
+            "/agent-discovery.json": ("agent-discovery.json", "application/json; charset=utf-8"),
+            "/.well-known/ai-plugin.json": (os.path.join(".well-known", "ai-plugin.json"), "application/json; charset=utf-8"),
+            "/.well-known/agent.json": (os.path.join(".well-known", "agent.json"), "application/json; charset=utf-8"),
+            "/geo-faqs.json": ("geo-faqs.json", "application/json; charset=utf-8"),
+        }
+        if path in _GEO_ASSETS:
+            rel, ctype = _GEO_ASSETS[path]
+            asset_path = os.path.join(BASE, "static", rel)
+            if os.path.exists(asset_path):
+                with open(asset_path, "r", encoding="utf-8") as f:
+                    data = f.read()
+                body = data.encode("utf-8")
+                self.send_response(200)
+                self.send_header("Content-Type", ctype)
+                self.send_header("Content-Length", str(len(body)))
+                self.send_header("Cache-Control", "public, max-age=3600")
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.end_headers()
+                self.wfile.write(body)
+                _record_usage(path.lstrip("/").replace("/", "-").strip("-"), self.client_address[0])
+                return
+
+        # ── IndexNow 域名 key 校验文件 ──
+        # 规范要求 https://<host>/<key>.txt 返回 key 原文，搜索引擎据此确认
+        # 「这个 key 属于这个域名」，否则提交一律被拒（Bing/Yandex 返回错误）。
+        # 此前 api/static/indexnow-key.txt 只躺在仓库里、从未挂路由（线上实测
+        # /indexnow-key.txt 与 /<key>.txt 均 404）—— 也就是说 key 不可校验，
+        # IndexNow 提交链路从一开始就是断的。这里只响应「key 原文 + .txt」这个
+        # 精确路径，不做通配放开，避免变成任意静态文件服务。
+        if len(path) > 7 and path.endswith(".txt"):
+            _in_key_path = os.path.join(BASE, "static", "indexnow-key.txt")
+            if os.path.exists(_in_key_path):
+                with open(_in_key_path, "r", encoding="utf-8") as f:
+                    _in_key = f.read().strip()
+                if _in_key and path == "/" + _in_key + ".txt":
+                    body = _in_key.encode("utf-8")
+                    self.send_response(200)
+                    self.send_header("Content-Type", "text/plain; charset=utf-8")
+                    self.send_header("Content-Length", str(len(body)))
+                    self.send_header("Cache-Control", "public, max-age=86400")
+                    self.send_header("Access-Control-Allow-Origin", "*")
+                    self.end_headers()
+                    self.wfile.write(body)
+                    _record_usage("indexnow-key", self.client_address[0])
+                    return
 
         # 博客列表页 /blog
         if path == "/blog" or path == "/blog/":
@@ -2458,7 +2559,32 @@ blockquote{{border-left:4px solid #3b82f6;padding-left:16px;margin-left:0;color:
         })
 
 
+def assert_not_root():
+    """拒绝以 root (uid 0) 运行（借鉴 KeygraphHQ/shannon #323）。
+
+    AIShield 是本地安全扫描器，会以用户权限遍历 workspace 读取配置、密钥、
+    SSH 目录等内容。以 root 运行时这些读取面的影响被放大到整机，且任何
+    误配置（端口绑定、文件写入权限）都会被 root 提权后果吞掉——安全工具的
+    自身运行姿态必须先正确，才有资格评审别人的配置。
+
+    容器场景确实需要 root 时，显式设 AISHIELD_ALLOW_ROOT=1 绕过；绕过是
+    有意识的决定，会打一行警告日志。
+    """
+    if os.environ.get("AISHIELD_ALLOW_ROOT") == "1":
+        print("  WARNING: running as root (AISHIELD_ALLOW_ROOT=1 set)")
+        return
+    if hasattr(os, "geteuid") and os.geteuid() == 0:
+        sys.stderr.write(
+            "AIShield refuses to run as root.\n"
+            "This is a local scanner that reads config/secret/SSH paths with your "
+            "user permissions; as root those reads span the whole machine.\n"
+            "Run as a normal user, or set AISHIELD_ALLOW_ROOT=1 inside a container.\n"
+        )
+        sys.exit(2)
+
+
 def main():
+    assert_not_root()
     port = int(os.environ.get("AISHIELD_PORT", os.environ.get("PORT", 8450)))
     
     # 注册生态路由
