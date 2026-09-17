@@ -70,6 +70,8 @@
 
     "memory_scan",
 
+    "memory_integrity_scan",
+
     "antitamper_scan",
 
     "least_agency_scan",
@@ -580,13 +582,27 @@
 
       "id": "memory_scan",
 
-      "name": "记忆 / 上下文投毒扫描（ASI06）",
+      "name": "记忆 / 上下文投毒扫描（MCP03）",
 
       "description": "检测写入记忆的指令、持久/种子目标、记忆文件写入——RAG/长期记忆被投毒的风险。",
 
       "input_schema": {"type": "object", "properties": {"source_url": {"type": "string"}}, "required": ["source_url"]},
 
       "output_schema": {"type": "object", "properties": {"memory_findings": {"type": "array", "items": {"type": "object"}}, "severity_counts": {"type": "object"}}}
+
+    },
+
+    {
+
+      "id": "memory_integrity_scan",
+
+      "name": "持久记忆完整性 / 信任边界扫描（ASI04）",
+
+      "description": "检测持久记忆写入缺少完整性校验（HMAC / signature / allow-list / verify）以及多 agent 共享记忆缺少隔离边界——与 memory_scan 互补：后者检出投毒动作，本项检出架构上没有边界。",
+
+      "input_schema": {"type": "object", "properties": {"source_url": {"type": "string"}}, "required": ["source_url"]},
+
+      "output_schema": {"type": "object", "properties": {"memory_integrity_findings": {"type": "array", "items": {"type": "object"}}, "severity_counts": {"type": "object"}, "files_with_persistent_memory": {"type": "integer"}}}
 
     },
 
