@@ -1,12 +1,21 @@
 {
-  "generated_at": "2026-09-16T08:33:33.169743+00:00",
-  "source_intel_count": 383,
+  "generated_at": "2026-09-17T08:38:22.767849+00:00",
+  "source_intel_count": 386,
   "package_blacklist": {
+    "pip:lmdeploy": {
+      "ecosystem": "pip",
+      "package": "lmdeploy",
+      "severity": "critical",
+      "advisories": [
+        "GHSA-5h8j-6crg-7rmw"
+      ]
+    },
     "npm:@zereight/mcp-gitlab": {
       "ecosystem": "npm",
       "package": "@zereight/mcp-gitlab",
       "severity": "critical",
       "advisories": [
+        "GHSA-cv3r-c5h8-f4g5",
         "GHSA-2h44-8472-frjj",
         "GHSA-vmp7-252j-cwp7",
         "GHSA-5648-rgj9-v224"
@@ -840,6 +849,34 @@
     }
   },
   "pattern_rules": {
+    "(?i)(pickle\\.loads|yaml\\.load\\s*\\((?![^)]*Loader)|node-serialize)": {
+      "description": "不安全反序列化",
+      "severity": "critical",
+      "owasp": "LLM05",
+      "owasp_name": "不当输出处理 (Improper Output Handling)",
+      "derived_from": "deserialization",
+      "intel_hits": 3,
+      "evidence": [
+        "GHSA-5h8j-6crg-7rmw",
+        "GHSA-wg9g-w2j2-8pgr",
+        "GHSA-qxq5-qhx6-94qw"
+      ]
+    },
+    "(?i)(auth(entication)?\\s*[:=]\\s*(False|None|null|0)\\b|verify\\s*=\\s*False)": {
+      "description": "认证绕过: 显式关闭校验",
+      "severity": "critical",
+      "owasp": "LLM07",
+      "owasp_name": "系统提示泄露 (System Prompt Leakage)",
+      "derived_from": "authentication",
+      "intel_hits": 36,
+      "evidence": [
+        "GHSA-cv3r-c5h8-f4g5",
+        "CVE-2026-58196",
+        "CVE-2026-59971",
+        "CVE-2026-55837",
+        "GHSA-h8m9-jgf8-vwvp"
+      ]
+    },
     "(?i)(Access-Control-Allow-Origin['\\\"]?\\s*[:,]\\s*['\\\"]\\*|cors\\s*\\(\\s*\\)\\s*)": {
       "description": "跨域校验缺失: 允许任意来源",
       "severity": "high",
@@ -883,21 +920,6 @@
         "GHSA-p78m-89r6-pgf7",
         "GHSA-hw8v-xxg5-vvvx",
         "GHSA-jmc6-2wr8-h3wj"
-      ]
-    },
-    "(?i)(auth(entication)?\\s*[:=]\\s*(False|None|null|0)\\b|verify\\s*=\\s*False)": {
-      "description": "认证绕过: 显式关闭校验",
-      "severity": "critical",
-      "owasp": "LLM07",
-      "owasp_name": "系统提示泄露 (System Prompt Leakage)",
-      "derived_from": "authentication",
-      "intel_hits": 35,
-      "evidence": [
-        "CVE-2026-58196",
-        "CVE-2026-59971",
-        "CVE-2026-55837",
-        "GHSA-h8m9-jgf8-vwvp",
-        "GHSA-rqfv-2mw9-78g2"
       ]
     },
     "(?i)(requests\\.(get|post)|urllib\\.request\\.urlopen|fetch)\\s*\\(\\s*[^)]*(user|input|param|req\\.)": {
@@ -959,25 +981,13 @@
         "GHSA-rghg-q7wp-9767",
         "GHSA-73wf-9vmv-5pv9"
       ]
-    },
-    "(?i)(pickle\\.loads|yaml\\.load\\s*\\((?![^)]*Loader)|node-serialize)": {
-      "description": "不安全反序列化",
-      "severity": "critical",
-      "owasp": "LLM05",
-      "owasp_name": "不当输出处理 (Improper Output Handling)",
-      "derived_from": "deserialization",
-      "intel_hits": 2,
-      "evidence": [
-        "GHSA-wg9g-w2j2-8pgr",
-        "GHSA-qxq5-qhx6-94qw"
-      ]
     }
   },
   "owasp_distribution": {
+    "LLM05": 3,
     "LLM07": 3,
     "LLM01": 1,
-    "LLM06": 2,
-    "LLM05": 3
+    "LLM06": 2
   },
-  "total_rules": 99
+  "total_rules": 100
 }

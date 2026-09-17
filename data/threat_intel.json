@@ -1,6 +1,48 @@
 {
   "intel": [
     {
+      "id": "GHSA-hcwq-8wjf-3gcr",
+      "source": "github-advisory",
+      "severity": "medium",
+      "cvss": 6.5,
+      "title": "vLLM: Unauthenticated audio decompression-bomb DoS in /v1/chat/completions",
+      "summary": "### Summary\nThe audio decode-duration guard (`max_duration_s`, env `VLLM_MAX_AUDIO_DECODE_DURATION_S`, default 600s) that protects against audio decompression-bomb DoS is wired into **only** the speech-to-text path (`/v1/audio/transcriptions`). The **chat** audio path (`/v1/chat/completions`, `input_audio` content parts) calls the same decoder with **no** limit, so an **unauthenticated** client can submit a few-KB compressed audio file that expands to multiple GB of float32 PCM at decode time, O",
+      "affected": "pip:vllm",
+      "references": [
+        "https://github.com/advisories/GHSA-hcwq-8wjf-3gcr"
+      ],
+      "published": "2026-09-16T22:12:17Z",
+      "fetched": "2026-09-17T08:38:07.824824+00:00"
+    },
+    {
+      "id": "GHSA-5h8j-6crg-7rmw",
+      "source": "github-advisory",
+      "severity": "critical",
+      "cvss": 9.8,
+      "title": "LMdeploy has Remote Code Execution by Pickle Deserialization via zmq_rpc.call_and_response() in InterLM/lmdeploy",
+      "summary": "### Description\n\nThe LMdeploy implements an rpc server (AsyncRPCServer in zmq_rpc.py) for supporting the RPC communications. In its core functionality call_and_response(), I found it will directly use the pickles.loads() to deserialize the received messages without any sanitization, hence resulting in a remote code execution vulnerability by this RPC server.\n\n### Proof of Concept\n\n* Step1:\nThe victim user starts a RPC server that connects to its network interface. We give our example code (serve",
+      "affected": "pip:lmdeploy",
+      "references": [
+        "https://github.com/advisories/GHSA-5h8j-6crg-7rmw"
+      ],
+      "published": "2026-09-16T15:34:27Z",
+      "fetched": "2026-09-17T08:38:07.824991+00:00"
+    },
+    {
+      "id": "GHSA-cv3r-c5h8-f4g5",
+      "source": "github-advisory",
+      "severity": "critical",
+      "cvss": 9.8,
+      "title": "@zereight/mcp-gitlab: Unauthenticated arbitrary file read via `upload_markdown` enables PAT exfiltration and full account takeover",
+      "summary": "### Summary\n\nThe SSE transport mode (`SSE=true`) exposes all MCP tools without any authentication. The `upload_markdown` tool reads arbitrary files from the server's local filesystem via an unsanitized `file_path` parameter and uploads them to a GitLab project. Combined, any unauthenticated network-reachable attacker can read `/proc/self/environ` to steal the server's `GITLAB_PERSONAL_ACCESS_TOKEN` and achieve full GitLab account takeover. This is the default configuration for Docker deployments",
+      "affected": "npm:@zereight/mcp-gitlab",
+      "references": [
+        "https://github.com/advisories/GHSA-cv3r-c5h8-f4g5"
+      ],
+      "published": "2026-09-16T13:48:28Z",
+      "fetched": "2026-09-17T08:38:06.461200+00:00"
+    },
+    {
       "id": "GHSA-2h44-8472-frjj",
       "source": "github-advisory",
       "severity": "critical",
@@ -5666,7 +5708,7 @@
       "fetched": "2026-08-04T06:34:53.913899+00:00"
     }
   ],
-  "updated": "2026-09-16T08:33:21.831785+00:00",
+  "updated": "2026-09-17T08:38:08.326652+00:00",
   "sources": [
     "osv",
     "nvd",
@@ -5685,40 +5727,40 @@
         "items": 0,
         "attempts": 1,
         "error": null,
-        "checked_at": "2026-09-16T08:33:00.284656+00:00",
+        "checked_at": "2026-09-17T08:37:42.976496+00:00",
         "consecutive_failures": 0,
         "degraded_since": null
       },
       "nvd": {
         "ok": true,
-        "items": 48,
+        "items": 47,
         "attempts": 1,
         "error": null,
-        "checked_at": "2026-09-16T08:33:19.178270+00:00",
+        "checked_at": "2026-09-17T08:38:04.993737+00:00",
         "consecutive_failures": 0,
         "degraded_since": null
       },
       "github-advisory": {
         "ok": true,
-        "items": 37,
+        "items": 33,
         "attempts": 1,
         "error": null,
-        "checked_at": "2026-09-16T08:33:21.831481+00:00",
+        "checked_at": "2026-09-17T08:38:08.326430+00:00",
         "consecutive_failures": 0,
         "degraded_since": null
       }
     },
     "degraded": [],
-    "last_success": "2026-09-16T08:33:21.831785+00:00",
-    "last_attempt": "2026-09-16T08:33:21.831785+00:00"
+    "last_success": "2026-09-17T08:38:08.326652+00:00",
+    "last_attempt": "2026-09-17T08:38:08.326652+00:00"
   },
   "stats": {
-    "critical": 51,
+    "medium": 112,
+    "critical": 53,
     "high": 181,
     "unknown": 34,
-    "medium": 111,
     "low": 5,
     "moderate": 1
   },
-  "total": 383
+  "total": 386
 }
