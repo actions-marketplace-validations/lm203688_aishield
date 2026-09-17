@@ -39,6 +39,24 @@ jobs:
         run: python scripts/promote_rule.py --check
         continue-on-error: true
 
+      - name: Shadow verdict（只观测不写入：三档判定 promote / warn / refuse）
+        # 为什么不复用上面的 --check：--check 只跑 schema 与良性语料，跑不跑
+        # 攻击语料（catch）要等 --promote-all 落库之后才由 radar_effect 事后
+        # 报告，而那个报告是非阻断的。结果是一条零命中的死规则会直接进线上，
+        # 之后才被当作"带刺的铃铛"报出来 —— 这正是 shadow 档要提前看见的。
+        #
+        # 铁律照旧：禁止 `|| true` 吞失败。continue-on-error 只用于"红在 UI 上
+        # 可见但不阻断健康候选晋升"，不是放行。它一个字都不写（--shadow 的契
+        # 约，tests/test_promote_rule_shadow.py::TestShadowWritesNothing 钉死），
+        # 所以可以放心挂在本步而不制造新的并发写者。
+        #
+        # 为什么不顺手加 --strict：--strict 会让零命中的新规则被拒收，而雷达
+        # 候选来自新信号、ATTACK_SAMPLES 是固定语料，全新攻击类型天然不在其中。
+        # 默认放行（并大声告警）是当前循环的既有契约，收紧留给有上下文的人
+        # 手工做（见 docs/radar-shadow-gate.md）。
+        run: python scripts/promote_rule.py --shadow
+        continue-on-error: true
+
       - name: Promote all passing candidates
         id: promo
         run: |
