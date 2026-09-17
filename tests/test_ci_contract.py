@@ -193,7 +193,10 @@ class TestRunnerCoverage(unittest.TestCase):
 
     def _registered(self):
         src = _read(os.path.join(ROOT, 'tests', 'run_all.py'))
-        names = re.findall(r"^\s*'tests\.([A-Za-z0-9_]+)',\s*$", src, re.M)
+        # 行首锚定 + 引号形式不可省略，仅额外容忍行尾注释：清单条目旁需要能写
+        # 用途说明（例如标注"该模块跑两遍"这类事故注记），否则注释一律被拒会让
+        # 清单退化成纯字符串堆。放宽的只有注释这一段，仍不接受任何其它后缀。
+        names = re.findall(r"^\s*'tests\.([A-Za-z0-9_]+)',\s*(?:#.*)?$", src, re.M)
         self.assertTrue(names, 'run_all.py 未解析出任何测试模块')
         return set(names)
 
@@ -227,7 +230,7 @@ class TestRunnerCoverage(unittest.TestCase):
         直接比对原始列表。
         """
         src = _read(os.path.join(ROOT, 'tests', 'run_all.py'))
-        names = re.findall(r"^\s*'tests\.([A-Za-z0-9_]+)',\s*$", src, re.M)
+        names = re.findall(r"^\s*'tests\.([A-Za-z0-9_]+)',\s*(?:#.*)?$", src, re.M)
         dupes = sorted({n for n in names if names.count(n) > 1})
         self.assertEqual(dupes, [],
                          'run_all.py 重复登记了这些测试模块（会整段跑两遍）：'
