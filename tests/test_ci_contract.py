@@ -216,6 +216,23 @@ class TestRunnerCoverage(unittest.TestCase):
         self.assertEqual(dangling, set(),
                          'run_all.py 登记了不存在的测试文件：' + ', '.join(sorted(dangling)))
 
+    def test_runner_has_no_duplicate_entries(self):
+        """清单不得重复登记同一模块。
+
+        重复登记会让该模块整段跑两遍：拖慢 CI，更糟的是单个失败会在日志里
+        重复出现两次，被误读成两个独立缺陷。2026-09-17 的 root 护栏事故正是
+        这个假象 —— CI 连续全红，日志里「FAIL: test_root_refused」重复两次，
+        看起来像两个问题，实际只有一个，而且掩盖了它其实是环境问题。
+        上面 _registered() 返回 set 会自动去重，抓不到这种情况，所以这里
+        直接比对原始列表。
+        """
+        src = _read(os.path.join(ROOT, 'tests', 'run_all.py'))
+        names = re.findall(r"^\s*'tests\.([A-Za-z0-9_]+)',\s*$", src, re.M)
+        dupes = sorted({n for n in names if names.count(n) > 1})
+        self.assertEqual(dupes, [],
+                         'run_all.py 重复登记了这些测试模块（会整段跑两遍）：'
+                         + ', '.join('tests.' + d for d in dupes))
+
 
 class TestMemoryBoundary(unittest.TestCase):
     """AIShield 自己的记忆目录不得出现凭证。
