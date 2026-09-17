@@ -12,7 +12,15 @@ Allow: /mcp-security-guide
 Allow: /owasp-mcp-top10-guide
 Allow: /demo/delegation-chain
 Allow: /.well-known/agent-card.json
+Allow: /.well-known/agent.json
+Allow: /.well-known/ai-plugin.json
+Allow: /.well-known/security.txt
 Allow: /.well-known/mcp/server-card.json
+Allow: /agent-discovery.json
+Allow: /geo-faqs.json
+Allow: /llms.txt
+Allow: /llms-full.txt
+Allow: /openapi.json
 Allow: /sitemap.xml
 Allow: /robots.txt
 
