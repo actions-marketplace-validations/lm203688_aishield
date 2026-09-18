@@ -47,7 +47,7 @@
     {
       "id": "security_scan",
       "name": "MCP 工具安全扫描",
-      "description": "基于 OWASP MCP Top 10 的 238 条 MCP / 244 条 Skill 规则，对 GitHub 上的 MCP 工具/Agent 技能进行静态安全分析，输出 5 维评分和详细发现",
+      "description": "基于 OWASP MCP Top 10 的 235 条 MCP / 241 条 Skill 规则，对 GitHub 上的 MCP 工具/Agent 技能进行静态安全分析，输出 5 维评分和详细发现",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -798,7 +798,7 @@
     "reputation": 88,
     "activity": 92,
     "identity": 92,
-    "methodology": "基于 OWASP MCP Top 10 (2025 v0.1) + OWASP Agentic AI Top 10 (ASI01-ASI10) 对齐度、扫描规则覆盖率（238 MCP/244 Skill + 17 能力边界模块，含 11 个 Agentic 专项模块）、API 可用性、开源社区活跃度综合计算"
+    "methodology": "基于 OWASP MCP Top 10 (2025 v0.1) + OWASP Agentic AI Top 10 (ASI01-ASI10) 对齐度、扫描规则覆盖率（235 MCP/241 Skill + 17 能力边界模块，含 11 个 Agentic 专项模块）、API 可用性、开源社区活跃度综合计算"
   },
   "endpoints": {
     "agent_setup": "POST /api/v1/agent/setup",
@@ -824,8 +824,8 @@
     "mcp_protocol": true,
     "mcp_protocol_version": "2026-07-28",
     "chinese_regulations": true,
-    "rules_count": 238,
-    "skill_rules_count": 244,
+    "rules_count": 235,
+    "skill_rules_count": 241,
     "capability_modules": 17,
     "owasp_categories": 10
   },

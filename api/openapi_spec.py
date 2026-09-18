@@ -234,6 +234,10 @@ def get_openapi_spec():
                                         "type": "string",
                                         "description": "OWASP MCP Top 10 / Agentic AI Top 10 分类",
                                     },
+                                    "citation_context": {
+                                        "type": "boolean",
+                                        "description": "True 表示该命中处于引用/讨论语境——防御文档把攻击载荷当作被检测对象引用，而非祈使式执行指令。此类 finding 的 severity 已被降为 low，供报告层单独统计与用户复核",
+                                    },
                                 },
                             },
                             "description": "安全发现列表，每条带 file:line:col 精确锚点 + 证据片段 + 稳定 rule_id + 具体修复动作",

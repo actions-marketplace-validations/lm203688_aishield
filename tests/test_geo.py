@@ -381,12 +381,36 @@ class TestAgentDiscoveryJson(unittest.TestCase):
         self.assertEqual(self.data['site_name'], 'AIShield')
 
     def test_rules_match_health_contract(self):
-        """规则数必须与 /api/v1/health 的 rules_breakdown 一致（真值 238）。"""
+        """规则数必须与 /api/v1/health 的 rules_breakdown 一致。
+
+        真值直接取自规则引擎，不写死数字：写死过的话，每清理一次缺陷规则
+        都要同步改这里（2026-09-18 从 238 降到 235 时就是这么漏掉的）。
+        发现资产与引擎漂移 = 对外失实，这是本测试存在的唯一理由。
+        """
         rules = self.data['rules']
-        self.assertEqual(rules['total'], 238)
+        try:
+            from scanner.rules import get_rule_count
+        except Exception as exc:
+            self.skipTest('规则模块不可用: %s' % exc)
+        self.assertEqual(
+            rules['total'], get_rule_count('mcp'),
+            'agent-discovery 宣称 %s 条规则，引擎实测 %d 条'
+            % (rules['total'], get_rule_count('mcp')))
         self.assertEqual(rules['static'] + rules['generated'] + rules['radar'],
                          rules['total'],
                          "static + generated + radar 必须等于 total")
+        # 分项也要逐一对上引擎。只校 total 拦不住"total 改了、分项忘了改"
+        # 这种内部矛盾——2026-09-18 就发生过：total 已同步到 235，
+        # static/generated 还停在 210/9，加起来是 238。
+        try:
+            from scanner.rules import get_rule_breakdown
+        except Exception as exc:
+            self.skipTest('规则模块不可用: %s' % exc)
+        bd = get_rule_breakdown()
+        for key in ('static', 'generated', 'radar'):
+            self.assertEqual(
+                rules[key], bd[key],
+                'agent-discovery 的 %s 为 %s，引擎实测 %s' % (key, rules[key], bd[key]))
 
     def test_all_endpoints_are_first_party_urls(self):
         """发现资产只能指向自家域名，避免把 Agent 引到第三方。"""

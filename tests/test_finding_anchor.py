@@ -300,7 +300,8 @@ class TestMcpRendersAnchor(unittest.TestCase):
     def test_tool_description_rule_count_matches_engine(self):
         """
         工具描述会被每次调用都展示给用户，数字漂移就是对外失实。
-        （此处曾长期写死 201，而引擎实际是 238。）
+        （此处曾长期写死 201，而引擎实际是 238；2026-09-18 基线审计后为 235。
+        断言直接绑定引擎实测值，避免每清理一次规则都要回来手改。）
         """
         try:
             from scanner.rules import get_rule_count

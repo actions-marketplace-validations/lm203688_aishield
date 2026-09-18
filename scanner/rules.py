@@ -166,7 +166,10 @@ MCP04_RULES = {
     # pip install from git
     r'\bpip\s+install\s+git\+https?://': ("从git URL安装Python包(供应链风险)", "high"),
     r'\bnpm\s+install\s+git\+https?://': ("从git URL安装npm包(供应链风险)", "high"),
-    # curl管道执行
+    # curl/wget 管道执行。2026-09-18 基线审计：两条曾被认为"互为冗余"，实测
+    # 各命中不同的正样本（curl_pipe 命中 lifecycle hook 样本，wget_pipe 此前
+    # 0 命中是语料缺样本，已补），且引用场景由 analyze() 的 citation 抑制处理，
+    # 所以两条都保留。
     r'\bcurl\s+.*\|\s*(bash|sh|python|node)\b': ("curl管道执行(供应链攻击)", "critical"),
     r'\bwget\s+.*\|\s*(bash|sh|python|node)\b': ("wget管道执行(供应链攻击)", "critical"),
     # 远程代码执行
@@ -216,11 +219,20 @@ MCP05_RULES = {
 # MCP06 - 意图流颠覆/上下文提示注入 (8条规则)
 # ============================================================
 MCP06_RULES = {
-    # 越狱指令
-    r'ignore\s+(all\s+)?(previous|prior|above)\s+(instruction|prompt|rule|guidance)': ("越狱指令: 忽略前文指令", "critical"),
+    # 越狱指令。2026-09-18 基线审计：本段原有 3 条规则命中同一条正样本
+    # （"Ignore all previous instructions..."）—— 静态 ignore_static、情报生成
+    # 的 ignore_intel、以及 (disregard|ignore|neglect) 变体。三条互为近似的
+    # 并集已合并为一条，消除 finding 双倍/三倍计数；情报侧同名规则由
+    # scripts/intel_to_rules.py 的去重逻辑跳过，不再进入 ALL_RULES。
+    # forget 单独成条（见下一行）以避免 "forget previous instructions" 双重命中。
+    r'(?i)(ignore|disregard|neglect)\s+(all\s+)?(the\s+)?(previous|prior|above|all)\s+(instruction|prompt|rule|guidance|safety)': ("越狱指令: 忽略/覆盖前文指令", "critical"),
     r'forget\s+(everything|all|previous|prior|your)\s+(instruction|prompt|rule|training)': ("越狱指令: 忘记一切", "critical"),
-    r'\b(DAN|jailbreak|bypass|override)\b': ("越狱关键词", "critical"),
-    r'(disregard|ignore|neglect)\s+(the\s+)?(above|previous|prior|all)\s+(instruction|prompt|rule|safety)': ("忽略安全指令", "critical"),
+    # 越狱词提及。原 \b(DAN|jailbreak|bypass|override)\b 与 (越狱|jailbreak|越狱模式)
+    # 是两条 critical 级裸关键字，唯一正样本是叙述句而非祈使载荷，且与中文段的
+    # \bDAN(模式)?\b 重合。按"提及≠执行"降级为 info：工具描述里出现 jailbreak
+    # 仍是 tool poisoning 的信号，值得标记，但不该按 critical 级执行载荷对待。
+    # DAN 作为具体标识符由 ZH_PROMPT_INJECTION_RULES 的 \bDAN(模式)?\b 保持 critical。
+    r'(?i)\bjailbreak\b|越狱': ("越狱词提及(非执行载荷)", "info"),
     r'you\s+are\s+now\s+(a|an)\s+': ("身份切换指令", "high"),
     r'(act|pretend|play|roleplay)\s+as\s+(if\s+you\s+(are|were)\s+)?(a|an)\s+': ("角色扮演注入", "high"),
     # 系统提示窃取
@@ -335,9 +347,11 @@ ZH_PROMPT_INJECTION_RULES = {
     r'绕过.{0,4}(安全|过滤|审查|限制|防火墙)': ("中文越狱: 绕过安全", "high"),
     r'解除.{0,4}(限制|约束|封锁|锁定)': ("中文越狱: 解除限制", "high"),
     r'取消.{0,4}(所有|一切|安全).{0,4}(限制|规则|约束)': ("中文越狱: 取消限制", "critical"),
-    # 关键词越狱（中英混合）
+    # 关键词越狱。2026-09-18 基线审计：原 (越狱|jailbreak|越狱模式) 与 MCP06 的
+    # \b(DAN|jailbreak|bypass|override)\b 是同一条正样本的双重命中，且都是 critical
+    # 级裸关键字。已下沉为 MCP06 的 info 级"提及"规则（提及≠执行）；DAN 作为具体
+    # 标识符在此保持 critical。
     r'\bDAN(模式)?\b': ("DAN越狱模式", "critical"),
-    r'(越狱|jailbreak|越狱模式)': ("越狱关键词", "critical"),
     # 身份切换
     r'(扮演|假装|假设|当作).{0,6}(你是|作为).{0,10}(一个|一名)': ("中文角色扮演注入", "high"),
     r'你(现在|现在起).{0,4}(是|变成).{0,6}(一个|一名|一位)': ("中文身份切换", "high"),
@@ -1499,6 +1513,45 @@ for _src, _tag in _CATEGORY_SOURCES:
 import hashlib as _hashlib
 
 
+# ============================================================
+# 引用上下文抑制（citation context suppression）
+# ============================================================
+# 2026-09-18 基线审计发现：防御类文档把攻击载荷当作**被检测对象**引用时，
+# 静态规则会照常命中，且在 SKILL.md 这类 agent 指令文件里不会走 is_doc 降级
+# （analyze() 明确认为指令载荷"就是 agent 的代码"），所以一条**纯防御**的
+# skill 文档会拿到一堆 critical 级 finding。
+#
+# 做法：不改任何正则（改正则是假阴性高发区），而是在 finding 生成时对命中点
+# 前后的窗口做一次元语言检测。出现 detects/catches/blocks/such as/fixture/
+# sample 这类词，说明规则命中的是"被讨论的载荷"而不是"被执行的动作"。
+#
+# 两个刻意的约束：
+#   * 只用保守标记词表。宁可漏抑制，也不能把真攻击压成 info。
+#   * `examples?|samples?|fixtures?` 前加 (?<![\w.]) —— 不加的话
+#     attacker.example 会命中 examples?，把真实 curl 载荷误抑制掉
+#     （2026-09-18 实测踩到这个坑）。
+#   * 前向窗口只给 60 字符且共用同一词表。攻击载荷后的续句（"then send the
+#     data to https://"）不含任何标记词，所以不会因此被抑制。
+_CITATION_BACK = 100
+_CITATION_FWD = 60
+_CITATION_MARKERS = re.compile(
+    r"(?i)(?:\b(?:detects?|detecting|catches?|catching|blocks?|blocked|prevents?|"
+    r"preventing|stops?|stopped|mitigat\w*|classif\w*|report(?:s|ed|ing)?|rumored|"
+    r"mentioned?|documents?)\b"
+    r"|\bsuch\s+as\b|\bpatterns?\s+like\b|\bfor\s+example\b|\be\.g\.?\b"
+    r"|(?<![\w.])\b(?:fixtures?|samples?|examples?)\b"
+    r"|\bis\s+the\s+canonical\b|\bused\s+(?:in\s+)?tests?\b|\bthreat\s+model\b"
+    r"|\bdocs?\s*[:=]|\bdetection\s+fixture\b)"
+)
+
+
+def _is_citation_context(content, pos):
+    """命中点是否处于引用/讨论语境（防御文档把载荷当作被检测对象）。"""
+    lo = max(0, pos - _CITATION_BACK)
+    hi = min(len(content), pos + _CITATION_FWD)
+    return bool(_CITATION_MARKERS.search(content[lo:hi]))
+
+
 def _rule_id(pattern, owasp_cat):
     """稳定 rule_id：已知类别用「类别-序号」，其余用正则哈希前缀（不随加载顺序漂移）。"""
     rid = _PATTERN_RULE_ID.get(pattern)
@@ -1544,17 +1597,29 @@ def analyze(files, tool_type="mcp"):
                         actual_severity = "low"
                     elif is_doc and severity == "medium":
                         actual_severity = "info"
+                    # 引用上下文：防御文档把载荷当被检测对象讨论时，命中不改变
+                    # 规则本身，只降级并打标，便于报告层单独统计与用户复核。
+                    # 只作用于 critical/high/medium —— info 已经是最低档，无需再降。
+                    citation = _is_citation_context(content, m.start())
+                    if citation and actual_severity in ("critical", "high", "medium"):
+                        actual_severity = "low"
+                    suffix = ""
+                    if is_doc:
+                        suffix += " (文档示例)"
+                    if citation:
+                        suffix += " (引用上下文)"
                     findings.append({
                         "type": "dangerous_pattern",
                         "rule_id": rid,
                         "severity": actual_severity,
-                        "description": desc + (" (文档示例)" if is_doc else ""),
+                        "description": desc + suffix,
                         "file": filepath,
                         "lines": str(line_num),
                         "col": col,
                         "evidence": m.group()[:120],
                         "owasp_category": owasp_cat,
                         "remediation": fix,
+                        "citation_context": citation,
                     })
 
     return {
