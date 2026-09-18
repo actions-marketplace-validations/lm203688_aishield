@@ -133,6 +133,19 @@ TARGETS: List[Tuple[str, str, str]] = [
     ("api/static/humans.txt",
      r'(Version:\s*)([0-9.]+)',
      r"\g<1>{v}"),
+    # Agent 发现资产里的服务版本声明（2026-09-15 从 13 站知识库生态移植进来时
+    # 一并纳入门禁）。`schema_version` 是 schema 版本号、不是产品版本，
+    # 所以锚定用 `"version"` / `"service_version"` 精确匹配，不会误伤
+    # `"schema_version": "1.0"` / `"schema_version": "v1"`。
+    ("api/static/.well-known/ai-plugin.json",
+     r'("version"\s*:\s*")([^"]+)(")',
+     r"\g<1>{v}\g<3>"),
+    ("api/static/agent-discovery.json",
+     r'("service_version"\s*:\s*")([^"]+)(")',
+     r"\g<1>{v}\g<3>"),
+    ("api/static/.well-known/agent.json",
+     r'("service_version"\s*:\s*")([^"]+)(")',
+     r"\g<1>{v}\g<3>"),
     ("smithery.yaml",
      r'(\nversion:\s*")([^"]+)(")',
      r"\g<1>{v}\g<3>"),

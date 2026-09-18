@@ -13,22 +13,38 @@
     "schema": "AIP-AC/v1",
     "trust_layer": "aishield-trust/v1",
     "discovery_url": "https://aishield.tools/api/v1/registry/search?q=aishield",
-    "compatible_with": ["AIP", "AGNTCY", "OASF", "A2A"],
+    "compatible_with": [
+      "AIP",
+      "AGNTCY",
+      "OASF",
+      "A2A"
+    ],
     "note": "AIShield is a protocol-agnostic content-trust layer that sits on top of any agent interconnect protocol"
   },
   "capabilities": {
     "streaming": false,
     "pushNotifications": false,
-    "input_modes": ["text/plain", "application/json"],
-    "output_modes": ["text/plain", "application/json"]
+    "input_modes": [
+      "text/plain",
+      "application/json"
+    ],
+    "output_modes": [
+      "text/plain",
+      "application/json"
+    ]
   },
   "securitySchemes": {},
   "skills": [
     {
       "id": "security_scan",
       "name": "Security Scan",
-      "description": "Scan an MCP server, AI skill or agent description against 238 MCP / 244 skill rule categories (OWASP MCP Top 10 + Agentic AI Top 10 + sandbox hardening). For skill assets, Markdown is treated as executable payload rather than documentation.",
-      "tags": ["security", "audit", "mcp", "agent"],
+      "description": "Scan an MCP server, AI skill or agent description against 235 MCP / 241 skill rule categories (OWASP MCP Top 10 + Agentic AI Top 10 + sandbox hardening). For skill assets, Markdown is treated as executable payload rather than documentation.",
+      "tags": [
+        "security",
+        "audit",
+        "mcp",
+        "agent"
+      ],
       "examples": [
         "Scan this MCP server tool list for prompt-injection and tool-poisoning risk"
       ]
@@ -37,7 +53,11 @@
       "id": "agentic_audit",
       "name": "Agentic AI Audit",
       "description": "Audit an AI agent against OWASP Agentic AI Top 10 (ASI01-ASI10): goal hijack, tool misuse, identity abuse, supply chain, code execution, memory poisoning, inter-agent comms, cascading failure, human-agent trust, rogue agents.",
-      "tags": ["agentic", "owasp", "audit"],
+      "tags": [
+        "agentic",
+        "owasp",
+        "audit"
+      ],
       "examples": [
         "Audit my agent's delegation chain for ASI03 identity and ASI07 inter-agent risks"
       ]
@@ -46,7 +66,13 @@
       "id": "supply_chain_audit",
       "name": "Supply Chain & Hallucinated Package Audit",
       "description": "Offline detection of slopsquatting / AI-hallucinated dependencies in package.json, requirements.txt and pyproject.toml. Covers typosquat (Levenshtein), homoglyph poisoning, brand impersonation, composite hallucination (the ~50% of fabricated names that are NOT edit-distance-similar to any real package, e.g. react-codeshift), cross-registry confusion, dependency confusion, install-script poisoning, untrusted sources, unpinned versions and missing lockfiles. Zero network calls, zero package database.",
-      "tags": ["supply-chain", "slopsquatting", "typosquat", "sbom", "offline"],
+      "tags": [
+        "supply-chain",
+        "slopsquatting",
+        "typosquat",
+        "sbom",
+        "offline"
+      ],
       "examples": [
         "Check this package.json for hallucinated or typosquatted dependencies",
         "Does my requirements.txt install anything from a non-PyPI source?"
@@ -56,7 +82,15 @@
       "id": "multi_client_config_scan",
       "name": "Multi-Client MCP Config Discovery & Audit",
       "description": "Auto-discover MCP server configurations across 14 client surfaces (Claude Desktop, Claude Code user+project, Cursor user+project, VS Code user+project, Windsurf, Gemini CLI, GitHub Copilot CLI, Augment, Zed, Cline, WorkBuddy) and statically audit them for privileged launch, runtime package fetch at startup, shell-interpreter invocation, non-registry provenance, inline plaintext credentials, insecure transport, wildcard bind, unauthenticated remote endpoints, project-level trust traps, namespace shadowing between servers, and 7 classes of toxic capability flows. PURELY STATIC: AIShield never executes any command defined in a scanned configuration - unlike scanners that spawn the server process to read tools/list.",
-      "tags": ["mcp", "config", "discovery", "static-analysis", "namespace-shadowing", "toxic-flow", "local-first"],
+      "tags": [
+        "mcp",
+        "config",
+        "discovery",
+        "static-analysis",
+        "namespace-shadowing",
+        "toxic-flow",
+        "local-first"
+      ],
       "examples": [
         "Find every MCP server configured on this machine and tell me which ones are risky",
         "Do any of my MCP servers shadow each other's tool names?",
@@ -67,7 +101,18 @@
       "id": "agent_computer_preflight",
       "name": "Agent Computer Pre-Flight Scan",
       "description": "Scan an agent workspace BEFORE the sandbox boots. Parses .mcp.json, forge / agent-forge, Goose and Open Interpreter configurations plus every skill file, scores each item, and returns a boot / review / refuse verdict. Complements isolation runtimes (Cloudflare Sandboxes and Containers, forgevm, E2B, Open Interpreter, Goose) which bound blast radius but do not inspect the content an agent loads inside the box. Also checks 11 sandbox-hardening rules on the box definition itself: mounted docker.sock, --privileged, host network/PID/IPC namespaces, cap_add ALL, CAP_SYS_ADMIN, seccomp=unconfined, --user 0, Kubernetes hostPath. PURELY STATIC: never spawns a command found in the workspace, never fetches the network.",
-      "tags": ["agent-computer", "sandbox", "preflight", "workspace", "static-analysis", "local-first", "cloudflare-sandbox", "forgevm", "goose", "open-interpreter"],
+      "tags": [
+        "agent-computer",
+        "sandbox",
+        "preflight",
+        "workspace",
+        "static-analysis",
+        "local-first",
+        "cloudflare-sandbox",
+        "forgevm",
+        "goose",
+        "open-interpreter"
+      ],
       "examples": [
         "Is this workspace safe to boot an agent in?",
         "Pre-flight scan the MCP servers and skills in /workspace before starting the sandbox",
@@ -78,7 +123,13 @@
       "id": "continuous_attestation",
       "name": "Continuous Attestation",
       "description": "Subscribe an MCP server, skill or live agent workspace to recurring re-scanning (default 7-day cycle). Detects drift against the recorded evidence hash, revokes certification when the score drops below threshold, and exposes a machine-readable answer to 'is this still trustworthy right now'. Designed for rug-pull defence: certification without expiry is marketing.",
-      "tags": ["attestation", "certification", "rug-pull", "monitoring", "trust"],
+      "tags": [
+        "attestation",
+        "certification",
+        "rug-pull",
+        "monitoring",
+        "trust"
+      ],
       "examples": [
         "Keep re-checking this MCP server every week and revoke its badge if it degrades",
         "Is this agent still passing the security bar it was certified against?"
@@ -88,7 +139,11 @@
       "id": "trust_score",
       "name": "Trust Score Lookup",
       "description": "Return an agent's AIShield Trust Score (0-100) and certification level from the Agent Registry.",
-      "tags": ["trust", "registry", "score"],
+      "tags": [
+        "trust",
+        "registry",
+        "score"
+      ],
       "examples": [
         "What is the trust score of did:aishield:7f3a2b1c9d4e5f6a8b0c1d2e3f4a5b6c?"
       ]
@@ -97,7 +152,15 @@
       "id": "identity_scan",
       "name": "Agent Identity & Credential Scan",
       "description": "Scan the agent identity layer (NHI). Verifies AgentCard / agent-identity declarations are signed (JWS/DID/proof), credentials are short-lived rather than never-expiring, authorization is least-privilege (flags scope:'*' and over-broad grants that violate scope attenuation), and mTLS/DID verification is present. This is the fastest-moving front of 2026 agent security (the top A2A issues are all identity; Authentik's NHI wave; ANS/DNSid/Entra Agent ID). AIShield both issues trust certificates AND audits identity defects.",
-      "tags": ["identity", "nhi", "agent-card", "scope-attenuation", "mtls", "did", "a2a"],
+      "tags": [
+        "identity",
+        "nhi",
+        "agent-card",
+        "scope-attenuation",
+        "mtls",
+        "did",
+        "a2a"
+      ],
       "examples": [
         "Is this AgentCard signed and is its scope least-privilege?",
         "Does this service account use a never-expiring token?"
@@ -107,7 +170,14 @@
       "id": "network_scan",
       "name": "Agent Network / Mesh Config Scan",
       "description": "Scan the agent network layer. Flags Cloudflare Mesh / VPC bindings that expose the whole account network to every agent (the gap Cloudflare itself admits: 'per-agent identity and policy evaluation are future work'), unauthenticated agent endpoints (auth: none), bind-to-all-interfaces exposure (0.0.0.0), and private/internal resources marked public:true. Answers the 'trust shallow' problem left open by A2A's signed AgentCard: content trust + identity attribution + network reachability.",
-      "tags": ["network", "mesh", "cloudflare-mesh", "vpc", "reachability", "exposure"],
+      "tags": [
+        "network",
+        "mesh",
+        "cloudflare-mesh",
+        "vpc",
+        "reachability",
+        "exposure"
+      ],
       "examples": [
         "Does this Mesh binding expose the entire account network to every agent?",
         "Is any private resource in this config exposed to the public internet?"
@@ -117,7 +187,13 @@
       "id": "attack_replay",
       "name": "Attack Replay & Regression Detection",
       "description": "Snapshot and replay past attack payloads against the current rule set. Detects rule-regression: a payload that was previously blocked but is now allowed because rules were weakened or a pattern was missed. Each snapshot stores payload hash + verdict + evidence, enabling 'has our defense regressed since last check' audits. Borrowed from the ChronosFix 'fault time machine' pattern in agent infra competitions.",
-      "tags": ["attack-replay", "regression", "chronos-fix", "snapshot", "defense-hardening"],
+      "tags": [
+        "attack-replay",
+        "regression",
+        "chronos-fix",
+        "snapshot",
+        "defense-hardening"
+      ],
       "examples": [
         "Replay all attacks blocked last month and tell me which ones our current rules would still catch",
         "Has our rule set regressed since the last attestation cycle?"
@@ -127,7 +203,14 @@
       "id": "vertical_risk_scan",
       "name": "Vertical-Domain Semantic Risk Scan",
       "description": "Domain-specific semantic risk screening for high-sensitivity verticals: finance (fraud inducement / unlicensed wealth management / pump-and-dump), medical (unlicensed diagnosis / false cure claims), and government/public-sector (sensitive topics / unauthorized disclosure). Sits on top of the generic OWASP rule set to catch agent output that is technically compliant but semantically dangerous in its context. Borrowed from the FinFlux 'financial semantic admission' pattern.",
-      "tags": ["vertical-risk", "semantic-admission", "finance", "medical", "gov", "finflux"],
+      "tags": [
+        "vertical-risk",
+        "semantic-admission",
+        "finance",
+        "medical",
+        "gov",
+        "finflux"
+      ],
       "examples": [
         "Scan this agent's financial advice output for fraud inducement language",
         "Does this medical summary contain false-cure claims or unauthorized diagnoses?"
@@ -147,5 +230,6 @@
     "attestation_url": "https://aishield.tools/api/v1/attestation/trust?src=https://github.com/lm203688/aishield",
     "badge": "https://aishield.tools/badge/aishield",
     "guarantee": "static-only, never executes scanned config; offline; content-aware (prompt injection / tool poisoning / supply-chain drift)"
-  }
+  },
+  "category_id_note": "The owasp_category values ASI01-ASI10 are AIShield's INTERNAL category IDs, not the official OWASP Top 10 for Agentic Applications (2026) identifiers. Only ASI01/ASI02/ASI03 coincide. Internal ASI04 (memory poisoning) = official ASI06 Memory & Context Poisoning; official ASI04 = Agentic Supply Chain. Internal ASI09 (cascading failure) = official ASI08. Official ASI05 (Unexpected Code Execution) has no dedicated internal category. The field carries TWO namespaces: MCP01-MCP10 are official OWASP MCP Top 10 codes; ASI01-ASI10 are AIShield internal. Most Agentic scanners emit MCP0x - of the 11 Agentic modules only scanner/memory_integrity_scan.py emits an internal ASI code (ASI04) - so filtering reports on ASI0x misses the majority of Agentic findings. Machine-readable crosswalk: the internal_to_owasp_agentic key returned by compliance_summary(). Source of truth: scanner/compliance.py (INTERNAL_ASI_TO_OWASP, OWASP_AGENTIC_2026, OWASP_AGENTIC_THREATS T1-T17)."
 }

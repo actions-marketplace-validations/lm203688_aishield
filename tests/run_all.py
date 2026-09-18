@@ -62,6 +62,22 @@ def main():
         'tests.test_isolation_invariants',
         'tests.test_sync_version_targets',
         'tests.test_no_hardcoded_cf_token',
+        # 2026-09-16 补登记：下列文件此前不在列表中，被 run_all 静默跳过。
+        # 本清单是硬编码的，新增测试文件若忘记登记就不会被执行（假绿），
+        # tests/test_ci_contract.py::TestRunnerCoverage 会把这件事钉死。
+        # 注意：tests.test_geo 已在上方登记，此处不得重复 —— 重复会让整个模块跑两遍，
+        # 既拖慢 CI，又让单个失败在日志里重复出现两次、误判为两个缺陷
+        # （2026-09-17 root 护栏那条 CI 全红就是被这个假象掩盖了）。
+        'tests.test_indexnow',
+        'tests.test_gap_fill',
+        'tests.test_rule_promotion_rollback',
+        # 2026-09-17 新增扫描器（ASI04 记忆完整性）的回归测试
+        'tests.test_memory_integrity_scan',
+        'tests.test_promote_rule_shadow',  # shadow/enforce 双模式 + 雷达加载期字段契约
+        'tests.test_deployment_root_guard',  # 2026-09-18：root 护栏与部署身份冲突 = 20.5h 静默 502
+        'tests.test_deployment_observability',  # 退出码传导契约：诊断语句不得抢占部署/自愈的退出码
+        'tests.test_notify_hardening',  # 2026-09-18：告警链路出站脱敏 + fail-closed 退出码 + 未送达台账闭环
+        'tests.test_rule_audit_contract',  # 2026-09-18：基线审计契约（零 critical 误报/引用抑制/情报去重/对抗式评审闸门有效）
     ]
 
     loaded = 0

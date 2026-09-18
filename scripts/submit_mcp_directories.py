@@ -174,7 +174,7 @@ def generate_awesome_pr_body(manifest):
 ### Features
 - AI Agent security scanner for MCP tools
 - Prompt injection detection
-- OWASP MCP Top 10 aligned (238 rules)
+- OWASP MCP Top 10 aligned (235 rules)
 - Native Chinese prompt detection
 - Agent identity & trust system
 - Built-in payment & credit system

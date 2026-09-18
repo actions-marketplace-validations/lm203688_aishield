@@ -1,5 +1,5 @@
-name: Bug 报告
-description: 报告 AIShield 的 Bug
+name: Bug 报告 / Bug Report
+description: 报告 AIShield 的 Bug / Report a bug in AIShield
 title: "[Bug] "
 labels: ["bug", "triage"]
 body:
@@ -7,19 +7,26 @@ body:
     attributes:
       value: |
         感谢提交 Bug 报告！请尽可能提供详细信息，帮助我们快速定位和修复。
+        Thanks for reporting a bug. The more detail you give, the faster we can fix it.
+
+        > 如果你遇到的是**误报（False Positive）或漏报（False Negative）**，
+        > 请用 `03-false-positive-negative.yml` 模板 —— 那里要求提供 `rule_id` 与 `file:line:col` 定位锚点。
 
   - type: checkboxes
     attributes:
-      label: 自查清单
+      label: 自查清单 / Self-check
       options:
-        - label: 我已经搜索过现有 Issues，确认没有重复报告
+        - label: 我已经搜索过现有 Issues，确认没有重复报告 / I have searched existing issues and this is not a duplicate
           required: true
-        - label: 我已经升级到最新版本，问题仍然存在
+        - label: 我已经升级到最新版本，问题仍然存在 / I have upgraded to the latest version and the issue persists
           required: true
+        - label: 我已在提交前移除所有密钥、令牌、凭据等敏感信息 / I have removed all secrets, tokens and credentials before submitting
+          required: true
+        - label: 我提供了最小可复现的配置或输入 / I provided a minimal reproducible config or input
 
   - type: dropdown
     attributes:
-      label: 受影响模块
+      label: 受影响模块 / Affected module
       options:
         - 安全扫描 (scanner)
         - MCP 协议 (mcp)
@@ -28,22 +35,33 @@ body:
         - 计费系统 (billing)
         - 前端页面 (frontend)
         - 文档 (docs)
-        - 其他
+        - 其他 (other)
     validations:
       required: true
 
   - type: textarea
     attributes:
-      label: 问题描述
-      description: 清晰描述发生了什么 Bug
-      placeholder: 当我调用 /api/v1/audit 扫描某个工具时，返回了 500 错误...
+      label: 问题描述 / Description
+      description: 清晰描述发生了什么 Bug / Describe what went wrong
+      placeholder: 当我调用 /api/v1/audit 扫描某个工具时，返回了 500 错误... / When I call /api/v1/audit to scan a tool, I get a 500 error...
     validations:
       required: true
 
   - type: textarea
     attributes:
-      label: 复现步骤
-      description: 提供最小可复现的步骤
+      label: 关联规则 / Related rule_id
+      description: |
+        如果是某条扫描规则触发的问题，请填该 finding 的 `rule_id`（例如 `MCP03-012` 或 `GEN-1A2B`）。
+        没有 rule_id 也能提交，但我们靠它精确定位到具体规则。
+        Fill in the finding's `rule_id` (e.g. `MCP03-012` or `GEN-1A2B`) if a scan rule triggered this. Optional but speeds up triage a lot.
+      placeholder: MCP03-012
+    validations:
+      required: false
+
+  - type: textarea
+    attributes:
+      label: 复现步骤 / Reproduction steps
+      description: 提供最小可复现的步骤 / Provide minimal reproduction steps
       placeholder: |
         1. POST /api/v1/audit
         2. 请求体: {...}
@@ -53,25 +71,30 @@ body:
 
   - type: textarea
     attributes:
-      label: 预期行为
-      description: 你期望发生什么？
-    validations:
-      required: true
-
-  - type: textarea
-    attributes:
-      label: 实际行为
-      description: 实际发生了什么？（包含错误信息、堆栈跟踪等）
+      label: 实际行为 / Actual behavior
+      description: 实际发生了什么？（包含错误信息、堆栈跟踪等）/ What actually happened? Include error messages and stack traces.
       render: shell
     validations:
       required: true
 
   - type: textarea
     attributes:
-      label: 环境信息
-      description: 运行环境
+      label: 复现截图 / Screenshots
+      description: |
+        直接把图片拖拽到本框即可上传。
+        注意：本字段刻意**不加** `render:` —— GitHub 对带 `render` 的 textarea 会禁用图片上传，
+        这是本模板此前的已知缺陷。日志高亮请放在上面的「实际行为」字段。
+        Drag and drop images here to attach them. This field deliberately has **no** `render:` —
+        GitHub disables image upload on any textarea that declares a `render` value.
+    validations:
+      required: false
+
+  - type: textarea
+    attributes:
+      label: 环境信息 / Environment
+      description: 运行环境 / Runtime environment
       placeholder: |
-        - AIShield 版本: v4.2
-        - Python 版本: 3.11
+        - AIShield 版本: v4.3
+        - Python 版本: 3.13
         - 部署方式: 本地 / Docker / 服务器
         - 操作系统: Windows / macOS / Linux

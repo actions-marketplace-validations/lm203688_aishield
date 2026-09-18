@@ -34,6 +34,8 @@ from typing import Any, Dict, List
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))
+sys.path.insert(0, str(REPO_ROOT / "scripts"))
+from rule_corpus import ATTACK_SAMPLES  # noqa: E402  单一语料真源，见 rule_corpus.py
 
 THREAT_DB = REPO_ROOT / "data" / "threat_intel.json"
 OUT_RULES = REPO_ROOT / "data" / "generated_rules.json"
@@ -168,6 +170,63 @@ def build_pattern_rules(intel: List[Dict[str, Any]]) -> Dict[str, Any]:
     return rules
 
 
+def _attack_sample_hits(pattern: str) -> frozenset:
+    """该规则在 ATTACK_SAMPLES 上命中的样本下标集合。"""
+    try:
+        rx = re.compile(pattern, re.IGNORECASE)
+    except re.error:
+        return frozenset()
+    return frozenset(i for i, s in enumerate(ATTACK_SAMPLES) if rx.search(s))
+
+
+def _static_baseline_patterns() -> List[str]:
+    """只取静态基线（不含情报生成与雷达晋升），避免自引用。"""
+    try:
+        import importlib
+        r = importlib.import_module("scanner.rules")
+    except Exception:
+        return []
+    out: List[str] = []
+    for name in ("SANDBOX_RULES", "ZH_PROMPT_INJECTION_RULES", "SKILL_EXTRA_RULES") \
+            + tuple("MCP%02d_RULES" % i for i in range(1, 11)) \
+            + tuple("ASI%02d_RULES" % i for i in range(1, 11)):
+        store = getattr(r, name, None)
+        if isinstance(store, dict):
+            out.extend(store.keys())
+    return out
+
+
+def drop_redundant(rules: Dict[str, Any]) -> tuple:
+    """丢弃静态基线已完全覆盖的情报规则。返回 (保留, 丢弃, 警告)。
+
+    2026-09-18 基线审计发现情报生成器从未检查与静态规则的重叠：
+    ignore_intel 与静态的"越狱指令: 忽略/覆盖前文指令"命中同一条正样本，
+    finding 被双倍计数，严重度也被重复计入风险分。
+
+    判定用 ATTACK_SAMPLES 命中集的**子集关系**：若某条静态规则的命中集是
+    情报规则命中集的超集，情报规则就是冗余。
+
+    注意：这里**只丢弃冗余，不丢弃零命中**。情报规则覆盖的是 SSRF / 路径穿越 /
+    CORS / docker.sock / pickle 反序列化等 CVE 家族，而 ATTACK_SAMPLES 是按
+    prompt-injection / agent 家族策展的，对这几类天然没有正样本。把"零命中"
+    当判死会把真实检测能力整批删掉——那个准则属于雷达晋升闸门（语料在那里
+    是权威），不属于情报生成器（语料在这里只是部分覆盖）。零命中只报警。
+    """
+    static_hits = [_attack_sample_hits(p) for p in _static_baseline_patterns()]
+    kept: Dict[str, Any] = {}
+    dropped: List[tuple] = []
+    warned: List[tuple] = []
+    for pat, meta in rules.items():
+        hits = _attack_sample_hits(pat)
+        if not hits:
+            warned.append((pat, "no-attack-sample"))
+        elif any(sh >= hits for sh in static_hits):
+            dropped.append((pat, "covered-by-static-baseline"))
+            continue
+        kept[pat] = meta
+    return kept, dropped, warned
+
+
 # --------------------------------------------------------------------------
 # R3 OWASP 分布
 # --------------------------------------------------------------------------
@@ -192,6 +251,7 @@ def main() -> int:
 
     blacklist = build_package_blacklist(intel)
     patterns = build_pattern_rules(intel)
+    patterns, redundant, no_sample = drop_redundant(patterns)
     owasp_dist = build_owasp_distribution(patterns)
 
     prev_count = 0
@@ -219,6 +279,13 @@ def main() -> int:
     print(f"\nR2 攻击模式规则：{len(patterns)} 条")
     for p, r in list(patterns.items())[:8]:
         print(f"   [{r['severity'].upper()}] {r['description']}  (情报命中 {r['intel_hits']} 次, {r['owasp']})")
+    if redundant:
+        print(f"\n去重：丢弃 {len(redundant)} 条被静态基线完全覆盖的情报规则")
+        for pat, reason in redundant:
+            print(f"   [-] {reason:26s} {pat[:64]}")
+    if no_sample:
+        print(f"\n警告：{len(no_sample)} 条情报规则在 ATTACK_SAMPLES 上零命中")
+        print(f"   （语料按 prompt-injection/agent 家族策展，web 注入 CVE 类天然无正样本，仅报警不删除）")
     print(f"\nR3 OWASP 覆盖分布：{json.dumps(owasp_dist, ensure_ascii=False)}")
     print("=" * 60)
     delta = out["total_rules"] - prev_count

@@ -1,11 +1,16 @@
 blank_issues_enabled: false
 contact_links:
-  - name: 安全问题报告
-    url: https://aishield.tools/security
-    about: 发现安全漏洞？请通过安全渠道私下报告，不要在公开 Issue 中披露。
-  - name: 使用问题 / 讨论
-    url: https://github.com/lm203688/aishield/discussions
-    about: 有使用疑问或想进行开放式讨论？请前往 Discussions 区。
-  - name: Discord 社区
-    url: https://discord.gg/aishield
-    about: 加入 Discord 社区获取实时帮助和交流。
+  # 实测（2026-09-18，curl --ssl-no-revoke --tlsv1.3）：
+  #   https://aishield.tools/security            -> 404  死链，已替换
+  #   https://github.com/lm203688/aishield/discussions -> 404 仓库未开启 Discussions，已替换
+  #   https://discord.gg/aishield               -> 000  完全不可达，已移除
+  #   https://github.com/lm203688/aishield/security/advisories/new -> 200 采用
+  # aishield.tools 是 API server（cloudflared -> VPS -> api/server.py），不提供 /security 路由；
+  # 内容站实际在 lm203688.github.io/aishield。所以安全问题报告必须走 GitHub 原生私密通道，
+  # 而不是往 API 域上挂路径。
+  - name: 安全问题报告 / Security vulnerability report
+    url: https://github.com/lm203688/aishield/security/advisories/new
+    about: 发现安全漏洞？请通过 GitHub 私密安全通告渠道私下报告，不要在公开 Issue 中披露。 / Found a vulnerability? Report it privately through GitHub's security advisory channel — never in a public issue.
+  - name: 使用问题 / Bug 报告 / Usage questions & bug reports
+    url: https://github.com/lm203688/aishield/issues
+    about: 使用疑问或想报告问题？请提交 Issue。误报/漏报请使用专用的 FP/FN 模板。 / Have a question or a bug? Open an issue. Use the dedicated FP/FN template for false positives and false negatives.

@@ -202,13 +202,45 @@ def get_openapi_spec():
                             "items": {
                                 "type": "object",
                                 "properties": {
-                                    "rule_id": {"type": "string"},
+                                    "rule_id": {
+                                        "type": "string",
+                                        "description": "稳定规则 id（MCP05-001 / GEN-B2A0）。type 对静态规则恒为 dangerous_pattern，不可用于查规则库或去重",
+                                    },
                                     "severity": {"type": "string"},
                                     "title": {"type": "string"},
                                     "description": {"type": "string"},
+                                    "type": {
+                                        "type": "string",
+                                        "description": "finding 类别。静态规则恒为 dangerous_pattern",
+                                    },
+                                    "file": {"type": "string", "description": "命中文件路径"},
+                                    "lines": {
+                                        "type": "string",
+                                        "description": "命中行号（1-based）",
+                                    },
+                                    "col": {
+                                        "type": "integer",
+                                        "description": "命中列号（1-based）。编辑器可据此直接跳到命中点而非行首",
+                                    },
+                                    "evidence": {
+                                        "type": "string",
+                                        "description": "命中片段（截断到 120 字符）",
+                                    },
+                                    "remediation": {
+                                        "type": "string",
+                                        "description": "针对本条 finding 的具体修复动作。区别于顶层 recommendations（全局笼统建议），此处按规则解析到可执行动作",
+                                    },
+                                    "owasp_category": {
+                                        "type": "string",
+                                        "description": "OWASP MCP Top 10 / Agentic AI Top 10 分类",
+                                    },
+                                    "citation_context": {
+                                        "type": "boolean",
+                                        "description": "True 表示该命中处于引用/讨论语境——防御文档把攻击载荷当作被检测对象引用，而非祈使式执行指令。此类 finding 的 severity 已被降为 low，供报告层单独统计与用户复核",
+                                    },
                                 },
                             },
-                            "description": "安全发现列表",
+                            "description": "安全发现列表，每条带 file:line:col 精确锚点 + 证据片段 + 稳定 rule_id + 具体修复动作",
                         },
                         "total_findings": {
                             "type": "integer",

@@ -1,0 +1,86 @@
+name: 误报 / 漏报 / False Positive or False Negative
+description: 报告某条规则的误报或漏报 / Report a rule that misfires or misses an attack
+title: "[FP/FN] "
+labels: ["triage", "rule-tuning"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        这个模板专给**规则质量反馈**用 —— 我们靠 `rule_id` 把报告直接映射到 `scanner/rules.py` 里的具体规则，
+        而不是靠人工猜。
+
+        扫描报告里的每个 finding 现在都带 5 个可复制字段：`rule_id`、`file`、`lines`、`col`、`evidence`。
+        **直接整段粘贴 finding JSON 最快**，不用手工转录。
+
+        This template is for **rule quality feedback**. We map reports straight to the rule in
+        `scanner/rules.py` via `rule_id` instead of guessing. Every finding in a scan report now
+        carries five copyable fields: `rule_id`, `file`, `lines`, `col`, `evidence`.
+        **Pasting the whole finding JSON is the fastest path** — no manual transcription.
+
+  - type: dropdown
+    attributes:
+      label: 类型 / Type
+      options:
+        - 误报 False Positive（安全代码被标红 / benign code flagged）
+        - 漏报 False Negative（真实攻击被放行 / a real attack was let through）
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: rule_id（必填）/ rule_id (required)
+      description: |
+        稳定的规则标识，格式如 `MCP03-012`（MCP Top10 家族）或 `GEN-1A2B`（雷达/情报规则）。
+        这是把反馈定位到具体规则的唯一可靠键；没有它，误报只能靠正则全文搜索反推。
+        The stable rule identifier, e.g. `MCP03-012` (OWASP MCP family) or `GEN-1A2B` (radar/intel).
+        This is the only reliable key for mapping feedback to a specific rule.
+      placeholder: MCP03-012
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: 定位锚点 / Location anchor
+      description: '`file:lines:col` 三元组，例如 `server.py:42:9` / the `file:lines:col` triple, e.g. `server.py:42:9`'
+      placeholder: server.py:42:9
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: 证据片段 / Evidence
+      description: 触发规则的那一行原文 / The exact source line that triggered the rule
+      placeholder: os.environ.get("API_KEY")
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: 为什么这是误报 / 应该检测到什么 / Why this is wrong
+      description: |
+        误报：解释这段代码为什么是安全的（例如变量来自可信配置、值已被白名单校验）。
+        漏报：贴出攻击载荷，并说明它应该命中哪一类模式。
+        False positive: explain why the code is safe (value from a trusted config, whitelist-checked, ...).
+        False negative: paste the attack payload and say which pattern class it should have matched.
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: 最小复现 / Minimal repro
+      description: |
+        一段最小配置文件或 payload，让我们能离线复现。
+        A minimal config or payload we can reproduce offline.
+        提交前请移除真实密钥 —— 用 `sk_live_REDACTED` 之类占位符即可。
+        Remove real secrets first; placeholders like `sk_live_REDACTED` are fine.
+      render: json
+    validations:
+      required: false
+
+  - type: checkboxes
+    attributes:
+      label: 确认 / Confirmations
+      options:
+        - label: 我已在提交前移除所有密钥与凭据 / I removed all secrets and credentials before submitting
+          required: true
+        - label: 我确认这不是我期望的扫描行为（即不是设计如此）/ I confirm this is not intended scanner behavior

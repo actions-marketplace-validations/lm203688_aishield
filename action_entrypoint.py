@@ -21,9 +21,12 @@ ROOT = os.path.dirname(os.path.abspath(__file__))
 if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 
-from scanner.workspace_scan import preflight
+from scanner.workspace_scan import preflight, SCANNER_VERSION
 
-RISK_ORDER = {"safe": 0, "low": 0, "medium": 1, "high": 2, "critical": 3}
+# 风险档权重，用于 fail_on 阈值比较。
+RISK_ORDER = {"info": 1, "safe": 1, "low": 1, "medium": 2, "high": 3, "critical": 4}
+# 三档 assessment 只能作兜底反推，不得作为唯一来源（见 verdict_from）。
+ASSESSMENT_FALLBACK = {"danger": "high", "review": "medium"}
 SARIF_LEVEL = {"critical": "error", "high": "error", "medium": "warning", "low": "note", "info": "none"}
 
 
@@ -50,15 +53,34 @@ def resolve_target():
     return ".", "workspace: ."
 
 
+def _max_risk(*candidates):
+    """取候选风险档中的最高档；空串/未知值按最低档处理。"""
+    rank = {"": 0, "info": 1, "safe": 1, "low": 1, "medium": 2, "high": 3, "critical": 4}
+    best, best_r = "safe", 1
+    for c in candidates:
+        c = (c or "").strip().lower()
+        if rank.get(c, 0) > best_r:
+            best, best_r = c, rank[c]
+    return best
+
+
 def verdict_from(report):
     s = report.get("summary", {})
-    assess = s.get("overall_assessment", "safe")
-    if assess == "danger":
-        risk = "high"
-    elif assess == "review":
-        risk = "medium"
-    else:
-        risk = "safe"
+    assess = (s.get("overall_assessment") or "safe").lower()
+
+    # 风险档 = 引擎整体档 ∪ 逐条 finding 最高档 ∪ assessment 兜底，取最高者。
+    #
+    # 旧实现只从三档 assessment 反推（danger->high / review->medium / 其余->safe），
+    # 于是 risk 永远到不了 critical —— 用户写 `fail_on: critical` 期望拿到更宽松的门禁，
+    # 实际拿到的是一个永不触发的门禁（RISK_ORDER[high] < RISK_ORDER[critical]，
+    # 而 risk 恒为 safe/medium/high）。取最高档后单调只升不降，既修好 critical 档，
+    # 又保留「有 danger 就至少 high」的原有语义。
+    risk = _max_risk(
+        s.get("risk_level"),
+        *( (f.get("severity") or "") for f in (report.get("aggregate_findings") or []) ),
+        ASSESSMENT_FALLBACK.get(assess, "safe"),
+    )
+
     score = s.get("overall_score")
     if score is None:
         score = 100 if assess in ("safe", "empty") else 0
@@ -117,6 +139,12 @@ def main():
     fail_on = (os.environ.get("INPUT_FAIL_ON") or "high").strip().lower() or "high"
     enable_osv = str(os.environ.get("INPUT_ENABLE_OSV", "false")).strip().lower() == "true"
 
+    # fail_on 拼错时旧代码静默按 high 处理 —— 用户以为在收紧门禁，实际没生效。
+    if fail_on not in RISK_ORDER:
+        sys.stderr.write(f"[warn] fail_on='{fail_on}' 不是合法风险档"
+                         f"（{sorted(set(RISK_ORDER) - {'safe'})}），按 high 处理\n")
+        fail_on = "high"
+
     sys.stdout.write(f"[aishield] scanning {src_desc} (tool_type={tool_type}, fail_on={fail_on}, osv={enable_osv})\n")
     sys.stdout.flush()
 
@@ -127,8 +155,11 @@ def main():
     with open("aishield-report.json", "w", encoding="utf-8") as fh:
         json.dump(report, fh, ensure_ascii=False, indent=2)
 
-    # 写 SARIF
-    sarif = build_sarif(report, report.get("scanner_version", "4.2.2"))
+    # 写 SARIF —— 版本取自引擎自身常量，不用硬编码兜底串。
+    # 旧代码把兜底版本号写死在调用点里，而报告里的 scanner_version 实际是
+    # 4.0-preflight.3、包版本是 4.3.0：SARIF 会盖上一个不存在的版本号，
+    # 正是版本门禁要防的那类漂移。
+    sarif = build_sarif(report, report.get("scanner_version") or SCANNER_VERSION)
     with open("aishield.sarif", "w", encoding="utf-8") as fh:
         json.dump(sarif, fh, ensure_ascii=False, indent=2)
 

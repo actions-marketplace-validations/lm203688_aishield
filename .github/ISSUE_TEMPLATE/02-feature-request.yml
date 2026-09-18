@@ -1,5 +1,5 @@
-name: 功能建议
-description: 为 AIShield 提出新功能或改进建议
+name: 功能建议 / Feature request
+description: 为 AIShield 提出新功能或改进建议 / Suggest a new feature or improvement for AIShield
 title: "[Feature] "
 labels: ["feature", "triage"]
 body:
@@ -7,44 +7,54 @@ body:
     attributes:
       value: |
         感谢你的建议！请描述你的使用场景，帮助我们理解需求的价值。
+        Thanks for the suggestion. Describe your use case so we can judge the value.
+
+        > 如果是**误报/漏报**，请用 `03-false-positive-negative.yml` 模板 —— 那里要求提供 `rule_id` 与 `file:line:col`。
 
   - type: checkboxes
     attributes:
-      label: 自查清单
+      label: 自查清单 / Self-check
       options:
-        - label: 我已经搜索过现有 Issues，确认没有重复建议
+        - label: 我已经搜索过现有 Issues 与 ROADMAP，确认没有重复建议 / I searched existing issues and ROADMAP; this is not a duplicate
           required: true
+        - label: 我确认这个需求符合 AIShield 的零依赖离线扫描定位 / I confirm this fits AIShield's zero-dependency offline-scanning positioning
 
   - type: textarea
     attributes:
-      label: 使用场景
-      description: 描述你遇到什么问题，或者希望解决什么痛点
-      placeholder: 作为一个 AI Agent 开发者，我希望能够在部署前自动扫描我的 MCP Server...
+      label: 使用场景 / Use case
+      description: 描述你遇到什么问题，或者希望解决什么痛点 / Describe the problem or pain point
+      placeholder: 作为一个 AI Agent 开发者，我希望能够在部署前自动扫描我的 MCP Server... / As an AI agent developer, I want to scan my MCP server automatically before deploying...
     validations:
       required: true
 
   - type: textarea
     attributes:
-      label: 建议方案
-      description: 你希望如何实现？如果有具体的 API 设计或交互方案，请详细说明
+      label: 建议方案 / Proposed solution
+      description: 你希望如何实现？如果有具体的 API 设计或交互方案，请详细说明 / How should it work? Detail any API or interaction design.
     validations:
       required: true
 
   - type: textarea
     attributes:
-      label: 替代方案
-      description: 你考虑过哪些替代方案？为什么它们不够好？
+      label: 替代方案 / Alternatives considered
+      description: 你考虑过哪些替代方案？为什么它们不够好？/ What alternatives did you consider, and why weren't they good enough?
+    validations:
+      required: false
 
   - type: dropdown
     attributes:
-      label: 优先级（对你而言）
+      label: 优先级（对你而言）/ Priority for you
       options:
-        - 阻塞性（没有此功能无法使用）
-        - 高（严重影响体验）
-        - 中（有改善空间）
-        - 低（锦上添花）
+        - 阻塞性（没有此功能无法使用）/ Blocking (cannot use without it)
+        - 高（严重影响体验）/ High (severely hurts the experience)
+        - 中（有改善空间）/ Medium (room for improvement)
+        - 低（锦上添花）/ Low (nice to have)
+    validations:
+      required: false
 
   - type: textarea
     attributes:
-      label: 额外信息
-      description: 截图、参考链接、竞品实现等
+      label: 额外信息 / Additional context
+      description: |
+        参考链接、竞品实现等。附图请拖拽到本框（本字段刻意不加 `render:`，否则 GitHub 会禁用图片上传）。
+        Reference links, competing implementations. Drag images here — this field intentionally has no `render:` since GitHub disables image upload on rendered textareas.

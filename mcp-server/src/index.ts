@@ -82,7 +82,7 @@ function toNum(v: unknown, fallback: number): number {
 const server = new McpServer({
   name: 'AIShield Security Scanner',
   version: SERVER_VERSION,
-  description: 'OWASP MCP Top 10 + Agentic AI Top 10 aligned security scanner — 201 rules, 5-dimension scoring, tool poisoning & supply chain detection',
+  description: 'OWASP MCP Top 10 + Agentic AI Top 10 aligned security scanner — 235 rules, 5-dimension scoring, tool poisoning & supply chain detection, per-finding file:line:col anchors with remediation',
 });
 
 // ══════════════════════════════════════════════════════════════
@@ -93,9 +93,10 @@ server.tool(
   'aishield_scan',
   `AIShield安全扫描 — 扫描MCP Server/AI工具的安全风险。
 
-对齐OWASP MCP Top 10 (2025 v0.1) 与 Agentic AI Top 10，201条规则覆盖两套风险分类。
+对齐OWASP MCP Top 10 (2025 v0.1) 与 Agentic AI Top 10，235条规则覆盖两套风险分类。
 5维评分: 安全(40%)/权限(20%)/数据处理(20%)/供应链(10%)/可靠性(10%)
-返回: 评分 + 风险等级 + OWASP合规矩阵 + 修复建议`,
+返回: 评分 + 风险等级 + OWASP合规矩阵 + 修复建议
+每条 finding 带 file:line:col 精确锚点 + 证据片段 + 稳定 rule_id + 具体修复动作`,
   {
     source_url: z.string().describe('GitHub repo URL of the tool to scan'),
     tool_type: z.enum(['mcp', 'skill', 'gpt', 'prompt']).default('mcp').describe('Tool type'),
@@ -361,20 +362,29 @@ function formatScanResult(raw: any) {
   return { content: [{ type: 'text' as const, text: lines.join('\n') }] };
 }
 
-// Helper: render a finding with a precise anchor — file:line + evidence snippet
-// + rule id. HeyClicky-style: point the user AT the exact element, don't just
-// say "you have a vulnerability". Fields are optional so it degrades gracefully
-// when a backend finding lacks them.
+// Helper: render a finding with a precise anchor — file:line:col + evidence snippet
+// + stable rule id + a concrete fix action. HeyClicky-style: point the user AT the
+// exact element, don't just say "you have a vulnerability".
+//
+// rule_id takes priority over type: for static-pattern findings the type is always
+// the useless constant "dangerous_pattern", while rule_id (MCP05-012 / GEN-9A3F) is
+// what you actually look a rule up by. type is only a fallback for findings that
+// predate the anchor fields.
+//
+// remediation is per-finding: the global `recommendations` list is only a handful of
+// generic sentences and cannot be mapped back to a specific finding.
 function formatFinding(f: any): string {
   const sev = String(f?.severity || 'info').toUpperCase();
-  const locParts = [f?.file, f?.lines].filter(Boolean);
-  if (f?.commit_sha) locParts.push(`commit ${String(f.commit_sha).slice(0, 8)}`);
-  const loc = locParts.join(':');
+  const anchorParts = [f?.file, f?.lines].filter(Boolean);
+  if (f?.col) anchorParts.push(`c${f.col}`);
+  if (f?.commit_sha) anchorParts.push(`commit ${String(f.commit_sha).slice(0, 8)}`);
+  const loc = anchorParts.join(':');
   let s = `  [${sev}] ${f?.description || '(no description)'}`;
   if (loc) s += `  @ ${loc}`;
-  const rule = f?.type || f?.rule_id;
+  const rule = f?.rule_id || f?.type;
   if (rule) s += `  [${rule}]`;
   if (f?.evidence) s += `\n      ↳ ${String(f.evidence).slice(0, 160)}`;
+  if (f?.remediation) s += `\n      ↪ Fix: ${String(f.remediation).slice(0, 200)}`;
   return s;
 }
 

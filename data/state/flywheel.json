@@ -1,11 +1,11 @@
 {
   "domain": "flywheel",
   "current": {
-    "total": 15,
-    "before": 14,
-    "grew": true,
+    "total": 16,
+    "before": 16,
+    "grew": false,
     "_source": "data-scan-flywheel",
-    "_ts": "2026-09-15T08:40:59.060827+00:00"
+    "_ts": "2026-09-18T08:12:32.478115+00:00"
   },
   "history": [
     {
@@ -88,8 +88,35 @@
         "before": 14,
         "grew": true
       }
+    },
+    {
+      "ts": "2026-09-16T08:32:36.502815+00:00",
+      "source": "data-scan-flywheel",
+      "state": {
+        "total": 15,
+        "before": 15,
+        "grew": false
+      }
+    },
+    {
+      "ts": "2026-09-17T08:37:12.592317+00:00",
+      "source": "data-scan-flywheel",
+      "state": {
+        "total": 16,
+        "before": 15,
+        "grew": true
+      }
+    },
+    {
+      "ts": "2026-09-18T08:12:32.478129+00:00",
+      "source": "data-scan-flywheel",
+      "state": {
+        "total": 16,
+        "before": 16,
+        "grew": false
+      }
     }
   ],
-  "updated": "2026-09-15T08:40:59.060845+00:00",
+  "updated": "2026-09-18T08:12:32.478134+00:00",
   "desc": "数据飞轮批量扫描进度"
 }

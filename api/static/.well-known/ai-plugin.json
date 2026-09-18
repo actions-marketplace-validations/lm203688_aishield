@@ -1,0 +1,80 @@
+{
+  "schema_version": "v1",
+  "version": "4.3.0",
+  "name_for_human": "AIShield",
+  "name_for_model": "aishield",
+  "short_description_for_model": "Static security scanner for MCP servers, AI skills and AI agents. OWASP MCP Top 10 + OWASP Agentic AI Top 10 aligned, 235 rule categories, offline, never executes the configuration it scans.",
+  "description_for_human": "AIShield 是 Agent 原生的 AI 工具安全扫描器与可信工具认证基础设施。扫描 MCP server、AI skill、Agent 配置中的工具投毒、Prompt 注入、凭据泄漏、沙箱误配置与供应链风险；235 类 MCP 规则 / 241 类 skill 规则，对齐 OWASP MCP Top 10 与 OWASP Agentic AI Top 10 (ASI01-ASI10)。本地优先、零依赖、可离线运行，扫描过程绝不执行被扫配置。",
+  "description_for_model": "AIShield scans MCP servers, AI skills and AI agents for tool poisoning, prompt injection, credential leakage, sandbox misconfiguration, rug pulls, slopsquatting, identity-layer issues (unsigned AgentCard, over-broad scopes) and network-layer exposure (unauthenticated agent endpoints, private resources reachable from the public internet). It runs fully offline on the user's machine, auto-discovers MCP configuration across 14 client surfaces, and audits every configured server WITHOUT spawning it - reading tools/list requires starting the server, and an MCP command is arbitrary code. Use it as a CI security gate, as an MCP server (npx aishield-mcp-server), or through the REST API at https://aishield.tools/api/v1. Machine-readable discovery assets: /openapi.json, /llms.txt, /llms-full.txt, /agent-discovery.json, /.well-known/agent-card.json, /.well-known/mcp/server-card.json, /.well-known/security.txt.",
+  "homepage_url": "https://aishield.tools",
+  "logo_url": "https://github.com/lm203688/aishield/blob/main/docs/badge.svg",
+  "contact_email": "61960005@qq.com",
+  "pricing_url": "https://aishield.tools/pricing",
+  "terms_of_service_url": "https://github.com/lm203688/aishield/blob/main/LICENSE",
+  "legal_info_url": "https://github.com/lm203688/aishield/blob/main/LICENSE",
+  "category": "productivity",
+  "capabilities": [
+    "Chat",
+    "User authentication"
+  ],
+  "auth": {
+    "type": "none"
+  },
+  "api": {
+    "type": "openapi",
+    "url": "https://aishield.tools/openapi.json",
+    "has_user_authentication": false,
+    "endpoints": [
+      {
+        "path": "/api/v1/health",
+        "method": "GET",
+        "description": "Service status, version, rules count and rules breakdown (static / generated / radar)."
+      },
+      {
+        "path": "/api/v1/audit",
+        "method": "POST",
+        "description": "Scan an MCP server / AI skill / agent configuration and return findings aligned with OWASP MCP Top 10 and OWASP Agentic AI Top 10."
+      },
+      {
+        "path": "/api/v1/prompt-check",
+        "method": "POST",
+        "description": "Detect prompt injection, jailbreak and information-theft patterns in Chinese and English."
+      },
+      {
+        "path": "/api/v1/banned-words",
+        "method": "POST",
+        "description": "Detect banned and sensitive words for 6 Chinese content platforms, with legal references and replacement suggestions."
+      },
+      {
+        "path": "/api/v1/mcp",
+        "method": "POST",
+        "description": "MCP-protocol security audit of a tool repository, including rug-pull and supply-chain risk."
+      },
+      {
+        "path": "/api/v1/identity/register",
+        "method": "POST",
+        "description": "Register an agent identity and receive a Trust Score attestation (aishield-trust/v1)."
+      },
+      {
+        "path": "/api/v1/agent/setup",
+        "method": "GET",
+        "description": "One-command agent onboarding: install instructions, API key and DID identity setup."
+      },
+      {
+        "path": "/api/v1/billing/plans",
+        "method": "GET",
+        "description": "List available pricing plans."
+      }
+    ]
+  },
+  "usage_policy": "Free for local scanning of your own tools and open-source repositories. The open-source local edition runs entirely on the user's machine and never sends scanned content to a cloud service. Cloud API usage is rate-limited per IP; see https://aishield.tools/pricing for paid tiers.",
+  "server_ports": [],
+  "ui": {
+    "homepage": "https://aishield.tools",
+    "agent_page": "https://aishield.tools/agent.html",
+    "docs": "https://aishield.tools/docs",
+    "guide": "https://aishield.tools/mcp-security-guide",
+    "trust_standard": "https://aishield.tools/aishield-trust-standard-v0.1"
+  },
+  "category_id_note": "The owasp_category values ASI01-ASI10 are AIShield's INTERNAL category IDs, not the official OWASP Top 10 for Agentic Applications (2026) identifiers. Only ASI01/ASI02/ASI03 coincide. Internal ASI04 (memory poisoning) = official ASI06 Memory & Context Poisoning; official ASI04 = Agentic Supply Chain. Internal ASI09 (cascading failure) = official ASI08. Official ASI05 (Unexpected Code Execution) has no dedicated internal category. The field carries TWO namespaces: MCP01-MCP10 are official OWASP MCP Top 10 codes; ASI01-ASI10 are AIShield internal. Most Agentic scanners emit MCP0x - of the 11 Agentic modules only scanner/memory_integrity_scan.py emits an internal ASI code (ASI04) - so filtering reports on ASI0x misses the majority of Agentic findings. Machine-readable crosswalk: the internal_to_owasp_agentic key returned by compliance_summary(). Source of truth: scanner/compliance.py (INTERNAL_ASI_TO_OWASP, OWASP_AGENTIC_2026, OWASP_AGENTIC_THREATS T1-T17)."
+}

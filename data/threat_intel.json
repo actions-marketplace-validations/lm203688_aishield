@@ -1,6 +1,446 @@
 {
   "intel": [
     {
+      "id": "GHSA-gjv8-xp57-g29c",
+      "source": "github-advisory",
+      "severity": "medium",
+      "cvss": 5.3,
+      "title": "Soup Sieve: Polynomial-time ReDoS (O(n²)) in the `IDENTIFIER` / `VALUE` selector sub-patterns",
+      "summary": "## Summary\n\nsoupsieve compiles CSS selector strings with a set of hand-written regular expressions. The shared `IDENTIFIER` sub-pattern (also embedded in `VALUE`, and therefore in attribute selectors) places two adjacent quantified groups over overlapping character classes: `(?:[classA]|ESC)+(?:[classB]|ESC)*`, where both classes match ordinary identifier characters such as `a`. When a selector contains a long identifier/value run that must ultimately fail to match (e.g. an attribute value with ",
+      "affected": "pip:soupsieve",
+      "references": [
+        "https://github.com/advisories/GHSA-gjv8-xp57-g29c"
+      ],
+      "published": "2026-09-17T20:32:58Z",
+      "fetched": "2026-09-18T08:13:21.587215+00:00"
+    },
+    {
+      "id": "GHSA-8pw2-6jv3-mj5j",
+      "source": "github-advisory",
+      "severity": "medium",
+      "cvss": 6.5,
+      "title": "vLLM: Request-selected PyNvVideoCodec GPU decode bypasses static VRAM reservation",
+      "summary": "## Summary\n\nCurrent vLLM `main` lets an inference request choose the PyNvVideoCodec GPU video decoder through `media_io_kwargs.video.video_backend`, but engine GPU memory reservation is computed only from static startup configuration and `VLLM_VIDEO_LOADER_BACKEND`. If the server starts with the default OpenCV/software backend and no `--mm-ipc-gpu-memory-gb` budget, a client can still route a video request into the PyNvVideoCodec path after startup, causing frontend CUDA-context, decoder-surface",
+      "affected": "pip:vllm",
+      "references": [
+        "https://github.com/advisories/GHSA-8pw2-6jv3-mj5j"
+      ],
+      "published": "2026-09-17T17:17:39Z",
+      "fetched": "2026-09-18T08:13:21.587445+00:00"
+    },
+    {
+      "id": "GHSA-hp3v-5vw7-fx9w",
+      "source": "github-advisory",
+      "severity": "high",
+      "cvss": 8.4,
+      "title": "RestrictedPython vulnerable to sandbox escape via string.Formatter field resolution",
+      "summary": "### Impact\nRestrictedPython could allow a sandbox escape when a policy exposes the standard library `string` module, or otherwise exposes `string.Formatter`, to restricted code.\n\n`string.Formatter` field resolution methods such as `get_field` can perform attribute and item traversal internally and return live object references. This can bypass RestrictedPython's normal attribute guards and may allow access to sensitive objects such as function globals, builtins, file access, or code execution pr",
+      "affected": "pip:RestrictedPython",
+      "references": [
+        "https://github.com/advisories/GHSA-hp3v-5vw7-fx9w"
+      ],
+      "published": "2026-09-17T16:30:22Z",
+      "fetched": "2026-09-18T08:13:21.587493+00:00"
+    },
+    {
+      "id": "GHSA-g74q-6g2f-874x",
+      "source": "github-advisory",
+      "severity": "high",
+      "cvss": 8.8,
+      "title": "Tina: [Broken Access Control] letting any TinaCloud user authorize against any self-hosted site",
+      "summary": "## Summary\n \n`@tinacms/auth`'s `isAuthorized(req)` decides authorization by validating the caller's bearer token against `https://identity.tinajs.io/v2/apps/${req.query.clientID}/currentUser`, where the `clientID` comes from the request and is never compared to the site's own configured TinaCloud app id. The function answers \"is this token a verified user of whatever app the caller named?\" instead of \"is this token a verified user of THIS site?\"\n \nAny TinaCloud user can create their own free app",
+      "affected": "npm:@tinacms/auth, npm:next-tinacms-azure",
+      "references": [
+        "https://github.com/advisories/GHSA-g74q-6g2f-874x"
+      ],
+      "published": "2026-09-17T14:59:00Z",
+      "fetched": "2026-09-18T08:13:20.064768+00:00"
+    },
+    {
+      "id": "GHSA-hx8v-g79f-8w5f",
+      "source": "github-advisory",
+      "severity": "medium",
+      "cvss": null,
+      "title": "LiteLLM Proxy has server-side request forgery via the `user_config` request parameter",
+      "summary": "### Summary\nA server-side request forgery in LiteLLM Proxy lets an authenticated caller redirect the\nproxy's outbound request to a host of their choosing by smuggling an `api_base` inside the\n`user_config` request body, bypassing the existing parameter guard.\n\n### Details\nLiteLLM Proxy validates request bodies with `is_request_body_safe`, which blocks the\n`api_base` and `base_url` parameters but does not cover `user_config`. The `user_config`\nobject is used to build the outbound router for a req",
+      "affected": "pip:litellm",
+      "references": [
+        "https://github.com/advisories/GHSA-hx8v-g79f-8w5f"
+      ],
+      "published": "2026-09-17T14:51:21Z",
+      "fetched": "2026-09-18T08:13:21.587618+00:00"
+    },
+    {
+      "id": "GHSA-q69g-4hcv-6jg4",
+      "source": "github-advisory",
+      "severity": "high",
+      "cvss": null,
+      "title": "@cyclonedx/cyclonedx-npm: Shell Injection via Unsanitized --workspace Argument on Windows",
+      "summary": "## Summary\n\nA **Windows-specific** command injection vulnerability exists in `@cyclonedx/cyclonedx-npm` when the CLI is invoked with the `--workspace <value>` option.  \nUser-supplied `--workspace` values can be passed to a shell command without proper neutralization on the Windows fallback execution path, enabling attackers to inject arbitrary OS commands.  \n\nThe vulnerability was fixed in version [6.0.0][v6.0.0].\n\n## Vulnerability Details\n\nWhen `cyclonedx-npm` is executed with the `--workspace`",
+      "affected": "npm:@cyclonedx/cyclonedx-npm",
+      "references": [
+        "https://github.com/advisories/GHSA-q69g-4hcv-6jg4"
+      ],
+      "published": "2026-09-17T14:50:40Z",
+      "fetched": "2026-09-18T08:13:20.064825+00:00"
+    },
+    {
+      "id": "GHSA-q8hw-4fvp-9rwv",
+      "source": "github-advisory",
+      "severity": "medium",
+      "cvss": null,
+      "title": "Nuxt OG Image has unauthenticated SSRF via `fonts[].path` URL parameter",
+      "summary": "### Summary\n`nuxt-og-image` exposes an **unauthenticated HTTP endpoint** at `/_og/d/**` that base64url-decodes and `JSON.parse`s a `fonts` URL segment, then passes each `fonts[i].path` value directly into `fetch()` server-side **without any URL validation** (no scheme allowlist, no loopback/RFC1918 block, no host allowlist, no DNS rebinding mitigation).\n\nUnder the module's documented default configuration (`security.strict = false`, `security.secret = \"\"`, `restrictRuntimeImagesToOrigin = false`",
+      "affected": "npm:nuxt-og-image",
+      "references": [
+        "https://github.com/advisories/GHSA-q8hw-4fvp-9rwv"
+      ],
+      "published": "2026-09-17T14:48:55Z",
+      "fetched": "2026-09-18T08:13:20.065107+00:00"
+    },
+    {
+      "id": "GHSA-hcwq-8wjf-3gcr",
+      "source": "github-advisory",
+      "severity": "medium",
+      "cvss": 6.5,
+      "title": "vLLM: Unauthenticated audio decompression-bomb DoS in /v1/chat/completions",
+      "summary": "### Summary\nThe audio decode-duration guard (`max_duration_s`, env `VLLM_MAX_AUDIO_DECODE_DURATION_S`, default 600s) that protects against audio decompression-bomb DoS is wired into **only** the speech-to-text path (`/v1/audio/transcriptions`). The **chat** audio path (`/v1/chat/completions`, `input_audio` content parts) calls the same decoder with **no** limit, so an **unauthenticated** client can submit a few-KB compressed audio file that expands to multiple GB of float32 PCM at decode time, O",
+      "affected": "pip:vllm",
+      "references": [
+        "https://github.com/advisories/GHSA-hcwq-8wjf-3gcr"
+      ],
+      "published": "2026-09-16T22:12:17Z",
+      "fetched": "2026-09-17T08:38:07.824824+00:00"
+    },
+    {
+      "id": "GHSA-5h8j-6crg-7rmw",
+      "source": "github-advisory",
+      "severity": "critical",
+      "cvss": 9.8,
+      "title": "LMdeploy has Remote Code Execution by Pickle Deserialization via zmq_rpc.call_and_response() in InterLM/lmdeploy",
+      "summary": "### Description\n\nThe LMdeploy implements an rpc server (AsyncRPCServer in zmq_rpc.py) for supporting the RPC communications. In its core functionality call_and_response(), I found it will directly use the pickles.loads() to deserialize the received messages without any sanitization, hence resulting in a remote code execution vulnerability by this RPC server.\n\n### Proof of Concept\n\n* Step1:\nThe victim user starts a RPC server that connects to its network interface. We give our example code (serve",
+      "affected": "pip:lmdeploy",
+      "references": [
+        "https://github.com/advisories/GHSA-5h8j-6crg-7rmw"
+      ],
+      "published": "2026-09-16T15:34:27Z",
+      "fetched": "2026-09-17T08:38:07.824991+00:00"
+    },
+    {
+      "id": "GHSA-cv3r-c5h8-f4g5",
+      "source": "github-advisory",
+      "severity": "critical",
+      "cvss": 9.8,
+      "title": "@zereight/mcp-gitlab: Unauthenticated arbitrary file read via `upload_markdown` enables PAT exfiltration and full account takeover",
+      "summary": "### Summary\n\nThe SSE transport mode (`SSE=true`) exposes all MCP tools without any authentication. The `upload_markdown` tool reads arbitrary files from the server's local filesystem via an unsanitized `file_path` parameter and uploads them to a GitLab project. Combined, any unauthenticated network-reachable attacker can read `/proc/self/environ` to steal the server's `GITLAB_PERSONAL_ACCESS_TOKEN` and achieve full GitLab account takeover. This is the default configuration for Docker deployments",
+      "affected": "npm:@zereight/mcp-gitlab",
+      "references": [
+        "https://github.com/advisories/GHSA-cv3r-c5h8-f4g5"
+      ],
+      "published": "2026-09-16T13:48:28Z",
+      "fetched": "2026-09-17T08:38:06.461200+00:00"
+    },
+    {
+      "id": "GHSA-2h44-8472-frjj",
+      "source": "github-advisory",
+      "severity": "critical",
+      "cvss": 9.6,
+      "title": "@zereight/mcp-gitlab Vulnerable to Server-Side Request Forgery",
+      "summary": "# Server-Side Request Forgery via X-GitLab-API-URL Header Allows Credential Theft\n\n## Affected\n\n- **Repository:** `zereight/gitlab-mcp`\n- **Affected versions:** All versions through commit `74a8c83`\n- **Patched versions:** None at time of report\n\n## Severity\n\nHigh. CVSS v3.1 8.5 (`AV:N/AC:L/PR:L/UI:N/S:C/C:H/I:H/A:N`)\n\n## Description\n\nWhen the environment variable `ENABLE_DYNAMIC_API_URL=true` is set, the server\nreads the `X-GitLab-API-URL` HTTP request header and uses it as the base URL for\nall",
+      "affected": "npm:@zereight/mcp-gitlab",
+      "references": [
+        "https://github.com/advisories/GHSA-2h44-8472-frjj"
+      ],
+      "published": "2026-09-15T20:57:28Z",
+      "fetched": "2026-09-16T08:33:20.268290+00:00"
+    },
+    {
+      "id": "GHSA-vmp7-252j-cwp7",
+      "source": "github-advisory",
+      "severity": "critical",
+      "cvss": 9.6,
+      "title": "@zereight/mcp-gitlab: DNS rebinding reaches local Streamable HTTP MCP transport",
+      "summary": "`@zereight/mcp-gitlab` exposes its Streamable HTTP MCP endpoint without an effective Host or Origin allowlist. A malicious web page can use DNS rebinding to route browser requests to a victim's local MCP listener while preserving an attacker-controlled `Host` and `Origin`. The server accepts those headers and reaches the MCP initialization path instead of rejecting the request at the HTTP boundary.\n\nThis is CWE-350, Reliance on Reverse DNS Resolution for a Security-Critical Action. The affected ",
+      "affected": "npm:@zereight/mcp-gitlab",
+      "references": [
+        "https://github.com/advisories/GHSA-vmp7-252j-cwp7"
+      ],
+      "published": "2026-09-15T20:54:55Z",
+      "fetched": "2026-09-16T08:33:20.268338+00:00"
+    },
+    {
+      "id": "GHSA-5648-rgj9-v224",
+      "source": "github-advisory",
+      "severity": "high",
+      "cvss": 8.1,
+      "title": "@zereight/mcp-gitlab has multiple safety-control bypasses: execute_graphql read-only + allow-list bypass, unauthenticated transports, session-exhaustion DoS",
+      "summary": "### Summary\n@zereight/mcp-gitlab exposes GitLab to an LLM agent while relying on read-only mode, a project allow-list, and transport auth as its safety controls. Five defects defeat those controls. Under the MCP threat model, tool-call arguments/content can be shaped by untrusted input (prompt injection) or a malicious client.\n\nReviewed commit: 60adcc0de5b0e96c4c2029f7a25d2775946421d8 (package version 2.1.28). Source review only; PoCs are local/offline.\n\n- F1 (HIGH) execute_graphql defeats BOTH ",
+      "affected": "npm:@zereight/mcp-gitlab",
+      "references": [
+        "https://github.com/advisories/GHSA-5648-rgj9-v224"
+      ],
+      "published": "2026-09-15T20:48:22Z",
+      "fetched": "2026-09-16T08:33:20.268382+00:00"
+    },
+    {
+      "id": "CVE-2026-58483",
+      "source": "nvd",
+      "severity": "high",
+      "cvss": 7.5,
+      "title": "mcp-searxng is a Model Context Protocol server that gives AI assistants web search and URL-reading capabilities through SearXNG. Prior to 1.7.1, web_url_read in src/index.ts passes a caller-supplied U",
+      "summary": "mcp-searxng is a Model Context Protocol server that gives AI assistants web search and URL-reading capabilities through SearXNG. Prior to 1.7.1, web_url_read in src/index.ts passes a caller-supplied URL to readUrlContent() in src/url-reader.ts, where checkContentLength() treats a missing Content-Length header as an inconclusive preflight and the normal and error paths then consume the complete body with response.text(). A server that omits Content-Length can therefore bypass URL_READ_MAX_CONTENT",
+      "affected": "model context protocol",
+      "references": [
+        "https://github.com/ihor-sokoliuk/mcp-searxng/commit/f5a947ed1650daed10fbdcd53c0db5a86489ffe4",
+        "https://github.com/ihor-sokoliuk/mcp-searxng/pull/121",
+        "https://github.com/ihor-sokoliuk/mcp-searxng/releases/tag/v1.7.1",
+        "https://github.com/ihor-sokoliuk/mcp-searxng/security/advisories/GHSA-xcqx-9jf5-w339",
+        "https://github.com/ihor-sokoliuk/mcp-searxng/security/advisories/GHSA-xcqx-9jf5-w339"
+      ],
+      "published": "2026-09-15T18:17:25.873",
+      "fetched": "2026-09-16T08:33:06.847646+00:00"
+    },
+    {
+      "id": "CVE-2026-57442",
+      "source": "nvd",
+      "severity": "unknown",
+      "cvss": null,
+      "title": "MCPVault is a lightweight Model Context Protocol server for safe access to files in an Obsidian vault. Prior to 0.11.5, PathFilter in src/pathfilter.ts uses root-anchored deny-list patterns, so nested",
+      "summary": "MCPVault is a lightweight Model Context Protocol server for safe access to files in an Obsidian vault. Prior to 0.11.5, PathFilter in src/pathfilter.ts uses root-anchored deny-list patterns, so nested .git, .obsidian, and node_modules path segments do not match the restriction and pass both isAllowed() and isAllowedForListing(). An attacker who influences a path selected by an AI agent can traverse nested repository or Obsidian metadata, read remote URLs or embedded tokens, or cause nested node_",
+      "affected": "model context protocol",
+      "references": [
+        "https://github.com/bitbonsai/mcpvault/commit/0adb43901e1a08e85e14b42a8df2442fabc0b64a",
+        "https://github.com/bitbonsai/mcpvault/commit/8795716b90d1c4090a82a58647e030763513f17e",
+        "https://github.com/bitbonsai/mcpvault/issues/128",
+        "https://github.com/bitbonsai/mcpvault/security/advisories/GHSA-9c83-rr99-vfwj"
+      ],
+      "published": "2026-09-15T18:17:25.613",
+      "fetched": "2026-09-16T08:33:06.847641+00:00"
+    },
+    {
+      "id": "CVE-2026-57441",
+      "source": "nvd",
+      "severity": "unknown",
+      "cvss": null,
+      "title": "MCPVault is a lightweight Model Context Protocol server for safe access to files in an Obsidian vault. Prior to 0.11.4, PathFilter in src/pathfilter.ts compiles restricted-directory patterns case-sens",
+      "summary": "MCPVault is a lightweight Model Context Protocol server for safe access to files in an Obsidian vault. Prior to 0.11.4, PathFilter in src/pathfilter.ts compiles restricted-directory patterns case-sensitively and compares paths without canonicalizing filesystem-equivalent segment names. On case-insensitive macOS and Windows filesystems, case variants of .git, .obsidian, or node_modules pass both isAllowed() and isAllowedForListing() even though the operating system opens the restricted directory,",
+      "affected": "model context protocol",
+      "references": [
+        "https://github.com/bitbonsai/mcpvault/commit/0adb43901e1a08e85e14b42a8df2442fabc0b64a",
+        "https://github.com/bitbonsai/mcpvault/commit/b9ea91a1c6d6adfec3e9e0483d9d79669e927fa8",
+        "https://github.com/bitbonsai/mcpvault/security/advisories/GHSA-j99q-93c9-h869"
+      ],
+      "published": "2026-09-15T18:17:25.467",
+      "fetched": "2026-09-16T08:33:06.847638+00:00"
+    },
+    {
+      "id": "CVE-2026-54689",
+      "source": "nvd",
+      "severity": "medium",
+      "cvss": 6.3,
+      "title": "mcp-searxng is a Model Context Protocol server that gives AI assistants web search and URL-reading capabilities through SearXNG. Prior to 1.2.0, the web_url_read URL policy in src/url-reader.ts can be",
+      "summary": "mcp-searxng is a Model Context Protocol server that gives AI assistants web search and URL-reading capabilities through SearXNG. Prior to 1.2.0, the web_url_read URL policy in src/url-reader.ts can be bypassed while MCP_HTTP_HARDEN is enabled and MCP_HTTP_ALLOW_PRIVATE_URLS is not enabled because redirect targets are not revalidated, 0.0.0.0 is not classified as an internal address, and IPv4-mapped IPv6 literals canonicalized to hexadecimal form are not recognized. These inputs allow an attacker",
+      "affected": "model context protocol",
+      "references": [
+        "https://github.com/ihor-sokoliuk/mcp-searxng/commit/48e5ecdcb4166a60b94c252dbe74b0a318110ac4",
+        "https://github.com/ihor-sokoliuk/mcp-searxng/pull/79",
+        "https://github.com/ihor-sokoliuk/mcp-searxng/releases/tag/v1.2.0",
+        "https://github.com/ihor-sokoliuk/mcp-searxng/security/advisories/GHSA-wppf-h75h-6pm6"
+      ],
+      "published": "2026-09-15T18:17:23.477",
+      "fetched": "2026-09-16T08:33:06.847633+00:00"
+    },
+    {
+      "id": "CVE-2026-54688",
+      "source": "nvd",
+      "severity": "medium",
+      "cvss": 6.5,
+      "title": "mcp-searxng is a Model Context Protocol server that gives AI assistants web search and URL-reading capabilities through SearXNG. Prior to 1.2.0, web_url_read passes a caller-supplied URL to the server",
+      "summary": "mcp-searxng is a Model Context Protocol server that gives AI assistants web search and URL-reading capabilities through SearXNG. Prior to 1.2.0, web_url_read passes a caller-supplied URL to the server-side fetch path while assertUrlAllowed() in src/url-reader.ts runs only when MCP_HTTP_HARDEN is enabled, even though MCP_HTTP_HARDEN is disabled by default in src/http-security.ts. In the default configuration, an attacker who influences the URL selected by a user or AI agent can make the server fe",
+      "affected": "model context protocol",
+      "references": [
+        "https://github.com/ihor-sokoliuk/mcp-searxng/commit/48e5ecdcb4166a60b94c252dbe74b0a318110ac4",
+        "https://github.com/ihor-sokoliuk/mcp-searxng/issues/87#issuecomment-4645453694",
+        "https://github.com/ihor-sokoliuk/mcp-searxng/releases/tag/v1.2.0",
+        "https://github.com/ihor-sokoliuk/mcp-searxng/security/advisories/GHSA-q87f-qc2r-2gw4",
+        "https://github.com/ihor-sokoliuk/mcp-searxng/security/advisories/GHSA-q87f-qc2r-2gw4"
+      ],
+      "published": "2026-09-15T18:17:23.333",
+      "fetched": "2026-09-16T08:33:06.847629+00:00"
+    },
+    {
+      "id": "CVE-2026-54549",
+      "source": "nvd",
+      "severity": "high",
+      "cvss": 8.3,
+      "title": "Meta Ads MCP is a Model Context Protocol (MCP) server that lets AI assistants run Meta Ads. Prior to version 1.0.115, the upload_ad_image tool in meta_ads_mcp/core/ads.py passes an attacker-controlled",
+      "summary": "Meta Ads MCP is a Model Context Protocol (MCP) server that lets AI assistants run Meta Ads. Prior to version 1.0.115, the upload_ad_image tool in meta_ads_mcp/core/ads.py passes an attacker-controlled image_url to try_multiple_download_methods() in meta_ads_mcp/core/utils.py, where httpx.AsyncClient uses follow_redirects=True and performs HTTP requests without validating the scheme, host, or resolved IP address. In a streamable-http deployment, a network caller can use any non-empty authorizatio",
+      "affected": "model context protocol",
+      "references": [
+        "https://github.com/pipeboard-co/meta-ads-mcp/commit/7d9926336bbdac6285a988d043c4ccfe126c94c5",
+        "https://github.com/pipeboard-co/meta-ads-mcp/pull/138",
+        "https://github.com/pipeboard-co/meta-ads-mcp/releases/tag/1.0.115",
+        "https://github.com/pipeboard-co/meta-ads-mcp/security/advisories/GHSA-45gf-fjxp-cjpq"
+      ],
+      "published": "2026-09-15T18:17:23.073",
+      "fetched": "2026-09-16T08:33:06.847625+00:00"
+    },
+    {
+      "id": "CVE-2026-54547",
+      "source": "nvd",
+      "severity": "high",
+      "cvss": 7.4,
+      "title": "Meta Ads MCP is a Model Context Protocol (MCP) server that lets AI assistants run Meta Ads. Prior to version 1.0.115, AuthInjectionMiddleware in meta_ads_mcp/core/http_auth_integration.py rejects HTTP",
+      "summary": "Meta Ads MCP is a Model Context Protocol (MCP) server that lets AI assistants run Meta Ads. Prior to version 1.0.115, AuthInjectionMiddleware in meta_ads_mcp/core/http_auth_integration.py rejects HTTP MCP requests only when both auth_token and pipeboard_token are absent, while extract_token_from_headers() does not recognize X-Pipeboard-Token as a primary credential. A network caller using the streamable-http transport can therefore send any X-Pipeboard-Token value, pass the guard without establi",
+      "affected": "model context protocol",
+      "references": [
+        "https://github.com/pipeboard-co/meta-ads-mcp/commit/95e852793b7ff8604a8132e85d5facd08c91a36e",
+        "https://github.com/pipeboard-co/meta-ads-mcp/pull/137",
+        "https://github.com/pipeboard-co/meta-ads-mcp/releases/tag/1.0.115",
+        "https://github.com/pipeboard-co/meta-ads-mcp/security/advisories/GHSA-2v2f-mvfg-ph56"
+      ],
+      "published": "2026-09-15T18:17:22.927",
+      "fetched": "2026-09-16T08:33:06.847621+00:00"
+    },
+    {
+      "id": "CVE-2026-58201",
+      "source": "nvd",
+      "severity": "unknown",
+      "cvss": null,
+      "title": "Lokka is a Model Context Protocol server for Microsoft 365, including Microsoft Graph and other services. Prior to 2.1.2, the Lokka-Microsoft tool in src/mcp/src/main.ts uses direct URL string concate",
+      "summary": "Lokka is a Model Context Protocol server for Microsoft 365, including Microsoft Graph and other services. Prior to 2.1.2, the Lokka-Microsoft tool in src/mcp/src/main.ts uses direct URL string concatenation to append the user-controlled path value to the management.azure.com base URL. A specially crafted path can alter URL authority parsing and cause an Azure Resource Manager bearer token to be sent to an unintended host. This issue is fixed in version 2.1.2.",
+      "affected": "model context protocol",
+      "references": [
+        "https://github.com/merill/lokka/commit/babead878f44cc2face2f8ee55d8b706e420947e",
+        "https://github.com/merill/lokka/pull/47",
+        "https://github.com/merill/lokka/security/advisories/GHSA-g2gw-q38m-vjfc"
+      ],
+      "published": "2026-09-15T17:17:23.260",
+      "fetched": "2026-09-16T08:33:06.847617+00:00"
+    },
+    {
+      "id": "CVE-2026-54561",
+      "source": "nvd",
+      "severity": "medium",
+      "cvss": 6.2,
+      "title": "MCP Memory Keeper is an MCP server for persistent context management in AI coding assistants. Prior to 0.13.0, context_import in src/index.ts passes the caller-controlled filePath directly to fs.readF",
+      "summary": "MCP Memory Keeper is an MCP server for persistent context management in AI coding assistants. Prior to 0.13.0, context_import in src/index.ts passes the caller-controlled filePath directly to fs.readFileSync without restricting the path to an export directory. An MCP client, including an LLM agent induced to call the tool, can use ../ traversal or an absolute path to target any file readable by the server process. A valid JSON file is parsed and imported into the caller's session, allowing its f",
+      "affected": "llm agent",
+      "references": [
+        "https://github.com/mkreyman/mcp-memory-keeper/commit/58640c22e037572e0b03bc0aa25d015ea98dcc6d",
+        "https://github.com/mkreyman/mcp-memory-keeper/commit/b9369568468007c85f8aec3ae09ca6f611285bc5",
+        "https://github.com/mkreyman/mcp-memory-keeper/commit/e0ab521a9e8343bcab1ca60ccc3601e4d86eaa97",
+        "https://github.com/mkreyman/mcp-memory-keeper/issues/35",
+        "https://github.com/mkreyman/mcp-memory-keeper/pull/36"
+      ],
+      "published": "2026-09-15T17:17:21.220",
+      "fetched": "2026-09-16T08:33:13.178029+00:00"
+    },
+    {
+      "id": "CVE-2026-59973",
+      "source": "nvd",
+      "severity": "high",
+      "cvss": 8.5,
+      "title": "FrontMCP is a TypeScript-first framework for the Model Context Protocol (MCP). From mcp-from-openapi 2.3.0 until 2.5.0 and from frontmcp and @frontmcp/adapters 1.2.1 until 1.5.0, libs/adapters/src/ope",
+      "summary": "FrontMCP is a TypeScript-first framework for the Model Context Protocol (MCP). From mcp-from-openapi 2.3.0 until 2.5.0 and from frontmcp and @frontmcp/adapters 1.2.1 until 1.5.0, libs/adapters/src/openapi/openapi.adapter.ts loadOpenAPISpec() forwards untrusted OpenAPI url and spec inputs and loadOptions.refResolution to OpenAPIToolGenerator.fromURL() and OpenAPIToolGenerator.fromJSON(). The external $ref guard checks parsed hostname strings without resolving addresses, pinning validated addresse",
+      "affected": "model context protocol",
+      "references": [
+        "https://github.com/agentfront/frontmcp/commit/96a78eaa5c6c4bc51cced557d83d1a03344cb03d",
+        "https://github.com/agentfront/frontmcp/pull/496",
+        "https://github.com/agentfront/frontmcp/releases/tag/v1.5.0",
+        "https://github.com/agentfront/frontmcp/security/advisories/GHSA-65h7-9wrw-629c",
+        "https://github.com/agentfront/mcp-from-openapi/commit/be3409cce6e97642696d4ee5a4e4e2712490b277"
+      ],
+      "published": "2026-09-15T16:17:18.327",
+      "fetched": "2026-09-16T08:33:06.847612+00:00"
+    },
+    {
+      "id": "CVE-2026-58196",
+      "source": "nvd",
+      "severity": "medium",
+      "cvss": 4.7,
+      "title": "ToolHive is a utility designed to simplify the deployment and management of Model Context Protocol (MCP) servers. Prior to 0.31.0, remote.Handler.Authenticate in pkg/auth/remote/handler.go invokes dis",
+      "summary": "ToolHive is a utility designed to simplify the deployment and management of Model Context Protocol (MCP) servers. Prior to 0.31.0, remote.Handler.Authenticate in pkg/auth/remote/handler.go invokes discovery.DetectAuthenticationFromServer in pkg/auth/discovery/discovery.go, whose host-side HTTP clients trust remote-server-controlled authentication discovery destinations, follow redirects without host or scheme restrictions, and do not consistently block private addresses. A malicious or compromis",
+      "affected": "model context protocol",
+      "references": [
+        "https://github.com/stacklok/toolhive/commit/4ea6afb9048ddec1d56875fa9e0da36d65c15966",
+        "https://github.com/stacklok/toolhive/releases/tag/v0.31.0",
+        "https://github.com/stacklok/toolhive/security/advisories/GHSA-pr64-jmmf-jp54",
+        "https://github.com/stacklok/toolhive/security/advisories/GHSA-pr64-jmmf-jp54"
+      ],
+      "published": "2026-09-15T16:17:16.817",
+      "fetched": "2026-09-16T08:33:06.847608+00:00"
+    },
+    {
+      "id": "CVE-2026-54450",
+      "source": "nvd",
+      "severity": "unknown",
+      "cvss": null,
+      "title": "ToolHive is a utility designed to simplify the deployment and management of Model Context Protocol (MCP) servers. Prior to 0.29.1, networking.IsPrivateIP in pkg/networking/utilities.go omits the IPv6 ",
+      "summary": "ToolHive is a utility designed to simplify the deployment and management of Model Context Protocol (MCP) servers. Prior to 0.29.1, networking.IsPrivateIP in pkg/networking/utilities.go omits the IPv6 NAT64 prefixes 64:ff9b::/96 and 64:ff9b:1::/48, so NAT64 addresses embedding private, loopback, or link-local IPv4 targets are classified as public and allowed. The most direct attacker-controlled path begins when an external OAuth client supplies a client_id URL that CIMDStorageDecorator.GetClient ",
+      "affected": "model context protocol",
+      "references": [
+        "https://github.com/stacklok/toolhive/commit/26912af453d2040787983dbc9ab93a9019ec0468",
+        "https://github.com/stacklok/toolhive/releases/tag/v0.29.1",
+        "https://github.com/stacklok/toolhive/security/advisories/GHSA-pph6-vfjv-vpjw"
+      ],
+      "published": "2026-09-15T16:17:14.270",
+      "fetched": "2026-09-16T08:33:06.847600+00:00"
+    },
+    {
+      "id": "CVE-2026-59971",
+      "source": "nvd",
+      "severity": "critical",
+      "cvss": 10.0,
+      "title": "MySQL MCP Server is a Model Context Protocol server that enables secure interaction with MySQL databases. Prior to 0.4.2, setting MCP_TRANSPORT=sse causes src/mysql_mcp_server/server.py to construct S",
+      "summary": "MySQL MCP Server is a Model Context Protocol server that enables secure interaction with MySQL databases. Prior to 0.4.2, setting MCP_TRANSPORT=sse causes src/mysql_mcp_server/server.py to construct SseServerTransport without security_settings or enable_dns_rebinding_protection, while the Starlette routes /, /sse, and /messages/ have no authentication and the service binds to 0.0.0.0 by default. A network attacker can directly reach execute_sql, or can use DNS rebinding to make a victim's browse",
+      "affected": "model context protocol",
+      "references": [
+        "https://github.com/designcomputer/mysql_mcp_server/commit/a96549f4a4d65443fd6e9c7f2324fba9a5c80a82",
+        "https://github.com/designcomputer/mysql_mcp_server/issues/92",
+        "https://github.com/designcomputer/mysql_mcp_server/releases/tag/v0.4.2",
+        "https://github.com/designcomputer/mysql_mcp_server/security/advisories/GHSA-rqfv-2mw9-78g2"
+      ],
+      "published": "2026-09-15T15:17:19.947",
+      "fetched": "2026-09-16T08:33:06.847595+00:00"
+    },
+    {
+      "id": "CVE-2026-53957",
+      "source": "nvd",
+      "severity": "high",
+      "cvss": 7.7,
+      "title": "Contentful MCP Server is a Model Context Protocol server for the Contentful Management API. Prior to @contentful/mcp-server 1.7.19 and @contentful/mcp-tools 0.4.5, export_space and import_space in pac",
+      "summary": "Contentful MCP Server is a Model Context Protocol server for the Contentful Management API. Prior to @contentful/mcp-server 1.7.19 and @contentful/mcp-tools 0.4.5, export_space and import_space in packages/mcp-tools/src/tools/jobs/space-to-space-migration/exportSpace.ts and packages/mcp-tools/src/tools/jobs/space-to-space-migration/importSpace.ts expose host, proxy, rawProxy, and insecure network options to LLM-controlled tool arguments and combine those options with the server's CONTENTFUL_MANA",
+      "affected": "prompt injection",
+      "references": [
+        "https://github.com/contentful/contentful-mcp-server/commit/fa7477ee48515f4248bc91a025eab0ca83423fe0",
+        "https://github.com/contentful/contentful-mcp-server/pull/376",
+        "https://github.com/contentful/contentful-mcp-server/releases/tag/mcp-server@1.7.19",
+        "https://github.com/contentful/contentful-mcp-server/releases/tag/mcp-tools@0.4.5",
+        "https://github.com/contentful/contentful-mcp-server/security/advisories/GHSA-2xhg-73j7-rrgx"
+      ],
+      "published": "2026-09-15T15:17:17.367",
+      "fetched": "2026-09-16T08:33:00.704131+00:00"
+    },
+    {
+      "id": "CVE-2026-53957",
+      "source": "nvd",
+      "severity": "high",
+      "cvss": 7.7,
+      "title": "Contentful MCP Server is a Model Context Protocol server for the Contentful Management API. Prior to @contentful/mcp-server 1.7.19 and @contentful/mcp-tools 0.4.5, export_space and import_space in pac",
+      "summary": "Contentful MCP Server is a Model Context Protocol server for the Contentful Management API. Prior to @contentful/mcp-server 1.7.19 and @contentful/mcp-tools 0.4.5, export_space and import_space in packages/mcp-tools/src/tools/jobs/space-to-space-migration/exportSpace.ts and packages/mcp-tools/src/tools/jobs/space-to-space-migration/importSpace.ts expose host, proxy, rawProxy, and insecure network options to LLM-controlled tool arguments and combine those options with the server's CONTENTFUL_MANA",
+      "affected": "model context protocol",
+      "references": [
+        "https://github.com/contentful/contentful-mcp-server/commit/fa7477ee48515f4248bc91a025eab0ca83423fe0",
+        "https://github.com/contentful/contentful-mcp-server/pull/376",
+        "https://github.com/contentful/contentful-mcp-server/releases/tag/mcp-server@1.7.19",
+        "https://github.com/contentful/contentful-mcp-server/releases/tag/mcp-tools@0.4.5",
+        "https://github.com/contentful/contentful-mcp-server/security/advisories/GHSA-2xhg-73j7-rrgx"
+      ],
+      "published": "2026-09-15T15:17:17.367",
+      "fetched": "2026-09-16T08:33:06.847591+00:00"
+    },
+    {
       "id": "CVE-2026-73497",
       "source": "nvd",
       "severity": "medium",
@@ -5366,7 +5806,7 @@
       "fetched": "2026-08-04T06:34:53.913899+00:00"
     }
   ],
-  "updated": "2026-09-15T08:41:48.817048+00:00",
+  "updated": "2026-09-18T08:13:22.089361+00:00",
   "sources": [
     "osv",
     "nvd",
@@ -5385,40 +5825,40 @@
         "items": 0,
         "attempts": 1,
         "error": null,
-        "checked_at": "2026-09-15T08:41:27.053011+00:00",
+        "checked_at": "2026-09-18T08:12:59.162780+00:00",
         "consecutive_failures": 0,
         "degraded_since": null
       },
       "nvd": {
         "ok": true,
-        "items": 33,
+        "items": 43,
         "attempts": 1,
         "error": null,
-        "checked_at": "2026-09-15T08:41:45.838023+00:00",
+        "checked_at": "2026-09-18T08:13:18.428491+00:00",
         "consecutive_failures": 0,
         "degraded_since": null
       },
       "github-advisory": {
         "ok": true,
-        "items": 34,
+        "items": 32,
         "attempts": 1,
         "error": null,
-        "checked_at": "2026-09-15T08:41:48.816800+00:00",
+        "checked_at": "2026-09-18T08:13:22.089114+00:00",
         "consecutive_failures": 0,
         "degraded_since": null
       }
     },
     "degraded": [],
-    "last_success": "2026-09-15T08:41:48.817048+00:00",
-    "last_attempt": "2026-09-15T08:41:48.817048+00:00"
+    "last_success": "2026-09-18T08:13:22.089361+00:00",
+    "last_attempt": "2026-09-18T08:13:22.089361+00:00"
   },
   "stats": {
-    "medium": 107,
-    "high": 174,
-    "critical": 48,
+    "medium": 116,
+    "high": 184,
+    "critical": 53,
+    "unknown": 34,
     "low": 5,
-    "unknown": 30,
     "moderate": 1
   },
-  "total": 365
+  "total": 393
 }

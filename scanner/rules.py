@@ -166,7 +166,10 @@ MCP04_RULES = {
     # pip install from git
     r'\bpip\s+install\s+git\+https?://': ("从git URL安装Python包(供应链风险)", "high"),
     r'\bnpm\s+install\s+git\+https?://': ("从git URL安装npm包(供应链风险)", "high"),
-    # curl管道执行
+    # curl/wget 管道执行。2026-09-18 基线审计：两条曾被认为"互为冗余"，实测
+    # 各命中不同的正样本（curl_pipe 命中 lifecycle hook 样本，wget_pipe 此前
+    # 0 命中是语料缺样本，已补），且引用场景由 analyze() 的 citation 抑制处理，
+    # 所以两条都保留。
     r'\bcurl\s+.*\|\s*(bash|sh|python|node)\b': ("curl管道执行(供应链攻击)", "critical"),
     r'\bwget\s+.*\|\s*(bash|sh|python|node)\b': ("wget管道执行(供应链攻击)", "critical"),
     # 远程代码执行
@@ -216,11 +219,21 @@ MCP05_RULES = {
 # MCP06 - 意图流颠覆/上下文提示注入 (8条规则)
 # ============================================================
 MCP06_RULES = {
-    # 越狱指令
-    r'ignore\s+(all\s+)?(previous|prior|above)\s+(instruction|prompt|rule|guidance)': ("越狱指令: 忽略前文指令", "critical"),
+    # 越狱指令。2026-09-18 基线审计：本段原有 3 条规则命中同一条正样本
+    # （"Ignore all previous instructions..."）—— 静态 ignore_static、情报生成
+    # 的 ignore_intel、以及 (disregard|ignore|neglect) 变体。三条互为近似的
+    # 并集已合并为一条，消除 finding 双倍/三倍计数；情报侧同名规则由
+    # scripts/intel_to_rules.py 的去重逻辑跳过，不再进入 ALL_RULES。
+    # forget 单独成条（见下一行）以避免 "forget previous instructions" 双重命中。
+    r'(?i)(ignore|disregard|neglect)\s+(all\s+)?(the\s+)?(previous|prior|above|all)\s+(instruction|prompt|rule|guidance|safety)': ("越狱指令: 忽略/覆盖前文指令", "critical"),
     r'forget\s+(everything|all|previous|prior|your)\s+(instruction|prompt|rule|training)': ("越狱指令: 忘记一切", "critical"),
-    r'\b(DAN|jailbreak|bypass|override)\b': ("越狱关键词", "critical"),
-    r'(disregard|ignore|neglect)\s+(the\s+)?(above|previous|prior|all)\s+(instruction|prompt|rule|safety)': ("忽略安全指令", "critical"),
+    # 越狱词提及。原 \b(DAN|jailbreak|bypass|override)\b 与 (越狱|jailbreak|越狱模式)
+    # 是两条 critical 级裸关键字，唯一正样本是叙述句而非祈使载荷，且与中文段的
+    # (?<![A-Za-z])DAN(?![A-Za-z])(?:模式)? 重合。按"提及≠执行"降级为 info：
+    # 工具描述里出现 jailbreak 仍是 tool poisoning 的信号，值得标记，但不该按
+    # critical 级执行载荷对待。
+    # DAN 作为具体标识符由 ZH_PROMPT_INJECTION_RULES 保持 critical。
+    r'(?i)\bjailbreak\b|越狱': ("越狱词提及(非执行载荷)", "info"),
     r'you\s+are\s+now\s+(a|an)\s+': ("身份切换指令", "high"),
     r'(act|pretend|play|roleplay)\s+as\s+(if\s+you\s+(are|were)\s+)?(a|an)\s+': ("角色扮演注入", "high"),
     # 系统提示窃取
@@ -335,9 +348,16 @@ ZH_PROMPT_INJECTION_RULES = {
     r'绕过.{0,4}(安全|过滤|审查|限制|防火墙)': ("中文越狱: 绕过安全", "high"),
     r'解除.{0,4}(限制|约束|封锁|锁定)': ("中文越狱: 解除限制", "high"),
     r'取消.{0,4}(所有|一切|安全).{0,4}(限制|规则|约束)': ("中文越狱: 取消限制", "critical"),
-    # 关键词越狱（中英混合）
-    r'\bDAN(模式)?\b': ("DAN越狱模式", "critical"),
-    r'(越狱|jailbreak|越狱模式)': ("越狱关键词", "critical"),
+    # 关键词越狱。2026-09-18 基线审计：原 (越狱|jailbreak|越狱模式) 与 MCP06 的
+    # \b(DAN|jailbreak|bypass|override)\b 是同一条正样本的双重命中，且都是 critical
+    # 级裸关键字。已下沉为 MCP06 的 info 级"提及"规则（提及≠执行）；DAN 作为具体
+    # 标识符在此保持 critical。
+    # 2026-09-18 契约测试抓到：原 \bDAN(模式)?\b 对 CJK 同样失效 —— CJK 字符在
+    # Python re 里属于 \w，"启用DAN模式"中 用↔D 与 式↔立 都不是词边界，整条规则
+    # 在中文语境下零命中（"开启 DAN 模式"这种带空格的写法才能命中）。改成对
+    # ASCII 字母的 lookaround：既能在 CJK 两侧成立，又不会把 DANGEROUS/dangerous
+    # 误判成 DAN（裸 DAN 会匹配到它们的前三个字母）。
+    r'(?<![A-Za-z])DAN(?![A-Za-z])(?:模式)?': ("DAN越狱模式", "critical"),
     # 身份切换
     r'(扮演|假装|假设|当作).{0,6}(你是|作为).{0,10}(一个|一名)': ("中文角色扮演注入", "high"),
     r'你(现在|现在起).{0,4}(是|变成).{0,6}(一个|一名|一位)': ("中文身份切换", "high"),
@@ -672,14 +692,69 @@ def get_generated_rules_meta():
 # 混在一起会让雷达晋升的规则在下一次情报刷新时被静默抹掉。
 RADAR_RULES = {}
 _RADAR_META = {}
+_RADAR_QUARANTINE = {}
+
+# 雷达规则的字段契约。data/radar_rules.json 是机器生成的数据，不是手写常量，
+# 所以它的字段必须在**载入时**校验，不能等第一次扫描才暴露。
+#
+# 旧实现是 `try: desc, severity = meta[0], meta[1] except: continue`—
+# 结构不对就静默丢弃，坏条目从此消失在日志之外（假绿）。而且 severity
+# 完全不校验、正则也完全不在加载期编译：一条坏正则会等到扫描时才 re.error，
+# 把整次扫描打崩。借鉴 CosmosMind RSIH Genome 的「互斥字段所有权 + 越界写
+# 加载期即失败」：越界的条目在加载期就被拒收并可见地报告，而不是在运行期
+# 炸掉或被无声吞掉。
+_RADAR_VALID_SEVERITIES = {"critical", "high", "medium", "low", "info"}
+
+
+def _validate_radar_entry(pattern, meta):
+    """校验单条雷达规则。返回问题列表；空列表 = 通过字段契约。
+
+    刻意不抛异常：本函数只在模块 import 时被调用，任何异常都会让扫描器
+    整体不可用。不确定一律记为问题，由调用方隔离该条目。
+    """
+    problems = []
+    if not isinstance(pattern, str) or not pattern.strip():
+        problems.append("pattern key 为空或非字符串")
+        return problems
+    if not isinstance(meta, (list, tuple)) or len(meta) != 2:
+        problems.append("value 必须是长度为 2 的 [描述, 严重级别]")
+        return problems
+
+    desc, severity = meta[0], meta[1]
+    if not isinstance(desc, str) or not desc.strip():
+        problems.append("description 为空或非字符串")
+    elif desc.strip().upper().startswith("TODO"):
+        problems.append("description 仍是 TODO 占位符")
+
+    if not isinstance(severity, str):
+        problems.append("severity 非字符串")
+    elif severity.strip().lower() not in _RADAR_VALID_SEVERITIES:
+        problems.append("severity %r 不在 %s" % (severity,
+                                                sorted(_RADAR_VALID_SEVERITIES)))
+
+    try:
+        compiled = re.compile(pattern, re.IGNORECASE)
+    except re.error as e:
+        problems.append("正则无法编译: %s" % e)
+        return problems  # 不确定的正则不再往下判，避免二次异常
+    if compiled.search("") or compiled.search("a"):
+        problems.append("正则可匹配空串或平凡输入，过宽")
+    return problems
 
 
 def _load_radar_rules():
-    """载入 data/radar_rules.json。文件缺失或损坏时静默降级，不影响基础规则。"""
-    global RADAR_RULES, _RADAR_META
+    """载入 data/radar_rules.json 并执行字段契约。
+
+    文件缺失或整体损坏时静默降级（基础规则不受影响）；**条目级**问题
+    不再静默丢弃，而是隔离进 _RADAR_QUARANTINE，可通过
+    get_radar_load_warnings() 读取。绝不抛异常—加载期失败的正确答案
+    是「少一条规则 + 一条可见告警」，而不是整个扫描器 import 失败。
+    """
+    global RADAR_RULES, _RADAR_META, _RADAR_QUARANTINE
     import json as _json
     import os as _os
 
+    _RADAR_QUARANTINE = {}
     path = _os.path.join(
         _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))),
         "data", "radar_rules.json",
@@ -691,17 +766,22 @@ def _load_radar_rules():
             data = _json.load(f)
     except Exception:
         return
+    if not isinstance(data, dict):
+        return
 
     for pattern, meta in (data.get("rules") or {}).items():
-        try:
-            desc, severity = meta[0], meta[1]
-        except (TypeError, IndexError, KeyError):
+        problems = _validate_radar_entry(pattern, meta)
+        if problems:
+            key = pattern if isinstance(pattern, str) and pattern.strip() \
+                else repr(pattern)
+            _RADAR_QUARANTINE[key] = problems
             continue
-        RADAR_RULES[pattern] = (f"[雷达] {desc}", severity)
+        RADAR_RULES[pattern] = (f"[雷达] {meta[0]}", meta[1].strip().lower())
 
     _RADAR_META = {
         "total_rules": len(RADAR_RULES),
         "provenance": data.get("provenance", {}),
+        "quarantined": len(_RADAR_QUARANTINE),
     }
 
 
@@ -712,6 +792,16 @@ ALL_RULES.update(RADAR_RULES)
 def get_radar_rules_meta():
     """返回雷达晋升规则的元信息（含每条规则的情报溯源）。"""
     return dict(_RADAR_META)
+
+
+def get_radar_load_warnings():
+    """返回加载期被字段契约拒收的雷达条目 {pattern: [原因, ...]}。
+
+    空 dict = 数据文件干净。非空必须被 CI / self_scan 看见：静默丢弃
+    坏条目是本仓库明确的反模式（假绿）—一条被吞的规则等于一条不存在的
+    规则，而报告里不会体现任何差异。
+    """
+    return {k: list(v) for k, v in _RADAR_QUARANTINE.items()}
 
 
 # 危险npm包（已知恶意）
@@ -1285,6 +1375,198 @@ def get_agentic_coverage(findings):
     }
 
 
+# ============================================================
+# 精确锚点：per-finding 修复建议 + 稳定 rule_id
+# ============================================================
+# 背景：静态规则产出的 finding 长期只有 type=“dangerous_pattern” 这一个标签，
+# 用户拿到「命令执行」却不知道该换掉 exec() 还是改参数化调用；description 是
+# 「说了什么」，remediation 才是「怎么改」，两者不能互相替代。全局
+# recommendations 只有几条笼统话术，无法对应到具体那一条 finding。
+#
+# 做法：不在 210 条规则里逐条手写修复文案（维护成本不划算、且会和规则正文脱节），
+# 而是按「规则正则里出现的关键 token」解析出最贴切的修复动作，再按 OWASP 类别
+# 兜底。token 表按「越具体越靠前」排序 —— 先匹配到具体动作就不再看类别兜底。
+#
+# rule_id 必须稳定：用户拿它去查规则库/提 issue/做去重。已知类别的静态规则用
+# 「类别-序号」（dict 插入序在 Python 3.7+ 稳定）；动态规则与未归类规则用
+# 正则串的哈希前缀，保证不随 JSON 加载顺序漂移。
+# ============================================================
+
+_REMEDIATION_CATEGORY = {
+    "MCP01": "把敏感信息移出代码仓库，改用环境变量或密钥管理服务注入；已泄露的凭据必须在服务商控制台吊销并轮换，仅从代码里删除是不够的",
+    "MCP02": "把权限声明收紧到实际需要的最小集合，移除通配符、all 与全量访问，并按操作拆分独立权限",
+    "MCP03": "审查工具描述与文档正文，清除零宽字符/注释/Unicode 转义中夹带的隐藏指令；描述与代码行为必须一致",
+    "MCP04": "锁定依赖精确版本并提交 lockfile，安装前校验包的存在性/包龄/下载量，禁用不可信的安装脚本",
+    "MCP05": "不要执行拼接自用户输入的命令，改用参数化调用或白名单命令；对必须执行的外部进程收敛可执行范围",
+    "MCP06": "把外部内容当作不可信输入处理，注入模型前先做指令隔离与长度限制，并对输出做二次校验",
+    "MCP07": "为服务端点加上认证与最小授权，区分只读与写操作权限，拒绝匿名访问敏感接口",
+    "MCP08": "补齐结构化日志与审计事件，记录关键操作的主体/动作/结果，并接入异常告警",
+    "MCP09": "清点并登记所有运行的 MCP 服务端点，纳入统一的接入审批与生命周期管理",
+    "MCP10": "按最小必要原则裁剪传递给外部工具的上下文，脱敏后再外发，并明确数据流向",
+}
+_REMEDIATION_ASI = {
+    "ASI01": "收敛外部内容的注入面，对工具返回值与检索结果做标记与边界隔离",
+    "ASI02": "对工具与技能做来源校验与完整性签名，禁止从不可信源自动加载",
+    "ASI03": "在委派与子代理边界上重放权限校验，禁止子代理隐式继承父级全部权限",
+    "ASI04": "为记忆与上下文持久化做访问控制与过期清理，防止跨会话泄露",
+    "ASI05": "对多代理协作的通信做身份认证与内容审计，阻断代理间的欺骗路径",
+    "ASI06": "对自主决策加预算与审批闸门，禁止无界自循环与无上限资源消耗",
+    "ASI07": "隔离每个代理的可写范围，禁止跨会话共享可执行上下文",
+    "ASI08": "提供可终止的运行时开关，允许外部强制中止失控的代理行为",
+    "ASI09": "为代理行为保留完整可追溯的执行轨迹，支持事后审计与复现",
+    "ASI10": "对代理对外部系统的写操作加白名单与速率限制，禁止未审批的对外变更",
+}
+
+# token -> 具体修复动作。顺序敏感：越具体越靠前。
+#
+# 匹配对象是「规则正则源码」而不是命中文本 —— 规则本身就知道它检测的是什么。
+# 但正则源码里满是反斜杠转义（`os\.system`、`\[=:\]`、`\s*`），直接拿它当正则再匹配一次
+# 必然转义错位（曾把 `[=:]` 误写成 `\[?=:`，导致 API Key 规则掉到类别兜底文案）。
+# 因此先剥掉所有反斜杠做归一化，再用纯子串匹配：确定、无转义歧义。
+# 每条的 needles 是「任一命中即算」的候选列表。
+_REMEDIATION_TOKENS = [
+    (("private key",), "把私钥移出仓库，用环境变量或密钥管理服务承载，并用 BFG/force-push 从 git 历史中彻底清除"),
+    (("mongodb", "postgres", "mysql", "redis", "mariadb"), "把数据库连接串（含明文密码）移入环境变量或密钥管理服务，并轮换该密码"),
+    (("sk-ant",), "这是 Anthropic 密钥：立即在控制台吊销并轮换，再从代码与 git 历史中删除"),
+    (("sk-",), "这是 OpenAI 密钥：立即在控制台吊销并轮换，再从代码与 git 历史中删除"),
+    (("akia", "agpa", "aida", "aroa", "asias"), "这是 AWS Access Key：立即在 IAM 中禁用并轮换，检查 CloudTrail 是否已被使用"),
+    (("ghp_", "gho_", "github_pat"), "这是 GitHub 令牌：到 Settings > Tokens 撤销并重发，收敛到最小 scope"),
+    (("glpat-",), "这是 GitLab 令牌：到 Settings > Access Tokens 撤销并重发"),
+    (("xox",), "这是 Slack 令牌/Webhook：到 Slack 管理后台撤销并重发"),
+    (("apikey", "api_key"), "把 API Key 改为从环境变量读取，代码里只留变量名；已硬编码的值必须轮换"),
+    (("password", "passwd", "pwd"), "移除硬编码密码，改用密钥管理服务或环境变量；已进过版本库的密码视为已泄露，必须轮换"),
+    (("token", "bearer", "auth"), "把令牌改为运行时注入，禁止写入源码；已提交的令牌需在签发方撤销"),
+    # 隐藏指令必须早于命令执行 token：投毒规则里同样含 exec/eval/system 字样，
+    # 顺序反了会把这些 finding 的修复建议写成「改用参数化调用」。
+    (("ignore", "jailbreak", "bypass", "forget"), "提示注入：把外部内容当作不可信数据而非指令，显式声明边界，并对输出做二次校验"),
+    (("忽略", "跳过", "扮演", "假装", "取消", "复述", "重复", "系统指令", "不要", "作为"), "提示注入：把外部内容当作不可信数据而非指令，显式声明边界，并对输出做二次校验"),
+    (("u200b", "u200c", "u200d", "u2060", "ufeff", "x25b", "x25c", "x25d"), "清除零宽字符与隐藏 Unicode：描述与正文只能包含可见字符，这些字符正是用来夹带指令的"),
+    (("npx",), "禁止 npx 从远程 URL 自动安装即执行：提交 lockfile 并用 npm ci 安装已审计的本地依赖"),
+    (("curl", "wget", "/dev/tcp", "base64 -d"), "移除「下载即执行」：先下载再校验哈希后执行，或改为依赖已发布的包"),
+    (("postinstall", "preinstall", "postpublish"), "禁用或人工审计安装期脚本，用 --ignore-scripts 安装后单独 review hook"),
+    (("exec", "eval", "os.system", "system", "subprocess", "child_process", "popen", "spawn"), "移除命令执行拼接，改用参数化调用（execFile/子进程参数列表）或白名单命令，且不接受用户输入直接进入"),
+    (("chmod(",), "不要给文件或目录设 777：按实际用途收敛到最小权限"),
+    (("permission", "all_urls", "host_permission"), "把通配符/全 URL 权限换成明确的域名与路径白名单"),
+    (("environ", "process.env", ".env"), "不要全量导出环境变量；按最小必要读取指定键，且不要把 env 打进日志"),
+    (("requests", "axios", "fetch", "urlopen", "urllib", "socket", "webSocket"), "审查每处网络请求的目标域名，接入 URL 白名单，禁止向不可信地址发送数据"),
+    (("pickle", "yaml.load", "marshal", "shelve"), "禁止对不可信数据反序列化，改用 JSON 或带 safe_load 的解析器"),
+    (("verify=false", "insecure", "cert_none", "rejectunauthorized"), "启用 TLS 证书校验，不要用 -k / verify=False 绕过证书验证"),
+    (("0.0.0.0",), "不要把服务绑定到所有网卡，仅绑定本机或内网地址并配合防火墙"),
+    (("sudo", "setuid", "chown"), "移除不必要的提权调用，把特权操作收敛到单独的最小权限步骤"),
+    (("remove|rename", "fs.(read", "path(", "shutil."), "收敛文件写权限到实际需要的目录，避免暴露完整文件系统操作能力"),
+    # ── 容器与沙箱逃逸面 ──
+    (("privileged", "docker.sock", "var/run/docker", "cap_add", "capsysadmin",
+      "hostpath", "hostnetwork", "hostpid", "hostipc", "unconfined", "userns",
+      "--cap-add", "--network", "--pid", "--ipc"),
+     "以最小特权运行容器：去掉 --privileged / cap-add ALL，宿主目录改为只读挂载，"
+     "网络与 PID/IPC namespace 与宿主隔离，绝不挂载 docker.sock"),
+    # ── 路径穿越 ──
+    (("../", "%2e%2e"), "对用户输入的路径做规范化并校验是否落在允许目录内，拒绝 .. 穿越与 URL 编码变体"),
+    # ── CORS 通配 ──
+    (("access-control-allow-origin", "cors("), "禁止 CORS 通配符与 credentials 同用，按具体来源白名单收敛"),
+    # ── 代理自主性（ASI）──
+    (("exploit", "fuzz", "vulnerab"), "禁止代理自主生成或执行漏洞利用：降级为需要人工审批的分析任务，并限制其在隔离环境中运行"),
+    (("eth_", "web3", "wallet", "solana", "metamask", "ledger", "mnemonic", "seed_phrase", "keystore", "0x[a-f"),
+     "代理不应持有或操作私钥/钱包：签名与转账移到受控的密钥托管，并加人工审批与金额上限"),
+    (("load_adapter", "load_lora", "add_adapter", "set_adapter", "from_pretrained",
+      "merge_and_unload", "peft"),
+     "禁止从不可信源加载模型权重或 LoRA 适配器：加载前校验来源与完整性，只允许登记过的仓库"),
+    (("记忆", "轨迹", "trajectory", "experience", "persist", "自启动", "定时任务", "后门", "守护进程"),
+     "对持久化写入（记忆/配置/自启动项）加白名单与审批，禁止代理自主改写自身指令或环境"),
+    (("发送", "上传", "传输", "提交", "泄露", "外传"), "禁止把用户数据外发到非白名单地址：所有外发需记录来源、目的地与审批记录"),
+    (("防火墙", "杀毒", "停用", "禁用", "关闭"), "禁止关闭防火墙/杀毒/安全监控：安全组件开关必须由独立管理面控制，代理无权自改"),
+    (("roleplay", "pretend", "act as", "play as"), "提示注入：把外部内容当作不可信数据而非指令，显式声明边界，并对输出做二次校验"),
+    (("bdan", "忘记", "无视", "突破", "解除", "变成"), "提示注入：把外部内容当作不可信数据而非指令，显式声明边界，并对输出做二次校验"),
+    (("访问|获取|读取",), "限制读取范围到实际需要的最小数据集，拒绝读取用户/系统/环境全量数据"),
+    (("fastboot", "idevice", "simctl", "frida", "adb"), "设备级操作（刷机/模拟器/越狱调试/adb shell）必须在隔离测试机上执行，不得暴露给代理默认可用环境"),
+    (("autonom", "unattended", "self-driving", "self_generated", "selfgenerated",
+      "self_modif", "self-modif", "self_modify"),
+     "为自主行为加预算与审批闸门：限制最大步数、资源上限与可写范围，禁止无界自循环与自我修改"),
+    (("build|construct|generate|compose",), "禁止代理自主生成可执行工件（exploit/脚本/配置）后直接执行，产出必须经人工审查"),
+]
+
+
+def _resolve_remediation(pattern, owasp_cat):
+    """为一条命中规则解析出具体的修复动作。"""
+    normalized = (pattern or "").replace("\\", "").lower()
+    for needles, fix in _REMEDIATION_TOKENS:
+        if any(n in normalized for n in needles):
+            return fix
+    if owasp_cat in _REMEDIATION_CATEGORY:
+        return _REMEDIATION_CATEGORY[owasp_cat]
+    if owasp_cat in _REMEDIATION_ASI:
+        return _REMEDIATION_ASI[owasp_cat]
+    return "移除或重构该处实现，并确认它确实属于必要的功能而不是遗留代码"
+
+
+# 已知类别规则的「类别-序号」稳定 id。dict 插入序稳定，因此序号可复现。
+_CATEGORY_SOURCES = [
+    (SANDBOX_RULES, "SANDBOX"),
+    (MCP01_RULES, "MCP01"), (MCP02_RULES, "MCP02"), (MCP03_RULES, "MCP03"),
+    (MCP04_RULES, "MCP04"), (MCP05_RULES, "MCP05"), (MCP06_RULES, "MCP06"),
+    (MCP07_RULES, "MCP07"), (MCP08_RULES, "MCP08"), (MCP09_RULES, "MCP09"),
+    (MCP10_RULES, "MCP10"), (ASI01_RULES, "ASI01"), (ASI02_RULES, "ASI02"),
+    (ASI03_RULES, "ASI03"), (ASI04_RULES, "ASI04"), (ASI05_RULES, "ASI05"),
+    (ASI06_RULES, "ASI06"), (ASI07_RULES, "ASI07"), (ASI08_RULES, "ASI08"),
+    (ASI09_RULES, "ASI09"), (ASI10_RULES, "ASI10"),
+    (ZH_PROMPT_INJECTION_RULES, "ZHPI"), (SKILL_EXTRA_RULES, "SKILL"),
+]
+_PATTERN_RULE_ID = {}
+for _src, _tag in _CATEGORY_SOURCES:
+    for _i, _p in enumerate(_src, 1):
+        _PATTERN_RULE_ID.setdefault(_p, "%s-%03d" % (_tag, _i))
+
+import hashlib as _hashlib
+
+
+# ============================================================
+# 引用上下文抑制（citation context suppression）
+# ============================================================
+# 2026-09-18 基线审计发现：防御类文档把攻击载荷当作**被检测对象**引用时，
+# 静态规则会照常命中，且在 SKILL.md 这类 agent 指令文件里不会走 is_doc 降级
+# （analyze() 明确认为指令载荷"就是 agent 的代码"），所以一条**纯防御**的
+# skill 文档会拿到一堆 critical 级 finding。
+#
+# 做法：不改任何正则（改正则是假阴性高发区），而是在 finding 生成时对命中点
+# 前后的窗口做一次元语言检测。出现 detects/catches/blocks/such as/fixture/
+# sample 这类词，说明规则命中的是"被讨论的载荷"而不是"被执行的动作"。
+#
+# 两个刻意的约束：
+#   * 只用保守标记词表。宁可漏抑制，也不能把真攻击压成 info。
+#   * `examples?|samples?|fixtures?` 前加 (?<![\w.]) —— 不加的话
+#     attacker.example 会命中 examples?，把真实 curl 载荷误抑制掉
+#     （2026-09-18 实测踩到这个坑）。
+#   * 前向窗口只给 60 字符且共用同一词表。攻击载荷后的续句（"then send the
+#     data to https://"）不含任何标记词，所以不会因此被抑制。
+_CITATION_BACK = 100
+_CITATION_FWD = 60
+_CITATION_MARKERS = re.compile(
+    r"(?i)(?:\b(?:detects?|detecting|catches?|catching|blocks?|blocked|prevents?|"
+    r"preventing|stops?|stopped|mitigat\w*|classif\w*|report(?:s|ed|ing)?|rumored|"
+    r"mentioned?|documents?)\b"
+    r"|\bsuch\s+as\b|\bpatterns?\s+like\b|\bfor\s+example\b|\be\.g\.?\b"
+    r"|(?<![\w.])\b(?:fixtures?|samples?|examples?)\b"
+    r"|\bis\s+the\s+canonical\b|\bused\s+(?:in\s+)?tests?\b|\bthreat\s+model\b"
+    r"|\bdocs?\s*[:=]|\bdetection\s+fixture\b)"
+)
+
+
+def _is_citation_context(content, pos):
+    """命中点是否处于引用/讨论语境（防御文档把载荷当作被检测对象）。"""
+    lo = max(0, pos - _CITATION_BACK)
+    hi = min(len(content), pos + _CITATION_FWD)
+    return bool(_CITATION_MARKERS.search(content[lo:hi]))
+
+
+def _rule_id(pattern, owasp_cat):
+    """稳定 rule_id：已知类别用「类别-序号」，其余用正则哈希前缀（不随加载顺序漂移）。"""
+    rid = _PATTERN_RULE_ID.get(pattern)
+    if rid:
+        return rid
+    digest = _hashlib.md5(pattern.encode("utf-8")).hexdigest()[:4].upper()
+    return "GEN-%s" % digest
+
+
 def analyze(files, tool_type="mcp"):
     """执行静态分析，返回findings和OWASP覆盖"""
     rules = get_all_rules(tool_type)
@@ -1310,21 +1592,40 @@ def analyze(files, tool_type="mcp"):
             if matches:
                 # 确定OWASP类别
                 owasp_cat = _get_owasp_category(pattern)
+                rid = _rule_id(pattern, owasp_cat)
+                fix = _resolve_remediation(pattern, owasp_cat)
                 for m in matches[:3]:  # 每模式最多3个匹配
                     line_num = content[:m.start()].count('\n') + 1
+                    # 列号（1-based）：命中点在所属行内的偏移，方便编辑器直接跳转
+                    col = m.start() - content.rfind('\n', 0, m.start())
                     actual_severity = severity
                     if is_doc and severity in ("critical", "high"):
                         actual_severity = "low"
                     elif is_doc and severity == "medium":
                         actual_severity = "info"
+                    # 引用上下文：防御文档把载荷当被检测对象讨论时，命中不改变
+                    # 规则本身，只降级并打标，便于报告层单独统计与用户复核。
+                    # 只作用于 critical/high/medium —— info 已经是最低档，无需再降。
+                    citation = _is_citation_context(content, m.start())
+                    if citation and actual_severity in ("critical", "high", "medium"):
+                        actual_severity = "low"
+                    suffix = ""
+                    if is_doc:
+                        suffix += " (文档示例)"
+                    if citation:
+                        suffix += " (引用上下文)"
                     findings.append({
                         "type": "dangerous_pattern",
+                        "rule_id": rid,
                         "severity": actual_severity,
-                        "description": desc + (" (文档示例)" if is_doc else ""),
+                        "description": desc + suffix,
                         "file": filepath,
                         "lines": str(line_num),
+                        "col": col,
                         "evidence": m.group()[:120],
                         "owasp_category": owasp_cat,
+                        "remediation": fix,
+                        "citation_context": citation,
                     })
 
     return {

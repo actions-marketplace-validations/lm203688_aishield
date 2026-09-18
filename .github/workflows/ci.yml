@@ -219,7 +219,12 @@ jobs:
 
     - name: Run Docker container (API server mode)
       run: |
+        # 容器默认以 root 运行，api/server.py 的 root 护栏会直接 exit(2)。
+        # 这里用护栏自己提供的显式逃生口（不是关掉护栏）：CI 容器是隔离的一次性
+        # 环境，且这个 job 的目的就是验证服务能起来；容器外的真实部署仍保持
+        # 默认拒绝 root。不加这个变量时健康检查会静默等到超时才失败。
         docker run -d -p 8450:8450 --name aishield-test \
+          -e AISHIELD_ALLOW_ROOT=1 \
           --entrypoint python aishield:test /app/api/server.py
 
     - name: Health check (retry up to 30s)

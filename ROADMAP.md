@@ -4,7 +4,7 @@
 
 ## Phase 1: 基础设施完善（已完成）
 
-- [x] OWASP MCP Top 10 对齐的 238 条安全规则
+- [x] OWASP MCP Top 10 对齐的 235 条安全规则
 - [x] MCP StreamableHTTP 端点（JSON-RPC 2.0）
 - [x] A2A Agent Card 自动发现
 - [x] Agent-First 一键入驻（注册 + API Key + 快速指引）
@@ -75,7 +75,7 @@
 ### 规则库增长
 - [ ] 开放规则贡献接口
 - [ ] 建立规则评审流程
-- [ ] 目标：规则库从 238 条增长到 500 条
+- [ ] 目标：规则库从 235 条增长到 500 条
 - [ ] 引入社区 CVE 案例库
 
 ## Phase 4: 商业化与信任层（6-12 个月）
@@ -143,11 +143,14 @@
 
 ## 自动采纳项（迭代闭环产出）
 
-> 由 feedback_aggregator 于 2026-09-15 自动聚合四路输入生成，每轮覆盖更新。勾选即视为已处理。
+> 由 feedback_aggregator 于 2026-09-18 自动聚合四路输入生成，每轮覆盖更新。勾选即视为已处理。
 
 | 优先级 | 来源 | 事项 | 参考 |
 |--------|------|------|------|
 | P1 | S2 生态位待办 | MCP 官方 Registry 收录：向 modelcontextprotocol/registry 提交 server.json —— 生态入口即用户入口 | — |
+| P1 | S3 体系问题 | 修复自动化体系缺陷 — M2 运行活性: 0 个任务超期未执行，1 个最近运行失败 —— 这是静默失效的典型信号 | — |
+| P1 | S3 体系问题 | 修复自动化体系缺陷 — M3 状态新鲜度: 状态域 ['distribution', 'intel', 'rules', 'flywheel', 'feature'] 的归属 workflow 超过阈值未成功运行 —— 对应环节可能已停摆 | — |
+| P1 | S4 情报驱动 | 评审本轮 2 条新增高危漏洞的检测覆盖情况 | — |
 | P2 | S1 用户反馈 | 📊 AIShield 项目迭代报告 (自动更新) | [链接](https://github.com/lm203688/aishield/issues/659) |
 | P2 | S2 生态位待办 | GitHub Topics 检索曝光：补齐 GitHub topics: ai-security —— 零成本获取平台内检索流量 | — |
 | P2 | S4 情报驱动 | 补齐 OWASP LLM Top10 未覆盖类别的检测规则：LLM02, LLM03, LLM04, LLM08, LLM09, LLM10 | — |

@@ -19,8 +19,8 @@
     ],
     "last_run": "2026-08-04T06:35:13.244491+00:00",
     "_source": "threat-intel-feed",
-    "_ts": "2026-09-15T08:42:33.204188+00:00",
-    "intel_total": 365
+    "_ts": "2026-09-18T08:14:05.734137+00:00",
+    "intel_total": 393
   },
   "history": [
     {
@@ -693,8 +693,80 @@
         "last_run": "2026-08-04T06:35:13.244491+00:00",
         "intel_total": 365
       }
+    },
+    {
+      "ts": "2026-09-16T08:33:55.957835+00:00",
+      "source": "threat-intel-feed",
+      "state": {
+        "total": 93,
+        "added": 93,
+        "high_new": 10,
+        "stats": {
+          "high": 43,
+          "medium": 24,
+          "critical": 9,
+          "unknown": 13,
+          "low": 3,
+          "moderate": 1
+        },
+        "sources": [
+          "osv",
+          "nvd",
+          "github-advisory"
+        ],
+        "last_run": "2026-08-04T06:35:13.244491+00:00",
+        "intel_total": 383
+      }
+    },
+    {
+      "ts": "2026-09-17T08:38:56.289736+00:00",
+      "source": "threat-intel-feed",
+      "state": {
+        "total": 93,
+        "added": 93,
+        "high_new": 2,
+        "stats": {
+          "high": 43,
+          "medium": 24,
+          "critical": 9,
+          "unknown": 13,
+          "low": 3,
+          "moderate": 1
+        },
+        "sources": [
+          "osv",
+          "nvd",
+          "github-advisory"
+        ],
+        "last_run": "2026-08-04T06:35:13.244491+00:00",
+        "intel_total": 386
+      }
+    },
+    {
+      "ts": "2026-09-18T08:14:05.734156+00:00",
+      "source": "threat-intel-feed",
+      "state": {
+        "total": 93,
+        "added": 93,
+        "high_new": 3,
+        "stats": {
+          "high": 43,
+          "medium": 24,
+          "critical": 9,
+          "unknown": 13,
+          "low": 3,
+          "moderate": 1
+        },
+        "sources": [
+          "osv",
+          "nvd",
+          "github-advisory"
+        ],
+        "last_run": "2026-08-04T06:35:13.244491+00:00",
+        "intel_total": 393
+      }
     }
   ],
-  "updated": "2026-09-15T08:42:33.204211+00:00",
+  "updated": "2026-09-18T08:14:05.734160+00:00",
   "desc": "威胁情报采集与转化结果"
 }

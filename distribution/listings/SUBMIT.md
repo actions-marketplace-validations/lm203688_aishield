@@ -26,13 +26,13 @@
 **标题/Name**：`AIShield (local, open-source)`
 
 **一句话描述（Short）**：
-> Local-first, open-source AI-tool security scanner for MCP servers, AI skills, GPTs and prompts. OWASP MCP Top 10 + Agentic ASI01–10. 238 MCP / 244 skill rules. Runs fully offline — your code never leaves your machine.
+> Local-first, open-source AI-tool security scanner for MCP servers, AI skills, GPTs and prompts. OWASP MCP Top 10 + Agentic ASI01–10. 235 MCP / 241 skill rules. Runs fully offline — your code never leaves your machine.
 
-> ⚠️ **规则数基线（2026-09-15 起）**：**238 MCP / 244 Skill**（静态 210 + 情报 9 + 雷达 19）。
+> ⚠️ **规则数基线（2026-09-15 起）**：**235 MCP / 241 Skill**（静态 208 + 情报 8 + 雷达 19）。
 > 本文件已同步；仓库内其余营销/品牌文档仍写着历史值 **227/233**，属已知 drift，待统一 sweep。
 
 **长描述（Long）**：
-> AIShield is a **local-first, open-source** security scanner for the agent ecosystem. It scans MCP servers, AI skills, GPTs and prompts for tool poisoning, prompt injection and supply-chain risks, aligned to OWASP MCP Top 10 + Agentic AI Top 10 (ASI01–ASI10). The rule base covers 238 MCP + 244 skill rules, with zero third-party runtime dependencies (urllib only) and an optional remote LLM semantic backend.
+> AIShield is a **local-first, open-source** security scanner for the agent ecosystem. It scans MCP servers, AI skills, GPTs and prompts for tool poisoning, prompt injection and supply-chain risks, aligned to OWASP MCP Top 10 + Agentic AI Top 10 (ASI01–ASI10). The rule base covers 235 MCP + 241 skill rules, with zero third-party runtime dependencies (urllib only) and an optional remote LLM semantic backend.
 >
 > **Why local-first matters:** AIShield runs entirely on your machine. It never uploads your code or config, never spawns commands found inside the artifact being scanned, and can run 100% offline. This is the open-source edition — distinct from the cloud SaaS `aishield.ai`.
 
@@ -161,8 +161,8 @@
 | DSH | ❌ | ✅ 全套 | 投稿+npm |
 | TeamAI | ✅ **source 已就绪（2026-09-15，无需账号）** | ✅ `teamai.yaml` + `skills/aishield-scan/SKILL.md` | 无 |
 | CocoLoop | 🟡 **文案就绪，待注册**（2026-09-15） | ✅ LISTING.md | 注册 + 社区投稿 |
-| aishield.tools 静态发现文件 | ✅ **已修复 4.3.0 → 238 MCP/244 Skill**（2026-09-15 sweep 复测） | ✅ main 已同步 | 无 |
-| aishield.tools `/api/v1` 后端 | ✅ **已修复 4.3.0/238**（2026-09-15；规则数为服务端计算） | — | 无 |
+| aishield.tools 静态发现文件 | ✅ **已修复 4.3.0 → 235 MCP/241 Skill**（2026-09-15 sweep 复测） | ✅ main 已同步 | 无 |
+| aishield.tools `/api/v1` 后端 | ✅ **4.3.0/235**（仓库代码 208 static + 8 intel + 19 radar，2026-09-18 去重+精简后；线上实测仍为 238，待 03:17 spine 下一次部署生效——PAT 缺 `Workflows:write`，无法手动 `workflow_dispatch`） | — | 部署时滞 |
 | GitHub Pages（github.io） | ⛔ **死端表面**：301→aishield.tools，内容不可达 | — | 无（勿再修，见下） |
 
 ### 表面拓扑（2026-08-22 实测厘清）
