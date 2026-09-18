@@ -99,6 +99,34 @@ jobs:
           python -m py_compile api/server.py scanner/*.py scripts/*.py
           for f in eco/*.py; do python -m py_compile "$f" || exit 1; done
 
+      # 【2026-09-18 修复】原实现让 VPS 自己 `git pull origin main` 同步代码，
+      # 但 VPS 到 github.com 的网络已被实证不通（09-06 部署日志铁证：fetch 失败被
+      # 吞掉后 reset 到陈旧的本地 origin/main 引用，线上长期停在旧代码）。
+      # 结果：「自愈」跑的是 VPS 磁盘上的陈旧脚本 —— 用旧代码修旧代码，
+      # 新版本引入的问题永远修不好（09-17~09-18 的 502 失活即此路径之一）。
+      # 现与 deploy-server.yml 对齐：runner 打包 tarball 经 SSH 投递，
+      # git pull 仅作 tarball 未送达时的兜底。
+      - name: Upload code tarball to VPS
+        env:
+          SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+          SERVER_PORT: ${{ secrets.SERVER_PORT || 22 }}
+        run: |
+          if [ -z "$SERVER_HOST" ] || [ -z "$SERVER_SSH_KEY" ]; then
+            echo "::warning::未配置服务器凭据，跳过 tarball 投递"
+            exit 0
+          fi
+          mkdir -p ~/.ssh
+          echo "$SSH_KEY" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H "$SERVER_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          tar czf /tmp/aishield-code.tgz --exclude=.git .
+          ls -la /tmp/aishield-code.tgz
+          scp -o StrictHostKeyChecking=no -P "${SERVER_PORT:-22}" \
+            /tmp/aishield-code.tgz "$SERVER_USER@$SERVER_HOST":/tmp/aishield-code.tgz
+          echo "tarball 上传完成"
+
       - name: Redeploy to server
         id: deploy
         env:
@@ -135,7 +163,12 @@ jobs:
             "cd /opt/aishield 2>/dev/null || cd ~/aishield 2>/dev/null || { echo 'FATAL: 目标目录不存在'; exit 1; }; \
              echo '=== VPS 预检 ==='; \
              echo \"user=\$(whoami) dir=\$(pwd) deploy_sha=$DEPLOY_SHA\"; \
-             git pull origin main 2>&1 | tail -8 || echo 'WARN: git pull 失败（VPS 到 github.com 网络不通，deploy 脚本走 tarball/raw 兜底）'; \
+             if [ -s /tmp/aishield-code.tgz ]; then \
+               tar xzf /tmp/aishield-code.tgz -C . && rm -f /tmp/aishield-code.tgz && echo 'tarball unpacked OK（权威代码源 = runner checkout 产物）'; \
+             else \
+               echo 'WARN: tarball 未送达，回退 git pull（VPS 到 github.com 网络可能不通）'; \
+               git pull origin main 2>&1 | tail -8 || echo 'WARN: git pull 失败，磁盘维持旧代码'; \
+             fi; \
              chmod +x scripts/deploy-named-tunnel.sh; \
              DEPLOY_SHA=$DEPLOY_SHA bash scripts/deploy-named-tunnel.sh; \
              rc=\$?; \
