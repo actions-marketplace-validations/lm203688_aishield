@@ -1,7 +1,40 @@
 {
-  "generated_at": "2026-09-17T08:38:22.767849+00:00",
-  "source_intel_count": 386,
+  "generated_at": "2026-09-18T08:13:33.871502+00:00",
+  "source_intel_count": 393,
   "package_blacklist": {
+    "pip:RestrictedPython": {
+      "ecosystem": "pip",
+      "package": "RestrictedPython",
+      "severity": "high",
+      "advisories": [
+        "GHSA-hp3v-5vw7-fx9w",
+        "GHSA-ffg3-p8fm-mjx2"
+      ]
+    },
+    "npm:@tinacms/auth": {
+      "ecosystem": "npm",
+      "package": "@tinacms/auth",
+      "severity": "high",
+      "advisories": [
+        "GHSA-g74q-6g2f-874x"
+      ]
+    },
+    "npm:next-tinacms-azure": {
+      "ecosystem": "npm",
+      "package": "next-tinacms-azure",
+      "severity": "high",
+      "advisories": [
+        "GHSA-g74q-6g2f-874x"
+      ]
+    },
+    "npm:@cyclonedx/cyclonedx-npm": {
+      "ecosystem": "npm",
+      "package": "@cyclonedx/cyclonedx-npm",
+      "severity": "high",
+      "advisories": [
+        "GHSA-q69g-4hcv-6jg4"
+      ]
+    },
     "pip:lmdeploy": {
       "ecosystem": "pip",
       "package": "lmdeploy",
@@ -287,14 +320,6 @@
       "severity": "high",
       "advisories": [
         "GHSA-73wf-gq98-2v4g"
-      ]
-    },
-    "pip:RestrictedPython": {
-      "ecosystem": "pip",
-      "package": "RestrictedPython",
-      "severity": "high",
-      "advisories": [
-        "GHSA-ffg3-p8fm-mjx2"
       ]
     },
     "pip:Protego": {
@@ -849,6 +874,66 @@
     }
   },
   "pattern_rules": {
+    "(?i)(docker\\.sock|/proc/self/|privileged\\s*[:=]\\s*true|--cap-add\\s*=?\\s*SYS_ADMIN)": {
+      "description": "沙箱逃逸: 容器高危配置",
+      "severity": "critical",
+      "owasp": "LLM05",
+      "owasp_name": "不当输出处理 (Improper Output Handling)",
+      "derived_from": "sandbox escape",
+      "intel_hits": 11,
+      "evidence": [
+        "GHSA-hp3v-5vw7-fx9w",
+        "GHSA-6xcw-7xm6-48c6",
+        "GHSA-hw8v-xxg5-vvvx",
+        "GHSA-89v8-rhwq-hf77",
+        "GHSA-9w56-46f6-3qhx"
+      ]
+    },
+    "(?i)(os\\.system|subprocess\\.(call|run|Popen)|child_process\\.exec)\\s*\\(\\s*[^)]*(\\+|%|\\$\\{|f['\\\"])": {
+      "description": "命令注入: 动态拼接系统命令",
+      "severity": "critical",
+      "owasp": "LLM05",
+      "owasp_name": "不当输出处理 (Improper Output Handling)",
+      "derived_from": "command injection",
+      "intel_hits": 12,
+      "evidence": [
+        "GHSA-q69g-4hcv-6jg4",
+        "GHSA-79wm-x847-7cvg",
+        "GHSA-w3fx-mc44-mf6j",
+        "GHSA-p853-83gj-wjj3",
+        "GHSA-rghg-q7wp-9767"
+      ]
+    },
+    "(?i)(requests\\.(get|post)|urllib\\.request\\.urlopen|fetch)\\s*\\(\\s*[^)]*(user|input|param|req\\.)": {
+      "description": "SSRF: 请求目标来自不可信输入",
+      "severity": "high",
+      "owasp": "LLM06",
+      "owasp_name": "过度代理权限 (Excessive Agency)",
+      "derived_from": "ssrf",
+      "intel_hits": 32,
+      "evidence": [
+        "GHSA-q8hw-4fvp-9rwv",
+        "CVE-2026-73497",
+        "GHSA-65h7-9wrw-629c",
+        "GHSA-4hhp-h66f-j5j7",
+        "GHSA-6v2g-fpxh-pmmh"
+      ]
+    },
+    "(?i)(Access-Control-Allow-Origin['\\\"]?\\s*[:,]\\s*['\\\"]\\*|cors\\s*\\(\\s*\\)\\s*)": {
+      "description": "跨域校验缺失: 允许任意来源",
+      "severity": "high",
+      "owasp": "LLM07",
+      "owasp_name": "系统提示泄露 (System Prompt Leakage)",
+      "derived_from": "origin",
+      "intel_hits": 40,
+      "evidence": [
+        "GHSA-q8hw-4fvp-9rwv",
+        "GHSA-vmp7-252j-cwp7",
+        "GHSA-65h7-9wrw-629c",
+        "GHSA-rqfv-2mw9-78g2",
+        "GHSA-cw9w-vv67-hf73"
+      ]
+    },
     "(?i)(pickle\\.loads|yaml\\.load\\s*\\((?![^)]*Loader)|node-serialize)": {
       "description": "不安全反序列化",
       "severity": "critical",
@@ -875,21 +960,6 @@
         "CVE-2026-59971",
         "CVE-2026-55837",
         "GHSA-h8m9-jgf8-vwvp"
-      ]
-    },
-    "(?i)(Access-Control-Allow-Origin['\\\"]?\\s*[:,]\\s*['\\\"]\\*|cors\\s*\\(\\s*\\)\\s*)": {
-      "description": "跨域校验缺失: 允许任意来源",
-      "severity": "high",
-      "owasp": "LLM07",
-      "owasp_name": "系统提示泄露 (System Prompt Leakage)",
-      "derived_from": "origin",
-      "intel_hits": 39,
-      "evidence": [
-        "GHSA-vmp7-252j-cwp7",
-        "GHSA-65h7-9wrw-629c",
-        "GHSA-rqfv-2mw9-78g2",
-        "GHSA-cw9w-vv67-hf73",
-        "GHSA-q5wm-mgqx-fv2f"
       ]
     },
     "(?i)(ignore|disregard|forget)\\s+(all\\s+)?(previous|prior|above)\\s+(instruction|prompt|rule)": {
@@ -922,21 +992,6 @@
         "GHSA-jmc6-2wr8-h3wj"
       ]
     },
-    "(?i)(requests\\.(get|post)|urllib\\.request\\.urlopen|fetch)\\s*\\(\\s*[^)]*(user|input|param|req\\.)": {
-      "description": "SSRF: 请求目标来自不可信输入",
-      "severity": "high",
-      "owasp": "LLM06",
-      "owasp_name": "过度代理权限 (Excessive Agency)",
-      "derived_from": "ssrf",
-      "intel_hits": 31,
-      "evidence": [
-        "CVE-2026-73497",
-        "GHSA-65h7-9wrw-629c",
-        "GHSA-4hhp-h66f-j5j7",
-        "GHSA-6v2g-fpxh-pmmh",
-        "GHSA-4mvj-m6j5-pmf7"
-      ]
-    },
     "(?i)(\\.\\./){2,}|(%2e%2e%2f)": {
       "description": "路径遍历: 越权访问上级目录",
       "severity": "high",
@@ -951,43 +1006,13 @@
         "GHSA-f833-7jw8-xwrv",
         "GHSA-x8wg-4xgc-vr54"
       ]
-    },
-    "(?i)(docker\\.sock|/proc/self/|privileged\\s*[:=]\\s*true|--cap-add\\s*=?\\s*SYS_ADMIN)": {
-      "description": "沙箱逃逸: 容器高危配置",
-      "severity": "critical",
-      "owasp": "LLM05",
-      "owasp_name": "不当输出处理 (Improper Output Handling)",
-      "derived_from": "sandbox escape",
-      "intel_hits": 10,
-      "evidence": [
-        "GHSA-6xcw-7xm6-48c6",
-        "GHSA-hw8v-xxg5-vvvx",
-        "GHSA-89v8-rhwq-hf77",
-        "GHSA-9w56-46f6-3qhx",
-        "GHSA-m283-3h24-438v"
-      ]
-    },
-    "(?i)(os\\.system|subprocess\\.(call|run|Popen)|child_process\\.exec)\\s*\\(\\s*[^)]*(\\+|%|\\$\\{|f['\\\"])": {
-      "description": "命令注入: 动态拼接系统命令",
-      "severity": "critical",
-      "owasp": "LLM05",
-      "owasp_name": "不当输出处理 (Improper Output Handling)",
-      "derived_from": "command injection",
-      "intel_hits": 11,
-      "evidence": [
-        "GHSA-79wm-x847-7cvg",
-        "GHSA-w3fx-mc44-mf6j",
-        "GHSA-p853-83gj-wjj3",
-        "GHSA-rghg-q7wp-9767",
-        "GHSA-73wf-9vmv-5pv9"
-      ]
     }
   },
   "owasp_distribution": {
     "LLM05": 3,
+    "LLM06": 2,
     "LLM07": 3,
-    "LLM01": 1,
-    "LLM06": 2
+    "LLM01": 1
   },
-  "total_rules": 100
+  "total_rules": 103
 }
