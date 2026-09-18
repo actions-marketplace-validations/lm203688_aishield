@@ -178,6 +178,16 @@ api_healthy() {
 
 api_start_nohup() {
     export PORT=8450
+    # 【2026-09-18】线上失活的确切根因。api/server.py::assert_not_root() 拒绝以
+    # root 运行（09-16 落地的执行身份护栏，借鉴 Shannon #323），而本机的部署身份
+    # 是 root（systemd 服务、systemctl 都需要 root）。于是 API 进程「启动即退出」：
+    #   AIShield refuses to run as root. ... Run as a normal user, or set
+    #   AISHIELD_ALLOW_ROOT=1 inside a container.
+    # 3 轮重试每轮都是同一条拒绝日志，STEP 8 因此永远 `--- API --- FAIL`，
+    # 域名稳定 502（cloudflared 存活、后端无进程）。
+    # 本 VPS 是专用部署机、root 运行是既定架构，故显式放行并留痕（server 会打
+    # WARNING 日志）。这是有意识的决定，不是删护栏。
+    export AISHIELD_ALLOW_ROOT=1
     nohup python3 "${API_DIR}/api/server.py" >> /tmp/aishield-api.log 2>&1 &
 }
 
@@ -197,6 +207,9 @@ Type=simple
 WorkingDirectory=${API_DIR}
 Environment=PORT=8450
 Environment=PYTHONUNBUFFERED=1
+# 【2026-09-18】同 api_start_nohup：systemd 以 root 拉起 API，
+# assert_not_root() 会 sys.exit(2)，服务永远停在 failed 状态。
+Environment=AISHIELD_ALLOW_ROOT=1
 ExecStart=/bin/sh -c 'exec $(command -v python3) ${API_DIR}/api/server.py >> /tmp/aishield-api.log 2>&1'
 Restart=always
 RestartSec=5
@@ -499,8 +512,33 @@ fi
 # ========== STEP 6: 启动 Tunnel ==========
 log "=== STEP 6: 启动 Tunnel ==="
 
-# 停止现有 cloudflared
-pkill -f "cloudflared" 2>/dev/null || true
+# 停止现有 cloudflared 实例。
+# 【2026-09-18 修复】原 `pkill -f "cloudflared"` 有两个后果：
+#   1) 杀掉同机**所有**项目的 cloudflared。本机是多项目共享（tunnel 列表里同时存在
+#      aishield-tunnel / aishield.tools / healthlens / healthlens-tunnel），每次部署
+#      都会把 healthlens 等其他项目的隧道一并打断；
+#   2) 与 STEP 7 的 `systemctl restart cloudflared-tunnel` 叠加，会让 nohup 实例和
+#      systemd 实例同时持有同一 tunnel ID。Cloudflare 限制单 tunnel 的并发连接数，
+#      两个实例互相把对方踢下线，日志表现为反复 `ERR no more connections active
+#      and exiting` —— 隧道看起来活着，实际处于不稳定抖动。
+# 现改为：按 PID 文件停止自己上次启动的实例 + 按本项目 config 路径精确匹配兜底，
+# systemd 托管的实例走 systemctl stop（不动任何非 systemd 进程）。
+AISHIELD_CF_PIDFILE="${CRED_DIR}/tunnel.pid"
+if [ -f "$AISHIELD_CF_PIDFILE" ]; then
+    OLD_CF_PID=$(cat "$AISHIELD_CF_PIDFILE" 2>/dev/null)
+    if [ -n "$OLD_CF_PID" ] && kill -0 "$OLD_CF_PID" 2>/dev/null; then
+        log "停止上次启动的 cloudflared (PID ${OLD_CF_PID})"
+        kill "$OLD_CF_PID" 2>/dev/null || true
+    fi
+    rm -f "$AISHIELD_CF_PIDFILE"
+fi
+if systemctl is-active cloudflared-tunnel >/dev/null 2>&1; then
+    log "systemd 托管中 -> systemctl stop cloudflared-tunnel"
+    systemctl stop cloudflared-tunnel 2>/dev/null || true
+else
+    # 只匹配本项目的 config 路径；healthlens 用 /etc/cloudflared-healthlens/，不匹配
+    pkill -f '\.cloudflared/config\.yml' 2>/dev/null || true
+fi
 sleep 3
 
 if [ "$TUNNEL_MODE" = "cert" ] && [ -n "$TUNNEL_ID" ]; then
@@ -508,12 +546,14 @@ if [ "$TUNNEL_MODE" = "cert" ] && [ -n "$TUNNEL_ID" ]; then
     log "使用 config: $CONFIG_FILE"
     nohup "$CF_BIN" tunnel --config "$CONFIG_FILE" run > /tmp/cloudflared.log 2>&1 &
     CF_PID=$!
+    echo "$CF_PID" > "${CRED_DIR}/tunnel.pid" 2>/dev/null || true
     log "cloudflared PID: $CF_PID"
 
 elif [ "$TUNNEL_MODE" = "token" ] && [ -n "$TUNNEL_TOKEN" ]; then
     log "启动 Named Tunnel (token 模式)..."
     nohup "$CF_BIN" tunnel run --token "$TUNNEL_TOKEN" > /tmp/cloudflared.log 2>&1 &
     CF_PID=$!
+    echo "$CF_PID" > "${CRED_DIR}/tunnel.pid" 2>/dev/null || true
     log "cloudflared PID: $CF_PID"
 
 else
@@ -521,6 +561,7 @@ else
     TUNNEL_MODE="quick"
     nohup "$CF_BIN" tunnel --url http://localhost:8450 > /tmp/cloudflared.log 2>&1 &
     CF_PID=$!
+    echo "$CF_PID" > "${CRED_DIR}/tunnel.pid" 2>/dev/null || true
     log "Quick Tunnel PID: $CF_PID"
 fi
 
@@ -562,9 +603,11 @@ if ! curl -sf --max-time 5 http://127.0.0.1:8450/api/v1/health >/dev/null 2>&1; 
     elif systemctl is-enabled aishield-api >/dev/null 2>&1; then
         systemctl start aishield-api 2>/dev/null || true
     elif [ -f /opt/aishield/api/server.py ]; then
-        (cd /opt/aishield && PORT=8450 nohup python3 api/server.py >> /tmp/aishield-api.log 2>&1 &)
+        # 【2026-09-18】与 install_api_service / api_start_nohup 一致：
+        # systemd 以 root 运行，assert_not_root() 会拒绝启动（线上 502 的根因）。
+        (cd /opt/aishield && PORT=8450 AISHIELD_ALLOW_ROOT=1 nohup python3 api/server.py >> /tmp/aishield-api.log 2>&1 &)
     elif [ -f "$HOME/aishield/api/server.py" ]; then
-        (cd "$HOME/aishield" && PORT=8450 nohup python3 api/server.py >> /tmp/aishield-api.log 2>&1 &)
+        (cd "$HOME/aishield" && PORT=8450 AISHIELD_ALLOW_ROOT=1 nohup python3 api/server.py >> /tmp/aishield-api.log 2>&1 &)
     fi
     for _i in 1 2 3 4 5 6; do
         curl -sf --max-time 5 http://127.0.0.1:8450/api/v1/health >/dev/null 2>&1 && break
@@ -610,13 +653,28 @@ SVCEOF
 
 systemctl daemon-reload 2>/dev/null
 systemctl enable cloudflared-tunnel 2>/dev/null
+# 【2026-09-18】STEP 6 的 nohup 实例与 systemd 实例会同时持有同一 tunnel ID，
+# 互相踢连接（日志铁证：反复 `ERR no more connections active and exiting`，
+# 随后 `Tunnel server stopped`）。systemd 是权威的、带 Restart=always 的单实例，
+# 接管前必须先停掉 nohup 那份。
+if [ -n "${CF_PID:-}" ] && kill -0 "$CF_PID" 2>/dev/null; then
+    log "停止 nohup cloudflared (PID ${CF_PID}) -> 交由 systemd 单实例托管"
+    kill "$CF_PID" 2>/dev/null || true
+    sleep 2
+fi
+rm -f "${CRED_DIR}/tunnel.pid" 2>/dev/null || true
 systemctl restart cloudflared-tunnel 2>/dev/null
 log "systemd 服务已配置"
 
 # Cron 备用保活
-CRON_LINE="* * * * * pgrep -f 'cloudflared tunnel' > /dev/null 2>&1 || /opt/start-tunnel.sh >> /tmp/cloudflared.log 2>&1"
-( crontab -l 2>/dev/null | grep -v 'cloudflared' ; echo "$CRON_LINE" ) | crontab - 2>/dev/null
-log "Cron 保活已设置"
+# 【2026-09-18】原条件 `pgrep -f 'cloudflared tunnel'` 会被同机**其他项目**的
+# tunnel 满足（healthlens-tunnel 的命令行同样含 `cloudflared tunnel`），于是
+# aishield 自己的隧道死了也不会被拉起 —— 一次「假活」。
+# 改为本项目 API 健康探测：API 不健康就拉起 start-tunnel.sh，而该脚本内部
+# 先确保 API 就绪再放行隧道，因此一个条件同时覆盖 API 与隧道两层。
+CRON_LINE="* * * * * curl -sf --max-time 6 http://127.0.0.1:8450/api/v1/health >/dev/null 2>&1 || /opt/start-tunnel.sh >> /tmp/cloudflared.log 2>&1"
+( crontab -l 2>/dev/null | grep -v 'start-tunnel.sh\|cloudflared' ; echo "$CRON_LINE" ) | crontab - 2>/dev/null
+log "Cron 保活已设置（以本项目 API 健康为判据，不被他项目 tunnel 假满足）"
 
 # ========== STEP 8: 验证 ==========
 log "=== STEP 8: 验证 ==="
