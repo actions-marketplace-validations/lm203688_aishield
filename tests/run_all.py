@@ -75,6 +75,7 @@ def main():
         'tests.test_memory_integrity_scan',
         'tests.test_promote_rule_shadow',  # shadow/enforce 双模式 + 雷达加载期字段契约
         'tests.test_deployment_root_guard',  # 2026-09-18：root 护栏与部署身份冲突 = 20.5h 静默 502
+        'tests.test_deployment_observability',  # 退出码传导契约：诊断语句不得抢占部署/自愈的退出码
     ]
 
     loaded = 0
