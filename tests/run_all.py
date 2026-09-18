@@ -74,6 +74,7 @@ def main():
         # 2026-09-17 新增扫描器（ASI04 记忆完整性）的回归测试
         'tests.test_memory_integrity_scan',
         'tests.test_promote_rule_shadow',  # shadow/enforce 双模式 + 雷达加载期字段契约
+        'tests.test_deployment_root_guard',  # 2026-09-18：root 护栏与部署身份冲突 = 20.5h 静默 502
     ]
 
     loaded = 0
