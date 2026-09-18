@@ -1355,6 +1355,159 @@ def get_agentic_coverage(findings):
     }
 
 
+# ============================================================
+# 精确锚点：per-finding 修复建议 + 稳定 rule_id
+# ============================================================
+# 背景：静态规则产出的 finding 长期只有 type=“dangerous_pattern” 这一个标签，
+# 用户拿到「命令执行」却不知道该换掉 exec() 还是改参数化调用；description 是
+# 「说了什么」，remediation 才是「怎么改」，两者不能互相替代。全局
+# recommendations 只有几条笼统话术，无法对应到具体那一条 finding。
+#
+# 做法：不在 210 条规则里逐条手写修复文案（维护成本不划算、且会和规则正文脱节），
+# 而是按「规则正则里出现的关键 token」解析出最贴切的修复动作，再按 OWASP 类别
+# 兜底。token 表按「越具体越靠前」排序 —— 先匹配到具体动作就不再看类别兜底。
+#
+# rule_id 必须稳定：用户拿它去查规则库/提 issue/做去重。已知类别的静态规则用
+# 「类别-序号」（dict 插入序在 Python 3.7+ 稳定）；动态规则与未归类规则用
+# 正则串的哈希前缀，保证不随 JSON 加载顺序漂移。
+# ============================================================
+
+_REMEDIATION_CATEGORY = {
+    "MCP01": "把敏感信息移出代码仓库，改用环境变量或密钥管理服务注入；已泄露的凭据必须在服务商控制台吊销并轮换，仅从代码里删除是不够的",
+    "MCP02": "把权限声明收紧到实际需要的最小集合，移除通配符、all 与全量访问，并按操作拆分独立权限",
+    "MCP03": "审查工具描述与文档正文，清除零宽字符/注释/Unicode 转义中夹带的隐藏指令；描述与代码行为必须一致",
+    "MCP04": "锁定依赖精确版本并提交 lockfile，安装前校验包的存在性/包龄/下载量，禁用不可信的安装脚本",
+    "MCP05": "不要执行拼接自用户输入的命令，改用参数化调用或白名单命令；对必须执行的外部进程收敛可执行范围",
+    "MCP06": "把外部内容当作不可信输入处理，注入模型前先做指令隔离与长度限制，并对输出做二次校验",
+    "MCP07": "为服务端点加上认证与最小授权，区分只读与写操作权限，拒绝匿名访问敏感接口",
+    "MCP08": "补齐结构化日志与审计事件，记录关键操作的主体/动作/结果，并接入异常告警",
+    "MCP09": "清点并登记所有运行的 MCP 服务端点，纳入统一的接入审批与生命周期管理",
+    "MCP10": "按最小必要原则裁剪传递给外部工具的上下文，脱敏后再外发，并明确数据流向",
+}
+_REMEDIATION_ASI = {
+    "ASI01": "收敛外部内容的注入面，对工具返回值与检索结果做标记与边界隔离",
+    "ASI02": "对工具与技能做来源校验与完整性签名，禁止从不可信源自动加载",
+    "ASI03": "在委派与子代理边界上重放权限校验，禁止子代理隐式继承父级全部权限",
+    "ASI04": "为记忆与上下文持久化做访问控制与过期清理，防止跨会话泄露",
+    "ASI05": "对多代理协作的通信做身份认证与内容审计，阻断代理间的欺骗路径",
+    "ASI06": "对自主决策加预算与审批闸门，禁止无界自循环与无上限资源消耗",
+    "ASI07": "隔离每个代理的可写范围，禁止跨会话共享可执行上下文",
+    "ASI08": "提供可终止的运行时开关，允许外部强制中止失控的代理行为",
+    "ASI09": "为代理行为保留完整可追溯的执行轨迹，支持事后审计与复现",
+    "ASI10": "对代理对外部系统的写操作加白名单与速率限制，禁止未审批的对外变更",
+}
+
+# token -> 具体修复动作。顺序敏感：越具体越靠前。
+#
+# 匹配对象是「规则正则源码」而不是命中文本 —— 规则本身就知道它检测的是什么。
+# 但正则源码里满是反斜杠转义（`os\.system`、`\[=:\]`、`\s*`），直接拿它当正则再匹配一次
+# 必然转义错位（曾把 `[=:]` 误写成 `\[?=:`，导致 API Key 规则掉到类别兜底文案）。
+# 因此先剥掉所有反斜杠做归一化，再用纯子串匹配：确定、无转义歧义。
+# 每条的 needles 是「任一命中即算」的候选列表。
+_REMEDIATION_TOKENS = [
+    (("private key",), "把私钥移出仓库，用环境变量或密钥管理服务承载，并用 BFG/force-push 从 git 历史中彻底清除"),
+    (("mongodb", "postgres", "mysql", "redis", "mariadb"), "把数据库连接串（含明文密码）移入环境变量或密钥管理服务，并轮换该密码"),
+    (("sk-ant",), "这是 Anthropic 密钥：立即在控制台吊销并轮换，再从代码与 git 历史中删除"),
+    (("sk-",), "这是 OpenAI 密钥：立即在控制台吊销并轮换，再从代码与 git 历史中删除"),
+    (("akia", "agpa", "aida", "aroa", "asias"), "这是 AWS Access Key：立即在 IAM 中禁用并轮换，检查 CloudTrail 是否已被使用"),
+    (("ghp_", "gho_", "github_pat"), "这是 GitHub 令牌：到 Settings > Tokens 撤销并重发，收敛到最小 scope"),
+    (("glpat-",), "这是 GitLab 令牌：到 Settings > Access Tokens 撤销并重发"),
+    (("xox",), "这是 Slack 令牌/Webhook：到 Slack 管理后台撤销并重发"),
+    (("apikey", "api_key"), "把 API Key 改为从环境变量读取，代码里只留变量名；已硬编码的值必须轮换"),
+    (("password", "passwd", "pwd"), "移除硬编码密码，改用密钥管理服务或环境变量；已进过版本库的密码视为已泄露，必须轮换"),
+    (("token", "bearer", "auth"), "把令牌改为运行时注入，禁止写入源码；已提交的令牌需在签发方撤销"),
+    # 隐藏指令必须早于命令执行 token：投毒规则里同样含 exec/eval/system 字样，
+    # 顺序反了会把这些 finding 的修复建议写成「改用参数化调用」。
+    (("ignore", "jailbreak", "bypass", "forget"), "提示注入：把外部内容当作不可信数据而非指令，显式声明边界，并对输出做二次校验"),
+    (("忽略", "跳过", "扮演", "假装", "取消", "复述", "重复", "系统指令", "不要", "作为"), "提示注入：把外部内容当作不可信数据而非指令，显式声明边界，并对输出做二次校验"),
+    (("u200b", "u200c", "u200d", "u2060", "ufeff", "x25b", "x25c", "x25d"), "清除零宽字符与隐藏 Unicode：描述与正文只能包含可见字符，这些字符正是用来夹带指令的"),
+    (("npx",), "禁止 npx 从远程 URL 自动安装即执行：提交 lockfile 并用 npm ci 安装已审计的本地依赖"),
+    (("curl", "wget", "/dev/tcp", "base64 -d"), "移除「下载即执行」：先下载再校验哈希后执行，或改为依赖已发布的包"),
+    (("postinstall", "preinstall", "postpublish"), "禁用或人工审计安装期脚本，用 --ignore-scripts 安装后单独 review hook"),
+    (("exec", "eval", "os.system", "system", "subprocess", "child_process", "popen", "spawn"), "移除命令执行拼接，改用参数化调用（execFile/子进程参数列表）或白名单命令，且不接受用户输入直接进入"),
+    (("chmod(",), "不要给文件或目录设 777：按实际用途收敛到最小权限"),
+    (("permission", "all_urls", "host_permission"), "把通配符/全 URL 权限换成明确的域名与路径白名单"),
+    (("environ", "process.env", ".env"), "不要全量导出环境变量；按最小必要读取指定键，且不要把 env 打进日志"),
+    (("requests", "axios", "fetch", "urlopen", "urllib", "socket", "webSocket"), "审查每处网络请求的目标域名，接入 URL 白名单，禁止向不可信地址发送数据"),
+    (("pickle", "yaml.load", "marshal", "shelve"), "禁止对不可信数据反序列化，改用 JSON 或带 safe_load 的解析器"),
+    (("verify=false", "insecure", "cert_none", "rejectunauthorized"), "启用 TLS 证书校验，不要用 -k / verify=False 绕过证书验证"),
+    (("0.0.0.0",), "不要把服务绑定到所有网卡，仅绑定本机或内网地址并配合防火墙"),
+    (("sudo", "setuid", "chown"), "移除不必要的提权调用，把特权操作收敛到单独的最小权限步骤"),
+    (("remove|rename", "fs.(read", "path(", "shutil."), "收敛文件写权限到实际需要的目录，避免暴露完整文件系统操作能力"),
+    # ── 容器与沙箱逃逸面 ──
+    (("privileged", "docker.sock", "var/run/docker", "cap_add", "capsysadmin",
+      "hostpath", "hostnetwork", "hostpid", "hostipc", "unconfined", "userns",
+      "--cap-add", "--network", "--pid", "--ipc"),
+     "以最小特权运行容器：去掉 --privileged / cap-add ALL，宿主目录改为只读挂载，"
+     "网络与 PID/IPC namespace 与宿主隔离，绝不挂载 docker.sock"),
+    # ── 路径穿越 ──
+    (("../", "%2e%2e"), "对用户输入的路径做规范化并校验是否落在允许目录内，拒绝 .. 穿越与 URL 编码变体"),
+    # ── CORS 通配 ──
+    (("access-control-allow-origin", "cors("), "禁止 CORS 通配符与 credentials 同用，按具体来源白名单收敛"),
+    # ── 代理自主性（ASI）──
+    (("exploit", "fuzz", "vulnerab"), "禁止代理自主生成或执行漏洞利用：降级为需要人工审批的分析任务，并限制其在隔离环境中运行"),
+    (("eth_", "web3", "wallet", "solana", "metamask", "ledger", "mnemonic", "seed_phrase", "keystore", "0x[a-f"),
+     "代理不应持有或操作私钥/钱包：签名与转账移到受控的密钥托管，并加人工审批与金额上限"),
+    (("load_adapter", "load_lora", "add_adapter", "set_adapter", "from_pretrained",
+      "merge_and_unload", "peft"),
+     "禁止从不可信源加载模型权重或 LoRA 适配器：加载前校验来源与完整性，只允许登记过的仓库"),
+    (("记忆", "轨迹", "trajectory", "experience", "persist", "自启动", "定时任务", "后门", "守护进程"),
+     "对持久化写入（记忆/配置/自启动项）加白名单与审批，禁止代理自主改写自身指令或环境"),
+    (("发送", "上传", "传输", "提交", "泄露", "外传"), "禁止把用户数据外发到非白名单地址：所有外发需记录来源、目的地与审批记录"),
+    (("防火墙", "杀毒", "停用", "禁用", "关闭"), "禁止关闭防火墙/杀毒/安全监控：安全组件开关必须由独立管理面控制，代理无权自改"),
+    (("roleplay", "pretend", "act as", "play as"), "提示注入：把外部内容当作不可信数据而非指令，显式声明边界，并对输出做二次校验"),
+    (("bdan", "忘记", "无视", "突破", "解除", "变成"), "提示注入：把外部内容当作不可信数据而非指令，显式声明边界，并对输出做二次校验"),
+    (("访问|获取|读取",), "限制读取范围到实际需要的最小数据集，拒绝读取用户/系统/环境全量数据"),
+    (("fastboot", "idevice", "simctl", "frida", "adb"), "设备级操作（刷机/模拟器/越狱调试/adb shell）必须在隔离测试机上执行，不得暴露给代理默认可用环境"),
+    (("autonom", "unattended", "self-driving", "self_generated", "selfgenerated",
+      "self_modif", "self-modif", "self_modify"),
+     "为自主行为加预算与审批闸门：限制最大步数、资源上限与可写范围，禁止无界自循环与自我修改"),
+    (("build|construct|generate|compose",), "禁止代理自主生成可执行工件（exploit/脚本/配置）后直接执行，产出必须经人工审查"),
+]
+
+
+def _resolve_remediation(pattern, owasp_cat):
+    """为一条命中规则解析出具体的修复动作。"""
+    normalized = (pattern or "").replace("\\", "").lower()
+    for needles, fix in _REMEDIATION_TOKENS:
+        if any(n in normalized for n in needles):
+            return fix
+    if owasp_cat in _REMEDIATION_CATEGORY:
+        return _REMEDIATION_CATEGORY[owasp_cat]
+    if owasp_cat in _REMEDIATION_ASI:
+        return _REMEDIATION_ASI[owasp_cat]
+    return "移除或重构该处实现，并确认它确实属于必要的功能而不是遗留代码"
+
+
+# 已知类别规则的「类别-序号」稳定 id。dict 插入序稳定，因此序号可复现。
+_CATEGORY_SOURCES = [
+    (SANDBOX_RULES, "SANDBOX"),
+    (MCP01_RULES, "MCP01"), (MCP02_RULES, "MCP02"), (MCP03_RULES, "MCP03"),
+    (MCP04_RULES, "MCP04"), (MCP05_RULES, "MCP05"), (MCP06_RULES, "MCP06"),
+    (MCP07_RULES, "MCP07"), (MCP08_RULES, "MCP08"), (MCP09_RULES, "MCP09"),
+    (MCP10_RULES, "MCP10"), (ASI01_RULES, "ASI01"), (ASI02_RULES, "ASI02"),
+    (ASI03_RULES, "ASI03"), (ASI04_RULES, "ASI04"), (ASI05_RULES, "ASI05"),
+    (ASI06_RULES, "ASI06"), (ASI07_RULES, "ASI07"), (ASI08_RULES, "ASI08"),
+    (ASI09_RULES, "ASI09"), (ASI10_RULES, "ASI10"),
+    (ZH_PROMPT_INJECTION_RULES, "ZHPI"), (SKILL_EXTRA_RULES, "SKILL"),
+]
+_PATTERN_RULE_ID = {}
+for _src, _tag in _CATEGORY_SOURCES:
+    for _i, _p in enumerate(_src, 1):
+        _PATTERN_RULE_ID.setdefault(_p, "%s-%03d" % (_tag, _i))
+
+import hashlib as _hashlib
+
+
+def _rule_id(pattern, owasp_cat):
+    """稳定 rule_id：已知类别用「类别-序号」，其余用正则哈希前缀（不随加载顺序漂移）。"""
+    rid = _PATTERN_RULE_ID.get(pattern)
+    if rid:
+        return rid
+    digest = _hashlib.md5(pattern.encode("utf-8")).hexdigest()[:4].upper()
+    return "GEN-%s" % digest
+
+
 def analyze(files, tool_type="mcp"):
     """执行静态分析，返回findings和OWASP覆盖"""
     rules = get_all_rules(tool_type)
@@ -1380,8 +1533,12 @@ def analyze(files, tool_type="mcp"):
             if matches:
                 # 确定OWASP类别
                 owasp_cat = _get_owasp_category(pattern)
+                rid = _rule_id(pattern, owasp_cat)
+                fix = _resolve_remediation(pattern, owasp_cat)
                 for m in matches[:3]:  # 每模式最多3个匹配
                     line_num = content[:m.start()].count('\n') + 1
+                    # 列号（1-based）：命中点在所属行内的偏移，方便编辑器直接跳转
+                    col = m.start() - content.rfind('\n', 0, m.start())
                     actual_severity = severity
                     if is_doc and severity in ("critical", "high"):
                         actual_severity = "low"
@@ -1389,12 +1546,15 @@ def analyze(files, tool_type="mcp"):
                         actual_severity = "info"
                     findings.append({
                         "type": "dangerous_pattern",
+                        "rule_id": rid,
                         "severity": actual_severity,
                         "description": desc + (" (文档示例)" if is_doc else ""),
                         "file": filepath,
                         "lines": str(line_num),
+                        "col": col,
                         "evidence": m.group()[:120],
                         "owasp_category": owasp_cat,
+                        "remediation": fix,
                     })
 
     return {

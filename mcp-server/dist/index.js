@@ -76,16 +76,17 @@ function toNum(v, fallback) {
 const server = new mcp_js_1.McpServer({
     name: 'AIShield Security Scanner',
     version: SERVER_VERSION,
-    description: 'OWASP MCP Top 10 + Agentic AI Top 10 aligned security scanner — 201 rules, 5-dimension scoring, tool poisoning & supply chain detection',
+    description: 'OWASP MCP Top 10 + Agentic AI Top 10 aligned security scanner — 238 rules, 5-dimension scoring, tool poisoning & supply chain detection, per-finding file:line:col anchors with remediation',
 });
 // ══════════════════════════════════════════════════════════════
 // Tool 1: Full Security Scan
 // ══════════════════════════════════════════════════════════════
 server.tool('aishield_scan', `AIShield安全扫描 — 扫描MCP Server/AI工具的安全风险。
 
-对齐OWASP MCP Top 10 (2025 v0.1) 与 Agentic AI Top 10，201条规则覆盖两套风险分类。
+对齐OWASP MCP Top 10 (2025 v0.1) 与 Agentic AI Top 10，238条规则覆盖两套风险分类。
 5维评分: 安全(40%)/权限(20%)/数据处理(20%)/供应链(10%)/可靠性(10%)
-返回: 评分 + 风险等级 + OWASP合规矩阵 + 修复建议`, {
+返回: 评分 + 风险等级 + OWASP合规矩阵 + 修复建议
+每条 finding 带 file:line:col 精确锚点 + 证据片段 + 稳定 rule_id + 具体修复动作`, {
     source_url: zod_1.z.string().describe('GitHub repo URL of the tool to scan'),
     tool_type: zod_1.z.enum(['mcp', 'skill', 'gpt', 'prompt']).default('mcp').describe('Tool type'),
     name: zod_1.z.string().optional().describe('Tool name (optional)'),
@@ -159,7 +160,7 @@ server.tool('aishield_prompt_check', `Prompt安全检测 — 检测用户输入�
             data.summary || '',
             ``,
             `发现的问题:`,
-            ...(data.findings || []).map((f) => `  [${f.severity}] ${f.description}`),
+            ...(data.findings || []).map((f) => formatFinding(f)),
         ].join('\n');
         return { content: [{ type: 'text', text: summary }] };
     }
@@ -208,7 +209,7 @@ server.tool('aishield_rug_pull', `Rug Pull检测 — 检查MCP工具是否在版
         if (data.findings && data.findings.length > 0) {
             lines.push('', '── Findings ──');
             for (const f of data.findings.slice(0, 10)) {
-                lines.push(`  [${f.severity}] ${f.description} ${f.commit_sha ? '(' + f.commit_sha + ')' : ''}`);
+                lines.push(formatFinding(f));
             }
         }
         return { content: [{ type: 'text', text: lines.join('\n') }] };
@@ -240,7 +241,7 @@ server.tool('aishield_handshake', `MCP握手验证 — 分析MCP配置、检测n
         if (data.findings && data.findings.length > 0) {
             lines.push('', '── Findings ──');
             for (const f of data.findings.slice(0, 10)) {
-                lines.push(`  [${f.severity}] ${f.description}`);
+                lines.push(formatFinding(f));
             }
         }
         if (data.configs && data.configs.length > 0) {
@@ -290,7 +291,7 @@ function formatScanResult(raw) {
         // Show critical and high only
         const important = data.findings.filter((f) => f.severity === 'critical' || f.severity === 'high');
         for (const f of important.slice(0, 15)) {
-            lines.push(`  [${f.severity.toUpperCase()}] ${f.description} (${f.file})`);
+            lines.push(formatFinding(f));
         }
         if (important.length > 15) {
             lines.push(`  ... and ${important.length - 15} more`);
@@ -306,6 +307,37 @@ function formatScanResult(raw) {
     lines.push('');
     lines.push(`Badge: [![AIShield](https://img.shields.io/badge/AIShield-${badge}-${badge === 'gold' ? 'FFD700' : badge === 'silver' ? 'C0C0C0' : badge === 'bronze' ? 'CD7F32' : '999'})}](https://aishield.tools)`);
     return { content: [{ type: 'text', text: lines.join('\n') }] };
+}
+// Helper: render a finding with a precise anchor — file:line:col + evidence snippet
+// + stable rule id + a concrete fix action. HeyClicky-style: point the user AT the
+// exact element, don't just say "you have a vulnerability".
+//
+// rule_id takes priority over type: for static-pattern findings the type is always
+// the useless constant "dangerous_pattern", while rule_id (MCP05-012 / GEN-9A3F) is
+// what you actually look a rule up by. type is only a fallback for findings that
+// predate the anchor fields.
+//
+// remediation is per-finding: the global `recommendations` list is only a handful of
+// generic sentences and cannot be mapped back to a specific finding.
+function formatFinding(f) {
+    const sev = String(f?.severity || 'info').toUpperCase();
+    const anchorParts = [f?.file, f?.lines].filter(Boolean);
+    if (f?.col)
+        anchorParts.push(`c${f.col}`);
+    if (f?.commit_sha)
+        anchorParts.push(`commit ${String(f.commit_sha).slice(0, 8)}`);
+    const loc = anchorParts.join(':');
+    let s = `  [${sev}] ${f?.description || '(no description)'}`;
+    if (loc)
+        s += `  @ ${loc}`;
+    const rule = f?.rule_id || f?.type;
+    if (rule)
+        s += `  [${rule}]`;
+    if (f?.evidence)
+        s += `\n      ↳ ${String(f.evidence).slice(0, 160)}`;
+    if (f?.remediation)
+        s += `\n      ↪ Fix: ${String(f.remediation).slice(0, 200)}`;
+    return s;
 }
 // ── Start ──
 async function main() {
