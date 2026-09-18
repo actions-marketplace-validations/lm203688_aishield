@@ -96,8 +96,16 @@ jobs:
 
           echo "=== Running deploy (authoritative sha ${{ github.sha }}) ==="
           export DEPLOY_SHA="${{ github.sha }}"
+          # 【2026-09-18 修复】上一版结尾是 `echo "DEPLOY_EXIT_CODE=$?"`。echo 的
+          # 退出码恒为 0，而它是远端脚本的最后一条命令 —— 于是远端脚本整体退出码
+          # 恒为 0，`deploy-named-tunnel.sh` 里新增的「API 不健康即 exit 1」被这句
+          # 诊断输出吞掉，部署 job 照样报 success。这是与自愈链路同款形状的假绿：
+          # 诊断语句抢占了退出码。现改为显式取 rc 并原样传出。
+          set -o pipefail
           bash scripts/deploy-named-tunnel.sh 2>&1
-          echo "DEPLOY_EXIT_CODE=$?"
+          rc=$?
+          echo "DEPLOY_EXIT_CODE=$rc"
+          exit $rc
 
     - name: Run server diagnostics via SSH
       if: always()
