@@ -160,48 +160,127 @@ if ! curl -sf http://127.0.0.1:8450/api/v1/health 2>/dev/null; then
     NEED_RESTART=1
 fi
 
-# ── 启动 / 重启 API ───────────────────────────────────────────────
-if [ "$NEED_RESTART" = "1" ]; then
-    log "需要重新加载代码 -> 重启 API"
+# ── API 保活 ────────────────────────────────────────────────────────
+# 【2026-09-18 修复】线上 502 失活约 20h 的根因：API 进程只有 nohup 启动，
+# 没有 systemd 服务、没有 cron 保活。cloudflared 有 systemd + cron 双保活，
+# API 什么都没有 —— 进程一死（OOM / VPS 重启 / SSH 会话清理）就没有任何
+# 东西会拉起它，只能等下一次部署恰好被触发。三次自愈（09-17 11:53 / 17:09 /
+# 21:31 UTC）全部跑到 STEP 8 仍是 `--- API (localhost:8450) --- FAIL`，
+# 即 VPS 本机 8450 上根本没有进程在监听。
+# 现改为：systemd 服务优先（Restart=always，由 init 负责拉起），
+# nohup 仅作 systemd 不可用时的兜底；启动后带 3 轮重试验证，
+# 失败即打印完整日志 + 端口占用 + 进程列表，不再静默。
+API_DIR="$(pwd)"
+
+api_healthy() {
+    curl -sf --max-time 8 http://127.0.0.1:8450/api/v1/health >/dev/null 2>&1
+}
+
+api_start_nohup() {
+    export PORT=8450
+    nohup python3 "${API_DIR}/api/server.py" >> /tmp/aishield-api.log 2>&1 &
+}
+
+install_api_service() {
+    if ! [ -w /etc/systemd/system ]; then
+        log "无 /etc/systemd/system 写权限 -> API 走 nohup 兜底"
+        return 1
+    fi
+    cat > /etc/systemd/system/aishield-api.service << APIEOF
+[Unit]
+Description=AIShield API server (port 8450)
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=${API_DIR}
+Environment=PORT=8450
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/bin/sh -c 'exec $(command -v python3) ${API_DIR}/api/server.py >> /tmp/aishield-api.log 2>&1'
+Restart=always
+RestartSec=5
+TimeoutStartSec=60
+
+[Install]
+WantedBy=multi-user.target
+APIEOF
+    systemctl daemon-reload 2>/dev/null || true
+    systemctl enable aishield-api 2>/dev/null || true
+    log "systemd 服务 aishield-api 已安装（Restart=always，WorkingDirectory=${API_DIR}）"
+    return 0
+}
+
+ensure_api_up() {
+    # 1) 既有的 aishield docker 容器优先沿用（不破坏既有部署形态）
     cname=""
     if command -v docker &>/dev/null; then
         cname=$(docker ps -a --format '{{.Names}}' 2>/dev/null | grep -i aishield | head -1)
     fi
-
     if [ -n "$cname" ]; then
-        log "通过 docker 重启容器: $cname"
+        log "检测到 aishield docker 容器: $cname -> 尝试容器内重启"
         docker restart "$cname" 2>/dev/null || true
         sleep 10
+        if api_healthy; then
+            log "API 状态: OK（docker 容器 ${cname}）"
+            return 0
+        fi
+        log "docker 容器未能恢复 API -> 停止容器，改由 systemd/nohup 托管"
+        docker stop "$cname" 2>/dev/null || true
+        sleep 3
     fi
 
-    # 兜底：用 commit 判断「跑着的进程是否就是磁盘上的代码」。
-    # 注意不能写成「API 挂了才重启」—— 陈旧进程恰好是「活着但 commit 不对」，
-    # 那种写法会正好跳过重启，问题永远修不掉。
-    cur_commit=$(curl -s --max-time 10 http://127.0.0.1:8450/api/v1/health 2>/dev/null | python3 -c "import json,sys
-try:
-    print(json.load(sys.stdin).get('commit') or '')
-except Exception:
-    print('')" 2>/dev/null || true)
-    if [ "$cur_commit" != "$disk_commit" ] || ! curl -sf http://127.0.0.1:8450/api/v1/health 2>/dev/null; then
-        log "强制重启 Python API 进程（当前commit=${cur_commit:-none} 目标=${disk_commit:-none}）"
+    install_api_service || true
+
+    # 2) 首轮启动：systemd 可用就走 init，否则 nohup
+    if systemctl is-enabled aishield-api >/dev/null 2>&1; then
+        systemctl restart aishield-api 2>/dev/null || api_start_nohup
+        sleep 6
+    else
         pkill -f "api/server.py" 2>/dev/null || true
         sleep 2
-        export PORT=8450
-        nohup python3 api/server.py > /tmp/aishield-api.log 2>&1 &
-        sleep 8
-    else
-        log "运行进程 commit 已与磁盘一致（${cur_commit}）-> 无需额外重启"
+        api_start_nohup
+        sleep 6
     fi
+
+    # 3) 最多 3 轮重试；每轮失败都留下可定位的证据
+    local i
+    for i in 1 2 3; do
+        if api_healthy; then
+            log "API 状态: OK（第 ${i} 轮验证通过）"
+            return 0
+        fi
+        log "API 第 ${i} 轮未响应 -> 重启"
+        if systemctl is-enabled aishield-api >/dev/null 2>&1; then
+            systemctl restart aishield-api 2>/dev/null || api_start_nohup
+        else
+            pkill -f "api/server.py" 2>/dev/null || true
+            sleep 2
+            api_start_nohup
+        fi
+        sleep 8
+    done
+
+    log "API 状态: FAIL（3 轮启动均未通过健康检查）"
+    log "--- /tmp/aishield-api.log (最后 30 行) ---"
+    tail -30 /tmp/aishield-api.log 2>/dev/null || log "(无 API 日志文件)"
+    log "--- 语法自检 ---"
+    python3 -m py_compile "${API_DIR}/api/server.py" 2>&1 | tail -20         && log "py_compile: 语法 OK（说明是运行期/端口/依赖问题，不是代码错误）"
+    log "--- 端口占用 ---"
+    (ss -ltnp 2>/dev/null || netstat -ltnp 2>/dev/null || true) | grep -E ':(8450|8080)' | head -5
+    log "--- python 进程 ---"
+    ps aux 2>/dev/null | grep -E 'api/server.py' | grep -v grep | head -5         || log "(无 api/server.py 进程 -> 启动即退出)"
+    return 1
+}
+
+# ── 启动 / 重启 API ───────────────────────────────────────────────
+if [ "$NEED_RESTART" = "1" ]; then
+    log "需要重新加载代码 -> 重启 API"
 else
-    log "代码已是最新且 API 健康 -> 跳过重启"
+    log "代码已是最新且 API 健康 -> 仍执行一次保活检查（幂等）"
 fi
 
-if curl -sf http://127.0.0.1:8450/api/v1/health 2>/dev/null; then
-    log "API 状态: OK"
-else
-    log "API 状态: FAIL - 尝试查看日志"
-    tail -10 /tmp/aishield-api.log 2>/dev/null
-fi
+ensure_api_up || true
 
 # ========== STEP 2: 安装 cloudflared ==========
 log "=== STEP 2: 安装 cloudflared ==="
@@ -474,6 +553,28 @@ TOKEN_FILE='/root/.cloudflared/tunnel-token'
 cleanup() { kill $CF_PID 2>/dev/null; exit 0; }
 trap cleanup SIGTERM SIGINT
 
+# 【2026-09-18】隧道起来不等于 API 在监听。Cloudflare 转发到 localhost:8450，
+# 若该端口无进程，域名只会稳定返回 502（09-17~09-18 线上连续失活即此路径：
+# cloudflared 存活、API 未监听）。开机/重启后先确保 API 就绪再放行隧道。
+if ! curl -sf --max-time 5 http://127.0.0.1:8450/api/v1/health >/dev/null 2>&1; then
+    if systemctl is-active aishield-api >/dev/null 2>&1; then
+        systemctl restart aishield-api 2>/dev/null || true
+    elif systemctl is-enabled aishield-api >/dev/null 2>&1; then
+        systemctl start aishield-api 2>/dev/null || true
+    elif [ -f /opt/aishield/api/server.py ]; then
+        (cd /opt/aishield && PORT=8450 nohup python3 api/server.py >> /tmp/aishield-api.log 2>&1 &)
+    elif [ -f "$HOME/aishield/api/server.py" ]; then
+        (cd "$HOME/aishield" && PORT=8450 nohup python3 api/server.py >> /tmp/aishield-api.log 2>&1 &)
+    fi
+    for _i in 1 2 3 4 5 6; do
+        curl -sf --max-time 5 http://127.0.0.1:8450/api/v1/health >/dev/null 2>&1 && break
+        sleep 3
+    done
+    if ! curl -sf --max-time 5 http://127.0.0.1:8450/api/v1/health >/dev/null 2>&1; then
+        echo "[$(date '+%H:%M:%S')] WARN: API 未就绪，隧道仍会启动（域名将返回 502）" >> /tmp/aishield-api.log
+    fi
+fi
+
 if [ -f "$CONFIG_FILE" ]; then
     $CF_BIN tunnel --config "$CONFIG_FILE" run &
     CF_PID=$!
@@ -494,7 +595,8 @@ chmod +x /opt/start-tunnel.sh 2>/dev/null
 cat > /etc/systemd/system/cloudflared-tunnel.service << 'SVCEOF'
 [Unit]
 Description=Cloudflare Named Tunnel for AIShield
-After=network.target
+After=network.target aishield-api.service
+Wants=aishield-api.service
 
 [Service]
 ExecStart=/opt/start-tunnel.sh
@@ -562,4 +664,12 @@ echo ""
 echo "=== 完整日志 ==="
 cat "$LOG_FILE"
 
+# 【2026-09-18 修复】此前无条件 exit 0：API 状态 FAIL 也报成功，上层 job
+# 因此显示绿（两次自愈的 job 结论都是 success，而 verify 判红）。
+# 部署脚本的健康结论必须与退出码一致，否则上层门禁全部假绿。
+if ! curl -sf --max-time 10 http://127.0.0.1:8450/api/v1/health 2>/dev/null; then
+    log "EXIT 1: API 未健康（localhost:8450 无响应），部署判定失败"
+    exit 1
+fi
+log "EXIT 0: API 健康"
 exit 0
