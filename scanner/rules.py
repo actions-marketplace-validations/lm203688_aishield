@@ -229,9 +229,10 @@ MCP06_RULES = {
     r'forget\s+(everything|all|previous|prior|your)\s+(instruction|prompt|rule|training)': ("越狱指令: 忘记一切", "critical"),
     # 越狱词提及。原 \b(DAN|jailbreak|bypass|override)\b 与 (越狱|jailbreak|越狱模式)
     # 是两条 critical 级裸关键字，唯一正样本是叙述句而非祈使载荷，且与中文段的
-    # \bDAN(模式)?\b 重合。按"提及≠执行"降级为 info：工具描述里出现 jailbreak
-    # 仍是 tool poisoning 的信号，值得标记，但不该按 critical 级执行载荷对待。
-    # DAN 作为具体标识符由 ZH_PROMPT_INJECTION_RULES 的 \bDAN(模式)?\b 保持 critical。
+    # (?<![A-Za-z])DAN(?![A-Za-z])(?:模式)? 重合。按"提及≠执行"降级为 info：
+    # 工具描述里出现 jailbreak 仍是 tool poisoning 的信号，值得标记，但不该按
+    # critical 级执行载荷对待。
+    # DAN 作为具体标识符由 ZH_PROMPT_INJECTION_RULES 保持 critical。
     r'(?i)\bjailbreak\b|越狱': ("越狱词提及(非执行载荷)", "info"),
     r'you\s+are\s+now\s+(a|an)\s+': ("身份切换指令", "high"),
     r'(act|pretend|play|roleplay)\s+as\s+(if\s+you\s+(are|were)\s+)?(a|an)\s+': ("角色扮演注入", "high"),
@@ -351,7 +352,12 @@ ZH_PROMPT_INJECTION_RULES = {
     # \b(DAN|jailbreak|bypass|override)\b 是同一条正样本的双重命中，且都是 critical
     # 级裸关键字。已下沉为 MCP06 的 info 级"提及"规则（提及≠执行）；DAN 作为具体
     # 标识符在此保持 critical。
-    r'\bDAN(模式)?\b': ("DAN越狱模式", "critical"),
+    # 2026-09-18 契约测试抓到：原 \bDAN(模式)?\b 对 CJK 同样失效 —— CJK 字符在
+    # Python re 里属于 \w，"启用DAN模式"中 用↔D 与 式↔立 都不是词边界，整条规则
+    # 在中文语境下零命中（"开启 DAN 模式"这种带空格的写法才能命中）。改成对
+    # ASCII 字母的 lookaround：既能在 CJK 两侧成立，又不会把 DANGEROUS/dangerous
+    # 误判成 DAN（裸 DAN 会匹配到它们的前三个字母）。
+    r'(?<![A-Za-z])DAN(?![A-Za-z])(?:模式)?': ("DAN越狱模式", "critical"),
     # 身份切换
     r'(扮演|假装|假设|当作).{0,6}(你是|作为).{0,10}(一个|一名)': ("中文角色扮演注入", "high"),
     r'你(现在|现在起).{0,4}(是|变成).{0,6}(一个|一名|一位)': ("中文身份切换", "high"),

@@ -77,6 +77,7 @@ def main():
         'tests.test_deployment_root_guard',  # 2026-09-18：root 护栏与部署身份冲突 = 20.5h 静默 502
         'tests.test_deployment_observability',  # 退出码传导契约：诊断语句不得抢占部署/自愈的退出码
         'tests.test_notify_hardening',  # 2026-09-18：告警链路出站脱敏 + fail-closed 退出码 + 未送达台账闭环
+        'tests.test_rule_audit_contract',  # 2026-09-18：基线审计契约（零 critical 误报/引用抑制/情报去重/对抗式评审闸门有效）
     ]
 
     loaded = 0
