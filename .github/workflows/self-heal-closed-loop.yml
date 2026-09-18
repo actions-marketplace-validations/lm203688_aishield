@@ -106,6 +106,7 @@ jobs:
           SERVER_USER: ${{ secrets.SERVER_USER }}
           SERVER_SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
           SERVER_PORT: ${{ secrets.SERVER_PORT || 22 }}
+          DEPLOY_SHA: ${{ github.sha }}
         run: |
           if [ -z "$SERVER_HOST" ] || [ -z "$SERVER_SSH_KEY" ]; then
             echo "::warning::未配置服务器凭据，跳过远程修复"
@@ -115,13 +116,53 @@ jobs:
           echo "$SERVER_SSH_KEY" > /tmp/id_rsa
           chmod 600 /tmp/id_rsa
           ssh-keyscan -H "$SERVER_HOST" >> /tmp/known_hosts 2>/dev/null || true
+
+          # 【2026-09-18 修复】原实现有三处叠加的假绿，导致故障不可见且永不修好：
+          #   1) `... | tail -60 || echo "REPAIR_SSH_FAILED"` —— 管道让 step 的成功/
+          #      失败取决于 tail 的退出码，SSH 断连与部署失败都被吞成 success；
+          #   2) 部署脚本本身无条件 `exit 0`（API 状态 FAIL 也报成功），
+          #      所以 job 结论是 success，只有独立的 verify 判红；
+          #   3) `tail -40` 截掉了 STEP 1（API 启动段），而故障恰好只在那里 ——
+          #      三次自愈（09-17 11:53/17:09/21:31 UTC）STEP 8 全部报
+          #      `--- API (localhost:8450) --- FAIL`，但 STEP 1 的启动输出
+          #      从未出现在任何日志里，根因因此无人可见。
+          # 现改为：完整日志落盘并全量输出、退出码如实传递、artifact 留存。
+          mkdir -p /tmp/repair-artifact
+          set -o pipefail
+          set +e
           ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/tmp/known_hosts -i /tmp/id_rsa \
             -p "${SERVER_PORT:-22}" "$SERVER_USER@$SERVER_HOST" \
-            "cd /opt/aishield 2>/dev/null || cd ~/aishield 2>/dev/null || exit 1; \
-             git pull origin main 2>&1 | tail -5; \
-             chmod +x scripts/deploy-named-tunnel.sh 2>/dev/null; \
-             bash scripts/deploy-named-tunnel.sh 2>&1 | tail -40" 2>&1 | tail -60 || echo "REPAIR_SSH_FAILED"
+            "cd /opt/aishield 2>/dev/null || cd ~/aishield 2>/dev/null || { echo 'FATAL: 目标目录不存在'; exit 1; }; \
+             echo '=== VPS 预检 ==='; \
+             echo \"user=\$(whoami) dir=\$(pwd) deploy_sha=$DEPLOY_SHA\"; \
+             git pull origin main 2>&1 | tail -8 || echo 'WARN: git pull 失败（VPS 到 github.com 网络不通，deploy 脚本走 tarball/raw 兜底）'; \
+             chmod +x scripts/deploy-named-tunnel.sh; \
+             DEPLOY_SHA=$DEPLOY_SHA bash scripts/deploy-named-tunnel.sh; \
+             rc=\$?; \
+             echo '=== /tmp/aishield-api.log 末尾 40 行 ==='; \
+             tail -40 /tmp/aishield-api.log 2>/dev/null || echo '(无 API 日志)'; \
+             echo '=== /tmp/cloudflared.log 末尾 20 行 ==='; \
+             tail -20 /tmp/cloudflared.log 2>/dev/null || echo '(无 cloudflared 日志)'; \
+             echo '=== 进程快照 ==='; \
+             ps aux | grep -E 'api/server.py|cloudflared' | grep -v grep || echo '(无相关进程)'; \
+             echo '=== 本机端口与外网连通 ==='; \
+             (ss -ltn 2>/dev/null || netstat -ltn 2>/dev/null) | grep -E ':(22|8450)\b' || true; \
+             echo \"localhost:8450 -> \$(curl -s -o /dev/null -w '%{http_code}' --max-time 8 http://127.0.0.1:8450/api/v1/health 2>/dev/null || echo unreachable)\"; \
+             echo \"aishield.tools -> \$(curl -s -o /dev/null -w '%{http_code}' --max-time 12 https://aishield.tools/api/v1/health 2>/dev/null || echo unreachable)\"; \
+             exit \$rc" 2>&1 | tee /tmp/repair-artifact/repair.log
+          rc=$?
+          set -e
           echo "attempted=true" >> "$GITHUB_OUTPUT"
+          exit $rc
+
+      - name: Upload repair log (诊断证据留存)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: self-heal-repair-log
+          path: /tmp/repair-artifact/repair.log
+          if-no-files-found: ignore
+          retention-days: 14
 
   # ── 阶段 3：测试闸门（失败即阻断，不允许带病上线）──────────────────
   test:
@@ -177,7 +218,10 @@ jobs:
   escalate:
     name: 5-Escalate
     needs: [probe, repair, test, verify]
-    if: always() && (needs.verify.result == 'failure' || needs.test.result == 'failure')
+    # 【2026-09-18 修复】原条件只看 test/verify。repair 失败时 test 与 verify
+    # 都会被 skip（而非 failure），于是 escalate 不触发 —— 修复环节挂了
+    # 却没有任何告警。补上 repair。
+    if: always() && (needs.repair.result == 'failure' || needs.test.result == 'failure' || needs.verify.result == 'failure')
     runs-on: ubuntu-latest
     permissions:
       issues: write
@@ -194,8 +238,10 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NOTIFY_WEBHOOK: ${{ secrets.NOTIFY_WEBHOOK }}
         run: |
-          reason="验证未通过"
-          if [ "${{ needs.test.result }}" = "failure" ]; then
+          reason="验证未通过（修复已下发但服务仍未恢复）"
+          if [ "${{ needs.repair.result }}" = "failure" ]; then
+            reason="修复环节失败（SSH 通道或部署脚本失败，服务未被触及）"
+          elif [ "${{ needs.test.result }}" = "failure" ]; then
             reason="测试闸门未通过（代码存在回归，已阻断部署）"
           fi
           {
