@@ -1,21 +1,31 @@
 # 自动标签配置 — 根据 Issue 标题/内容匹配关键词
 bug:
-  - '(?i)\\b(bug|错误|崩溃|crash|exception|报错|失效|broken|not working)\\b'
+  - '(?i)\b(bug|错误|崩溃|crash|exception|报错|失效|broken|not working)\b'
 feature:
-  - '(?i)\\b(feature|功能|建议|新增|添加|支持|enhancement|improvement|优化)\\b'
+  - '(?i)\b(feature|功能|建议|新增|添加|支持|enhancement|improvement|优化)\b'
 documentation:
-  - '(?i)\\b(doc|文档|readme|注释|说明|tutorial|指南|guide)\\b'
+  - '(?i)\b(doc|文档|readme|注释|说明|tutorial|指南|guide)\b'
 scanner:
-  - '(?i)\\b(scan|扫描|规则|rule|检测|audit|漏洞|vulnerability|security check)\\b'
+  - '(?i)\b(scan|扫描|规则|rule|检测|audit|漏洞|vulnerability|security check)\b'
 mcp:
-  - '(?i)\\b(mcp|model.context|protocol|stdio|sse|tool|server)\\b'
+  - '(?i)\b(mcp|model.context|protocol|stdio|sse|tool|server)\b'
 identity:
-  - '(?i)\\b(did|identity|身份|注册|agent|reputation|信誉)\\b'
+  - '(?i)\b(did|identity|身份|注册|agent|reputation|信誉)\b'
 billing:
-  - '(?i)\\b(billing|计费|支付|充值|套餐|plan|payment|price)\\b'
+  - '(?i)\b(billing|计费|支付|充值|套餐|plan|payment|price)\b'
 frontend:
-  - '(?i)\\b(ui|前端|页面|html|css|界面|display|render|可视化)\\b'
+  - '(?i)\b(ui|前端|页面|html|css|界面|display|render|可视化)\b'
 performance:
-  - '(?i)\\b(perf|性能|慢|timeout|内存|优化|speed|cache|加载)\\b'
+  - '(?i)\b(perf|性能|慢|timeout|内存|优化|speed|cache|加载)\b'
 good first issue:
-  - '(?i)\\b(good first|新手|入门|简单|easy| beginner|first time)\\b'
+  - '(?i)\b(good first|新手|入门|简单|easy| beginner|first time)\b'
+# 规则质量反馈：误报/漏报走 03-false-positive-negative.yml 模板，
+# 标签必须能单独路由到规则维护者，不能落进笼统的 scanner 桶。
+rule-tuning:
+  - '(?i)\b(fp/fn|false positive|false negative|误报|漏报|rule.?id|mcp\d\d-\d\d\d|gen-[0-9a-f]{4})\b'
+false positive:
+  - '(?i)\b(false positive|误报|fp\b|不应该报|不该报|wrongly flag)\b'
+false negative:
+  - '(?i)\b(false negative|漏报|fn\b|没检测到|漏掉|should have (been )?caught)\b'
+security:
+  - '(?i)\b(漏洞|vulnerability|cve-|advisory|安全通告|disclosure)\b'
