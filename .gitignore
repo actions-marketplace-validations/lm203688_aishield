@@ -81,8 +81,14 @@ api/data/*.json
 # 数据飞轮核心自建库必须入库（否则每个周期扫描结果无法持久化，before 永远为 0）
 # data/batch_scans.json
 # guard 巡检存活信号经 Contents API 直写 main，不受 gitignore 影响；
-# 忽略它可避免 flywheel 的 `git add data/state/` 把 health.json 一并提交，与 guard 抢同一文件导致 push 冲突
+# 忽略它可避免被整体 add data/state/ 时与 guard 抢同一文件导致 push 冲突。
+# 注：当前各 workflow 的 `git add` 均精确指定单个文件，没有 add 整目录；
+# 下列为防御性忽略，避免未来新增 workflow 用通配一并带上。
 data/state/health.json
+# 告警台账与告警日志是运行时产物：正文虽已脱敏，仍含运维细节，不应进 public 仓库
+data/state/alerts.jsonl
+data/state/alert_cooldown.json
+data/state/undelivered_alerts.jsonl
 mcp-server/dist/
 *.zip
 AIShield_完整备案包.zip
