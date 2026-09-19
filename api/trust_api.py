@@ -445,7 +445,7 @@ def _digest_envelope(envelope, max_findings=3):
     subject = (envelope or {}).get("subject", {}) or {}
     score = verdict.get("score")
     counts = {}
-    floor, worst = _risk_floor(counts)
+    _floor, worst = _risk_floor(counts)
     core = {
         "subject": subject.get("url") or subject.get("name"),
         "score": score,
