@@ -9,7 +9,9 @@
 """
 import json
 import os
+import shutil
 import sys
+import tempfile
 import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
@@ -37,8 +39,16 @@ SAMPLE_MEMBERS = [
 
 class TestFleet(unittest.TestCase):
     def setUp(self):
-        self.svc = fleet_mod.FleetService()
+        # 2026-09-19 补洞：此处原先写 `FleetService()` —— 没传 path，于是落到默认的
+        # 真实 `data/fleet.json`，测试一边跑一边把生产数据 reset 掉。跑一次套件就
+        # 悄悄改一份被跟踪的数据文件，下次 `git add -A` 会把它当成人工改动一起提交。
+        # 测试必须落在临时文件里，生产数据不是测试夹具。
+        self._tmp = tempfile.mkdtemp(prefix="aishield_commercialization_")
+        self.svc = fleet_mod.FleetService(path=os.path.join(self._tmp, "fleet.json"))
         self.svc.reset()
+
+    def tearDown(self):
+        shutil.rmtree(self._tmp, ignore_errors=True)
 
     def test_ingest_and_summary(self):
         for m in SAMPLE_MEMBERS:

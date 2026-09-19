@@ -2440,6 +2440,19 @@ blockquote{{border-left:4px solid #3b82f6;padding-left:16px;margin-left:0;color:
                             },
                         },
                         {
+                            "name": "aishield_digest",
+                            "description": "Compact trust digest (aishield-digest/v1) — a few hundred bytes plus a content fingerprint, so an agent can answer 'can I trust this?' every turn without re-pulling the full report. Accepts {configs} (static analysis only), {scan_result}, or {source_url}.",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "configs": {"type": "object", "description": "{path: file content} MCP client config map — static analysis, no command in the config is ever executed"},
+                                    "scan_result": {"type": "object", "description": "An existing scan result to compress"},
+                                    "source_url": {"type": "string", "description": "GitHub repo URL — return the current trust verdict as a digest"},
+                                    "max_findings": {"type": "integer", "minimum": 0, "maximum": 20, "default": 3, "description": "How many top findings to include"},
+                                },
+                            },
+                        },
+                        {
                             "name": "aishield_vertical_risk",
                             "description": "Vertical-industry risk scan — detect high-risk claims for finance/medical/gov sectors (unlicensed diagnosis, illegal medical device, financial over-promise, etc.)",
                             "inputSchema": {
@@ -2527,6 +2540,16 @@ blockquote{{border-left:4px solid #3b82f6;padding-left:16px;margin-left:0;color:
                 elif tool_name == "aishield_vertical_risk":
                     result_data = scan_vertical_risk(args["text"], args.get("domain", "finance"))
                     text = json.dumps(result_data, ensure_ascii=False, indent=2)
+                elif tool_name == "aishield_digest":
+                    # 紧凑信任摘要：几百字节 + 内容指纹，供 agent 每轮低成本复用。
+                    # 与本地 MCP 工具同源，都走 api/trust_api.py 的 trust_digest()。
+                    import trust_api as _trust
+                    payload, status = _trust.trust_digest(
+                        data=args, max_findings=args.get("max_findings", 3)
+                    )
+                    text = json.dumps(payload, ensure_ascii=False, indent=2)
+                    if status != 200:
+                        raise ValueError(str(payload.get("error", "digest failed")))
                 elif tool_name == "agent_register":
                     from eco.agent_gateway import agent_setup
                     result_data = agent_setup(args)

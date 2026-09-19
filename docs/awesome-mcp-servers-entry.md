@@ -53,6 +53,7 @@ curl -X POST https://aishield.tools/api/v1/audit \
 | `aishield_banned_words` | Chinese content compliance check |
 | `aishield_rug_pull` | Rug pull / supply chain risk detection |
 | `aishield_handshake` | MCP protocol handshake verification |
+| `aishield_digest` | Compact trust digest (few hundred bytes + fingerprint) for cheap per-turn trust checks |
 | `agent_register` | One-click Agent registration |
 | `agent_quick_scan` | Quick scan by tool name + description |
 

@@ -40,6 +40,7 @@ Register the AIShield MCP server once:
 | `aishield_rug_pull` | Compare two versions of a tool description for silent (rug-pull) changes |
 | `aishield_guardrail` | Check whether an agent config has adequate guardrails for its declared agency |
 | `aishield_banned_words` | Flag policy-violating or risky terminology |
+| `aishield_digest` | Compact trust digest — a few hundred bytes + a content fingerprint; same fingerprint = same verdict, so an agent need not re-pull the full report each turn |
 
 ## Recommended workflow
 

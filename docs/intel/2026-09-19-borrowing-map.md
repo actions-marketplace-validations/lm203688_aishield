@@ -125,7 +125,24 @@ C2C 的结论是**工程性**的：紧凑的语义载体优于逐 token 的文�
 | **紧凑信任摘要 + 指纹**（P0，C2C 借鉴） | ✅ 已实现（`collector.summarize()` / `fingerprint()`） |
 | 首轮 GEO 推广落地（`/scan` 上线公告 + 渠道清单） | ✅ 见 `docs/blog/blog-online-scan-launch-2026-09-19.md` · `distribution/launch-channels-2026-09-19.md` |
 | GEO 资产刷新（`docs/llms.txt` 规则数 + `/scan` 入口） | ✅ |
-| AIShield Security Benchmark v1（P1，AndroidWorld 借鉴） | 🟡 待批 |
-| `/api/v1/trust/digest` + `aishield_digest` MCP 工具（P1，C2C 借鉴） | 🟡 待批 |
-| `docs/aishield-verification-harness.md`（P2，Prime Agent 借鉴） | 🟡 待批 |
-| `provenance` 增补 `trigger` / `intended_effect`（P2） | 🟡 待批 |
+| AIShield Security Benchmark v1（P1，AndroidWorld 借鉴） | ✅ 已实现（`scripts/benchmark.py` · `docs/benchmark/v1.md` · 16 项契约测试） |
+| `/api/v1/trust/digest` + `aishield_digest` MCP 工具（P1，C2C 借鉴） | ✅ 已实现（第 7 个 MCP 工具 · 16 项契约测试） |
+| `docs/aishield-verification-harness.md`（P2，Prime Agent 借鉴） | ✅ 已交付 |
+| `provenance` 增补 `trigger` / `intended_effect`（P2） | ✅ 19/19 已回填，晋升路径同步写入（8 项契约测试） |
+
+### 3.1 执行中发现并修掉的问题（副产品）
+
+跑基准的过程本身抓出了三个真空区/漂移点，均已修复：
+
+| 发现 | 性质 | 处置 |
+|---|---|---|
+| **`ws://` 远程配置零告警** | 检测盲区。原正则只匹配 `https?://`，`ws://` 的 scheme 解析成空串，连带跳过明文传输/通配监听/无鉴权三个分支 —— 一个 websocket 远端 server **一条 finding 都不产生** | 改为通用 scheme 解析 + 远程协议白名单（`http/https/ws/wss/sse`），`ws://` 同 http 判为明文传输；`file://` 等本地协议不受影响 |
+| **`docker run --privileged` 配置面不检** | 检测盲区。该 critical 规则存在于文件扫描规则集，但配置面扫描器不跑规则集，特权容器启动的配置只拿到零扣分的 `info` | 在 `analyze_server_entry` 补特权参数检查，按隔离解除程度分级（`--privileged`/`--cap-add=SYS_ADMIN` = critical，`--pid=host`/`--net=host` = high） |
+| **`mcp-server/server.json` 版本停在 4.2.2** | 版本漂移。它是 npm `files` 清单里**会被真实发布出去**的 MCP Registry 清单，却不在 `sync_version.py` 的 11 个受检位里 —— registry/ 那份跟着升到 4.3.0，这份无人察觉 | 纳入门禁（第 12 个声明位），已在 `--check` 下对齐 4.3.0 |
+
+基准因此从 **召回 92.0% / 误报 0%** 提升到 **召回 96.0% / 误报 0%**。
+
+另有一类"疑似误报"经逐条核查后判定为**记账错误而非扫描器缺陷**：首轮把 `npx -y` /
+`bash -c` / 无鉴权远程 URL 照搬进良性对照组，扫描器正确报了 high，却被记成 3 例误报。
+启动方式这个轴并不与安全性正交 —— 安全的包用危险方式启动仍是危险配置。已重构对照组
+（良性一律用 pin 版本 / digest / 带鉴权头），并把这三种写法改判为正样本单独成轴。

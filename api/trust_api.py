@@ -343,6 +343,165 @@ def _verify_envelope(source_url, subject_type=None):
 
 
 # ══════════════════════════════════════════════
+#  紧凑信任摘要 (aishield-digest/v1)
+# ══════════════════════════════════════════════
+#
+# 为什么需要它：完整的裁决信封有一个 agent 真正需要的字段，也有二十个它不需要
+# 的字段。agent 每一轮对话都要重新判断「这个东西我能不能信」，如果每次都拉
+# 完整报告，token 花在重复传输同一份不变的内容上。
+#
+# 这是 Cache-to-Cache 那条观察的工程化落地：**一个紧凑但语义完整的载体，胜过
+# 把整份文本重发一遍**。我们不碰模型的 KV-cache（那需要改模型内部），只做纯
+# 工程压缩 —— 几百字节的摘要 + 一个内容指纹，让调用方按指纹缓存。
+#
+# 输入三种形态，覆盖 agent 的三种现实处境：
+#   configs     — 手里有 MCP 客户端配置文本（本机发现到的、或用户粘贴的）
+#   scan_result — 已经有扫描结果，只想压一压
+#   src         — 只有一个远程 URL，要现成的信任裁决
+
+DIGEST_SCHEMA = "aishield-digest/v1"
+_SEVERITY_ORDER = ("critical", "high", "medium", "low", "info")
+
+
+def _digest_fingerprint(payload):
+    import hashlib
+
+    blob = json.dumps(payload, sort_keys=True, ensure_ascii=False)
+    return "sha256:" + hashlib.sha256(blob.encode("utf-8")).hexdigest()
+
+
+def _risk_from_score(score):
+    if score is None:
+        return "unknown"
+    if score >= 80:
+        return "safe"
+    if score >= 60:
+        return "medium"
+    if score >= 40:
+        return "high"
+    return "critical"
+
+
+def _digest_envelope(envelope, max_findings=3):
+    """把一个 aishield-trust/v1 信封压成摘要。
+
+    信封里没有 findings 明细（它描述的是订阅状态，不是一次扫描），所以
+    severity 分布为空、top 为空 —— 这是诚实的「没有更多信息」，而不是
+    把缺失当成零。
+    """
+    verdict = (envelope or {}).get("verdict", {}) or {}
+    subject = (envelope or {}).get("subject", {}) or {}
+    score = verdict.get("score")
+    core = {
+        "subject": subject.get("url") or subject.get("name"),
+        "score": score,
+        "risk": verdict.get("risk") or _risk_from_score(score),
+        "level": verdict.get("level"),
+        "severity_counts": {},
+        "findings_total": None,
+        "top": [],
+    }
+    out = {
+        "schema": DIGEST_SCHEMA,
+        "ready": score is not None,
+        "issuer": ISSUER_URL,
+        "no_spawn_guarantee": True,
+        "offline_scan": True,
+    }
+    out.update(core)
+    out["fingerprint"] = _digest_fingerprint(core)
+    return out
+
+
+def _digest_scan_result(result, max_findings=3, subject=None, include_collector=False):
+    """把一次扫描结果压成摘要（走 collector 的同一套投影，不另造轮子）。
+
+    默认**不**嵌套 collector 的 digest —— 两者字段高度重叠，嵌进去等于把同一份
+    信息发两遍，正好背离做这个摘要的初衷。需要完整投影时用 include_collector。
+    """
+    from collector.aishield_collector import summarize, fingerprint
+
+    summary = (result or {}).get("summary", {}) or {}
+    findings = list((result or {}).get("findings", []) or [])
+
+    def _sev_key(f):
+        try:
+            return _SEVERITY_ORDER.index(str(f.get("severity", "info")).lower())
+        except ValueError:
+            return len(_SEVERITY_ORDER)
+
+    findings.sort(key=_sev_key)
+    top = []
+    for f in findings[: max(0, int(max_findings))]:
+        top.append(
+            {
+                "severity": f.get("severity"),
+                "type": f.get("type"),
+                "owasp": f.get("owasp_category"),
+            }
+        )
+    score = summary.get("config_score")
+    if score is None:
+        score = summary.get("overall_score")
+    out = {
+        "schema": DIGEST_SCHEMA,
+        "ready": True,
+        "issuer": ISSUER_URL,
+        "no_spawn_guarantee": True,
+        "offline_scan": True,
+        "subject": subject,
+        "score": score,
+        "risk": _risk_from_score(score),
+        "severity_counts": summary.get("severity_counts", {}),
+        "findings_total": summary.get("findings_total"),
+        "servers_found": summary.get("servers_found"),
+        "top": top,
+        # collector 的指纹覆盖 summary+规范化 findings，同一份配置恒定不变，
+        # 调用方据此判断「我缓存的那份还有效吗」。
+        "fingerprint": fingerprint(result or {}),
+    }
+    if include_collector:
+        out["collector_digest"] = summarize(result or {}, max_findings=max_findings)
+    return out
+
+
+def trust_digest(data=None, src=None, max_findings=3, include_collector=False):
+    """紧凑信任摘要的统一入口。返回 (payload, status)。"""
+    data = data or {}
+
+    if data.get("configs"):
+        from scanner.client_discovery import scan_client_configs
+
+        try:
+            result = scan_client_configs(data["configs"])
+        except Exception as e:
+            return {"error": "scan failed: %s" % e}, 400
+        return _digest_scan_result(
+            result, max_findings=max_findings, include_collector=include_collector
+        ), 200
+
+    if data.get("scan_result") or data.get("scan_report"):
+        result = data.get("scan_result") or data.get("scan_report")
+        return _digest_scan_result(
+            result,
+            max_findings=max_findings,
+            subject=data.get("subject"),
+            include_collector=include_collector,
+        ), 200
+
+    target = src or data.get("src") or data.get("source_url") or data.get("tool")
+    if target:
+        envelope = _verify_envelope(target, data.get("type"))
+        return _digest_envelope(envelope, max_findings=max_findings), 200
+
+    return {
+        "error": "one of configs / scan_result / src required",
+        "hint": "POST {configs:{path:content}} 或 {scan_result:{...}}，或 GET ?src=<repo url>",
+        "schema": DIGEST_SCHEMA,
+    }, 400
+
+
+# ══════════════════════════════════════════════
 #  HTTP 路由 (供 server.py 与独立 server 共用)
 # ══════════════════════════════════════════════
 def handle_get(path, query=""):
@@ -368,6 +527,15 @@ def handle_get(path, query=""):
     if m:
         c = verify_cert(m.group(1))
         return (c, 200) if c else ({"error": "certificate not found", "cert_id": m.group(1)}, 404)
+
+    if path == "/api/v1/trust/digest" or path == "/api/v1/digest":
+        src = (q.get("src", [None])[0] or q.get("source_url", [None])[0]
+               or q.get("tool", [None])[0])
+        try:
+            k = int(q.get("max_findings", [3])[0])
+        except (TypeError, ValueError):
+            k = 3
+        return trust_digest(src=src, max_findings=k)
 
     if path == "/api/v1/trust" or path == "/api/v1/trust/verify":
         src = (q.get("src", [None])[0] or q.get("source_url", [None])[0]
@@ -408,6 +576,13 @@ def handle_post(path, data):
         if cert and "error" not in cert:
             return {"success": True, "certification": cert}, 201
         return {"success": False, "error": (cert or {}).get("error", "certify failed")}, 400
+
+    if path == "/api/v1/trust/digest" or path == "/api/v1/digest":
+        try:
+            k = int(data.get("max_findings", 3))
+        except (TypeError, ValueError):
+            k = 3
+        return trust_digest(data=data, max_findings=k)
 
     if path == "/api/v1/trust" or path == "/api/v1/trust/verify":
         src = data.get("src") or data.get("source_url") or data.get("tool")

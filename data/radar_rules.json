@@ -85,7 +85,9 @@
       "source": "arxiv",
       "attack_category": "trajectory-poisoning",
       "promoted_from": "PROPOSED_20260809_when_experience_becomes_instru_3c3a5b.json",
-      "drafted_at": "2026-08-09"
+      "drafted_at": "2026-08-09",
+      "trigger": "signal: When Experience Becomes Instruction: Trajectory Poisoning in Self-Evolving Agent Skill Systems (https://arxiv.org/abs/2608.05563)",
+      "intended_effect": "detect trajectory-poisoning payloads that previously went undetected; verified zero false positive on BENIGN_CORPUS"
     },
     "(?:learned|经验表明|根据经验|based on (?:past )?experience)[^\\n]{0,30}(?:you must|必须|务必|should always)[^\\n]{0,40}(?:执行|运行|上传|发送|exec|upload|send|curl|wget)": {
       "signal_title": "When Experience Becomes Instruction: Trajectory Poisoning in Self-Evolving Agent Skill Systems",
@@ -93,7 +95,9 @@
       "source": "arxiv",
       "attack_category": "trajectory-poisoning",
       "promoted_from": "PROPOSED_20260809_when_experience_becomes_instru_3c3a5b.json",
-      "drafted_at": "2026-08-09"
+      "drafted_at": "2026-08-09",
+      "trigger": "signal: When Experience Becomes Instruction: Trajectory Poisoning in Self-Evolving Agent Skill Systems (https://arxiv.org/abs/2608.05563)",
+      "intended_effect": "detect trajectory-poisoning payloads that previously went undetected; verified zero false positive on BENIGN_CORPUS"
     },
     "(?:broadcast|relay|send|dispatch|propagate)\\b.{0,30}(?:to|among|across)\\b.{0,20}(?:all|other|peer|every|neighbou?r|fellow)\\s+(?:agent|node|robot|drone|device)\\b.{0,30}(?:without|with no|unauthenticated|unsigned|unverified|no (?:auth|verif))": {
       "signal_title": "When Coordination Becomes a Threat: Communication Attacks in LLM-Controlled Multi-Robot Systems",
@@ -101,7 +105,9 @@
       "source": "arxiv",
       "attack_category": "inter-agent-comm-attack",
       "promoted_from": "PROPOSED_20260811_coord_interagent_m3n4o5.json",
-      "drafted_at": "2026-08-11"
+      "drafted_at": "2026-08-11",
+      "trigger": "signal: When Coordination Becomes a Threat: Communication Attacks in LLM-Controlled Multi-Robot Systems (https://arxiv.org/abs/2608.06830)",
+      "intended_effect": "detect inter-agent-comm-attack payloads that previously went undetected; verified zero false positive on BENIGN_CORPUS"
     },
     "(?:persistent|persist|store|save|write)\\b.{0,30}(?:memory|instruction|prompt|configuration|config|payload)\\b.{0,30}(?:re[- ]?load|re[- ]?read|on (?:every|each|next|all) (?:session|startup|boot|launch)|across (?:all )?sessions|each time (?:it|the agent) (?:starts|runs|loads))": {
       "signal_title": "HarnessSafe: Evaluating Safety Across Persistent Carriers in Agent Harnesses",
@@ -109,7 +115,9 @@
       "source": "arxiv",
       "attack_category": "persistent-carrier",
       "promoted_from": "PROPOSED_20260811_harnesssafe_persist_g7h8i9.json",
-      "drafted_at": "2026-08-11"
+      "drafted_at": "2026-08-11",
+      "trigger": "signal: HarnessSafe: Evaluating Safety Across Persistent Carriers in Agent Harnesses (https://arxiv.org/abs/2608.06984)",
+      "intended_effect": "detect persistent-carrier payloads that previously went undetected; verified zero false positive on BENIGN_CORPUS"
     },
     "(?:load_adapter|load_lora_weights|add_adapter|set_adapter|from_pretrained|merge_and_unload)\\b.{0,60}(?:https?://|untrusted|remote|external|[a-z0-9_-]+\\.(?:safetensors|bin|pt))": {
       "signal_title": "LoRAScan: Detecting Backdoor Prompts in Low-Rank Adapters for Large Language Models via Down-Projection Activation Spikes",
@@ -117,7 +125,9 @@
       "source": "arxiv",
       "attack_category": "model-supply-chain",
       "promoted_from": "PROPOSED_20260811_lorascan_adapter_j0k1l2.json",
-      "drafted_at": "2026-08-11"
+      "drafted_at": "2026-08-11",
+      "trigger": "signal: LoRAScan: Detecting Backdoor Prompts in Low-Rank Adapters for Large Language Models via Down-Projection Activation Spikes (https://arxiv.org/abs/2608.06795)",
+      "intended_effect": "detect model-supply-chain payloads that previously went undetected; verified zero false positive on BENIGN_CORPUS"
     },
     "(?:webpage|web page|document|email|search results?|retrieved content|external content)\\b.{0,40}(?:follow (?:the )?(?:instruction|command)|you must|you should|your (?:new )?task|execute (?:the )?following)": {
       "signal_title": "StepJack: Benchmarking Computer-Use Agent Safety Against Multi-Step Indirect Prompt Injection",
@@ -125,7 +135,9 @@
       "source": "arxiv",
       "attack_category": "indirect-prompt-injection",
       "promoted_from": "PROPOSED_20260811_stepjack_indirect_pi_a1b2c3.json",
-      "drafted_at": "2026-08-11"
+      "drafted_at": "2026-08-11",
+      "trigger": "signal: StepJack: Benchmarking Computer-Use Agent Safety Against Multi-Step Indirect Prompt Injection (https://arxiv.org/abs/2608.06477)",
+      "intended_effect": "detect indirect-prompt-injection payloads that previously went undetected; verified zero false positive on BENIGN_CORPUS"
     },
     "(?:build|construct|generate|compose|form)\\b.{0,25}(?:its (?:own|self[- ]generated)|an autonomous|a multi[- ]step)\\b.{0,25}(?:attack chain|action chain|tool chain|plan of action|sequence of (?:steps|commands|actions))": {
       "signal_title": "SynChain: Inducing Computer-Use Agent Systems to Construct Their Own Attack Chains",
@@ -133,7 +145,9 @@
       "source": "arxiv",
       "attack_category": "agentic-attack-chain",
       "promoted_from": "PROPOSED_20260811_synchain_attack_chain_d4e5f6.json",
-      "drafted_at": "2026-08-11"
+      "drafted_at": "2026-08-11",
+      "trigger": "signal: SynChain: Inducing Computer-Use Agent Systems to Construct Their Own Attack Chains (https://arxiv.org/abs/2608.06862)",
+      "intended_effect": "detect agentic-attack-chain payloads that previously went undetected; verified zero false positive on BENIGN_CORPUS"
     },
     "(?:PreToolUse|PostToolUse|UserPromptSubmit|SessionStart|SessionEnd|SubagentStop|PreCompact|Notification)\\b[^\\n]{0,120}(?:curl|wget|base64\\s+-d|eval\\b|iex\\b|invoke-expression|python\\s+-c|node\\s+-e|/dev/tcp|nc\\s+-|chmod\\s+\\+x|powershell[^\\n]{0,20}-e|osascript|schtasks|crontab|\\|\\s*sh\\b|\\|\\s*bash\\b)": {
       "signal_title": "thixpin/claude-config (agent config hook auto-execution surface)",
@@ -141,7 +155,9 @@
       "source": "github-trending",
       "attack_category": "config-hook-execution",
       "promoted_from": "PROPOSED_20260811_agentcfg_hook_q0r1s2.json",
-      "drafted_at": "2026-08-11"
+      "drafted_at": "2026-08-11",
+      "trigger": "signal: thixpin/claude-config (agent config hook auto-execution surface) (https://github.com/thixpin/claude-config)",
+      "intended_effect": "detect config-hook-execution payloads that previously went undetected; verified zero false positive on BENIGN_CORPUS"
     },
     "(?:writ(?:e|es|ing)|append(?:s|ed|ing)?|inject(?:s|ed|ing)?|patch(?:es|ed|ing)?|add(?:s|ed|ing)?|install(?:s|ed|ing)?|creat(?:e|es|ing))\\b[^\\n]{0,60}(?:(?:settings\\.json|settings\\.local\\.json|\\.cursorrules|\\.clinerules|\\.windsurfrules|CLAUDE\\.md|AGENTS\\.md)\\b[^\\n]{0,60}hooks?\\b|hooks?\\b[^\\n]{0,60}(?:settings\\.json|settings\\.local\\.json|\\.cursorrules|\\.clinerules|\\.windsurfrules|CLAUDE\\.md|AGENTS\\.md)\\b)|(?:settings\\.json|settings\\.local\\.json|\\.cursorrules|\\.clinerules|\\.windsurfrules|CLAUDE\\.md|AGENTS\\.md)\\b[^\\n]{0,60}hooks?\\b[^\\n]{0,60}(?:curl|wget|base64\\s+-d|eval\\b|iex\\b|invoke-expression|python\\s+-c|node\\s+-e|/dev/tcp|nc\\s+-|chmod\\s+\\+x|powershell[^\\n]{0,20}-e|osascript|schtasks|crontab|\\|\\s*sh\\b|\\|\\s*bash\\b)": {
       "signal_title": "thixpin/claude-config (agent config hook auto-execution surface)",
@@ -149,7 +165,9 @@
       "source": "github-trending",
       "attack_category": "config-hook-execution",
       "promoted_from": "PROPOSED_20260811_agentcfg_hook_q0r1s2.json",
-      "drafted_at": "2026-08-11"
+      "drafted_at": "2026-08-11",
+      "trigger": "signal: thixpin/claude-config (agent config hook auto-execution surface) (https://github.com/thixpin/claude-config)",
+      "intended_effect": "detect config-hook-execution payloads that previously went undetected; verified zero false positive on BENIGN_CORPUS"
     },
     "\\badb\\b(?:\\s+-s\\s+\\S+)?\\s+(?:shell|install|uninstall|push|pull|root|remount|forward|reverse)\\b": {
       "signal_title": "ivRodriguezCA/MobHunt (mobile device control surface exposed to agents)",
@@ -157,7 +175,9 @@
       "source": "github-trending",
       "attack_category": "privileged-device-control",
       "promoted_from": "PROPOSED_20260811_device_shell_k4l5m6.json",
-      "drafted_at": "2026-08-11"
+      "drafted_at": "2026-08-11",
+      "trigger": "signal: ivRodriguezCA/MobHunt (mobile device control surface exposed to agents) (https://github.com/ivRodriguezCA/MobHunt)",
+      "intended_effect": "detect privileged-device-control payloads that previously went undetected; verified zero false positive on BENIGN_CORPUS"
     },
     "(?:\\bfastboot\\s+(?:flash|oem|erase)\\b|\\bidevice[a-z_]*\\b|\\bxcrun\\s+simctl\\b|\\bfrida(?:-ps|-trace|-server)?\\s+-U\\b)": {
       "signal_title": "ivRodriguezCA/MobHunt (mobile device control surface exposed to agents)",
@@ -165,7 +185,9 @@
       "source": "github-trending",
       "attack_category": "privileged-device-control",
       "promoted_from": "PROPOSED_20260811_device_shell_k4l5m6.json",
-      "drafted_at": "2026-08-11"
+      "drafted_at": "2026-08-11",
+      "trigger": "signal: ivRodriguezCA/MobHunt (mobile device control surface exposed to agents) (https://github.com/ivRodriguezCA/MobHunt)",
+      "intended_effect": "detect privileged-device-control payloads that previously went undetected; verified zero false positive on BENIGN_CORPUS"
     },
     "(?:generat\\w*|creat\\w*|synthesi[sz]\\w*|craft\\w*|writ\\w*)\\b.{0,30}(?:working\\s+)?(?:exploits?\\b|0-?day|zero-?day|proof[- ]of[- ]concept|shellcode|weaponi[sz]ed?|(?:malicious|attack|injection)\\s+payloads?)": {
       "signal_title": "LLM-Driven Fuzzing of JavaScript Engines / CyberForge: Verified Vulnerability Injection",
@@ -173,7 +195,9 @@
       "source": "arxiv",
       "attack_category": "offensive-capability",
       "promoted_from": "PROPOSED_20260811_offensive_cap_n7o8p9.json",
-      "drafted_at": "2026-08-11"
+      "drafted_at": "2026-08-11",
+      "trigger": "signal: LLM-Driven Fuzzing of JavaScript Engines / CyberForge: Verified Vulnerability Injection (https://arxiv.org/abs/2608.06641)",
+      "intended_effect": "detect offensive-capability payloads that previously went undetected; verified zero false positive on BENIGN_CORPUS"
     },
     "(?:autonomous|automated|self-?driving|agentic|unattended)\\b.{0,25}(?:fuzz\\w*|exploitation|pentest\\w*|penetration test\\w*|vulnerability (?:discovery|hunting|injection))": {
       "signal_title": "LLM-Driven Fuzzing of JavaScript Engines / CyberForge: Verified Vulnerability Injection",
@@ -181,7 +205,9 @@
       "source": "arxiv",
       "attack_category": "offensive-capability",
       "promoted_from": "PROPOSED_20260811_offensive_cap_n7o8p9.json",
-      "drafted_at": "2026-08-11"
+      "drafted_at": "2026-08-11",
+      "trigger": "signal: LLM-Driven Fuzzing of JavaScript Engines / CyberForge: Verified Vulnerability Injection (https://arxiv.org/abs/2608.06641)",
+      "intended_effect": "detect offensive-capability payloads that previously went undetected; verified zero false positive on BENIGN_CORPUS"
     },
     "(?:private[_ ]?key|mnemonic|seed[_ ]?phrase|keystore)\\b.{0,40}(?:wallet|mnemonic|0x[a-fA-F0-9]{2,}|eth_|solana|metamask|ledger|web3|on-?chain|derivation path)": {
       "signal_title": "iktok90-design/ai-smart-contract-auditor (web3 agent tooling surface)",
@@ -189,7 +215,9 @@
       "source": "github-trending",
       "attack_category": "credential-exposure",
       "promoted_from": "PROPOSED_20260811_web3_keymat_h1i2j3.json",
-      "drafted_at": "2026-08-11"
+      "drafted_at": "2026-08-11",
+      "trigger": "signal: iktok90-design/ai-smart-contract-auditor (web3 agent tooling surface) (https://github.com/iktok90-design/ai-smart-contract-auditor)",
+      "intended_effect": "detect credential-exposure payloads that previously went undetected; verified zero false positive on BENIGN_CORPUS"
     },
     "(?:\\beth_|\\bweb3|\\bwallet\\b|\\bsolana\\b|\\bmetamask\\b|\\bledger\\b|\\bon-?chain\\b).{0,40}(?:private[_ ]?key|mnemonic|seed[_ ]?phrase|keystore)": {
       "signal_title": "iktok90-design/ai-smart-contract-auditor (web3 agent tooling surface)",
@@ -197,7 +225,9 @@
       "source": "github-trending",
       "attack_category": "credential-exposure",
       "promoted_from": "PROPOSED_20260811_web3_keymat_h1i2j3.json",
-      "drafted_at": "2026-08-11"
+      "drafted_at": "2026-08-11",
+      "trigger": "signal: iktok90-design/ai-smart-contract-auditor (web3 agent tooling surface) (https://github.com/iktok90-design/ai-smart-contract-auditor)",
+      "intended_effect": "detect credential-exposure payloads that previously went undetected; verified zero false positive on BENIGN_CORPUS"
     },
     "(?i)(?:repeat|re-?output|re-?print|duplicate|echo|重复|复述)[^\\n]{0,30}?\\b\\d{3,}\\s*(?:times|x|次|遍)": {
       "signal_title": "SkillBloat: Token Amplification Attacks via Skill Injection in LLM Coding Agents",
@@ -205,7 +235,9 @@
       "source": "arxiv",
       "attack_category": "skill-poisoning",
       "promoted_from": "PROPOSED_20260825_skillbloat_token_amplification_6aac90.json",
-      "drafted_at": "2026-08-25"
+      "drafted_at": "2026-08-25",
+      "trigger": "signal: SkillBloat: Token Amplification Attacks via Skill Injection in LLM Coding Agents (https://arxiv.org/abs/2608.21929)",
+      "intended_effect": "detect skill-poisoning payloads that previously went undetected; verified zero false positive on BENIGN_CORPUS"
     },
     "(?i)(?:until|直到)[^\\n]{0,30}(?:context\\s*(?:window|limit)|token\\s*(?:limit|budget|quota)|上下文(?:窗口|上限)|token\\s*额度)[^\\n]{0,20}(?:is\\s*)?(?:exhaust\\w*|full|reached|maxed|用尽|耗尽|打满)": {
       "signal_title": "SkillBloat: Token Amplification Attacks via Skill Injection in LLM Coding Agents",
@@ -213,7 +245,9 @@
       "source": "arxiv",
       "attack_category": "skill-poisoning",
       "promoted_from": "PROPOSED_20260825_skillbloat_token_amplification_6aac90.json",
-      "drafted_at": "2026-08-25"
+      "drafted_at": "2026-08-25",
+      "trigger": "signal: SkillBloat: Token Amplification Attacks via Skill Injection in LLM Coding Agents (https://arxiv.org/abs/2608.21929)",
+      "intended_effect": "detect skill-poisoning payloads that previously went undetected; verified zero false positive on BENIGN_CORPUS"
     },
     "(?:overwrite|rewrite|patch|edit|modify|disable|delete|remove|bypass)\\w*\\s+(?:its|their|the)\\s+own\\s+(?:guardrail|safety|policy|constraint|rule|filter|detector|oversight|check)": {
       "signal_title": "Theseus Labs RSI report: L5 recurses on the improvement mechanism itself (agent edits its own guardrail)",
@@ -221,7 +255,9 @@
       "source": "standards",
       "attack_category": "guardrail-self-modification",
       "promoted_from": "PROPOSED_20260915_theseus_rsi_l5_guardrail_a1f30c.json",
-      "drafted_at": "2026-09-15"
+      "drafted_at": "2026-09-15",
+      "trigger": "signal: Theseus Labs RSI report: L5 recurses on the improvement mechanism itself (agent edits its own guardrail) (https://arxiv.org/abs/2609.11873)",
+      "intended_effect": "detect guardrail-self-modification payloads that previously went undetected; verified zero false positive on BENIGN_CORPUS"
     },
     "(?:disable|bypass|remove|patch|overwrite|blind|tamper\\w*)\\w*\\s+(?:the\\s+)?(?:verifier|supervisor|monitor|audit\\s*log|oversight|evaluator|critic|safety\\s*check)": {
       "signal_title": "Theseus Labs RSI report: L5 autonomy blinds/removes the verifier, monitor or audit log (oversight tampering)",
@@ -229,7 +265,9 @@
       "source": "standards",
       "attack_category": "oversight-tampering",
       "promoted_from": "PROPOSED_20260915_theseus_rsi_l5_oversight_b7e142.json",
-      "drafted_at": "2026-09-15"
+      "drafted_at": "2026-09-15",
+      "trigger": "signal: Theseus Labs RSI report: L5 autonomy blinds/removes the verifier, monitor or audit log (oversight tampering) (https://arxiv.org/abs/2609.11873)",
+      "intended_effect": "detect oversight-tampering payloads that previously went undetected; verified zero false positive on BENIGN_CORPUS"
     }
   }
 }

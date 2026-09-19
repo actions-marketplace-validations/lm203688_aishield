@@ -191,8 +191,12 @@ class TestPublishedDocsTellTheTruth(unittest.TestCase):
                                  '%s 声明 %s 条，实际 %d 条'
                                  % (cat, m.group(1), actual))
 
-    def test_all_six_tools_documented(self):
-        """六个工具都要在 README 里出现，漏列等于用户永远不知道它存在"""
+    def test_all_tools_documented(self):
+        """每个注册的工具都要在 README 里出现，漏列等于用户永远不知道它存在。
+
+        断言是「集合覆盖」而非固定条数：新增工具时这条测试会自己变红，
+        逼着作者同步 README，而不是留一个写死 6/7 的数字等着哪天对不上。
+        """
         ts = _read(INDEX_TS)
         tools = set(re.findall(r"server\.tool\(\s*'([a-z_]+)'", ts))
         self.assertGreaterEqual(len(tools), 6, '未解析到全部工具注册')

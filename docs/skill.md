@@ -42,6 +42,7 @@ agent 生态的载荷形态是**指令**，不是二进制。一段 Markdown 里
 | `aishield_rug_pull` | 对比工具描述的旧新两版，抓静默变更（rug pull） |
 | `aishield_guardrail` | 检查 agent 配置的护栏是否配得上它声明的自主权 |
 | `aishield_banned_words` | 标记违反策略或高风险的措辞 |
+| `aishield_digest` | 紧凑信任摘要：几百字节 + 内容指纹，同一份配置指纹不变即可直接复用，不必每轮重拉完整报告 |
 
 ## 建议流程
 

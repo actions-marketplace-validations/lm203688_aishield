@@ -52,7 +52,8 @@
       "aishield_prompt_check",
       "aishield_banned_words",
       "aishield_rug_pull",
-      "aishield_handshake"
+      "aishield_handshake",
+      "aishield_digest"
     ]
   },
   "trust": {
