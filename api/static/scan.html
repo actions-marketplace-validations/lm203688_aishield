@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AIShield 在线扫描 · 粘贴 MCP 配置立即出安全报告</title>
-<meta name="description" content="无需安装、无需注册：粘贴你的 MCP 客户端配置（Claude Desktop / Cursor / .mcp.json），立即得到配置安全评分、风险清单、SARIF 报告与接入 Agent 的命令。代码不出机。">
+<meta name="description" content="无需安装、无需注册：粘贴你的 MCP 客户端配置（Claude Desktop / Cursor / .mcp.json），立即得到配置安全评分、风险清单、SARIF 报告与接入 Agent 的命令。服务端只做静态分析，绝不执行配置中的任何命令；若需完全本机处理，请用 npx aishield-mcp-server。">
 <meta name="theme-color" content="#38bdf8">
 <script src="https://cdn.tailwindcss.com"></script>
 </head>
@@ -37,7 +37,7 @@
   <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
     <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-sky-500/10 border border-sky-500/20 text-sky-300 text-sm mb-5">
       <span class="w-2 h-2 rounded-full bg-sky-400 animate-pulse"></span>
-      零安装 · 零注册 · 代码不出机
+      零安装 · 零注册 · 静态分析，不执行配置
     </div>
     <h1 class="text-4xl sm:text-5xl font-extrabold text-white leading-tight mb-4">
       粘贴 MCP 配置，<span class="bg-gradient-to-r from-sky-400 via-violet-400 to-pink-400 bg-clip-text text-transparent">秒出安全报告</span>
@@ -45,6 +45,12 @@
     <p class="text-gray-400 max-w-2xl mx-auto">
       把你的 <code class="text-sky-300">claude_desktop_config.json</code> / <code class="text-sky-300">.mcp.json</code> / Cursor 配置内容粘进来，
       服务端只做<strong class="text-white">静态分析</strong>，绝不执行配置里的任何命令。
+    </p>
+    <p class="text-xs text-amber-300/90 max-w-2xl mx-auto mt-4 leading-relaxed">
+      提示：粘贴的内容会发送到 aishield.tools 进行静态分析（绝不执行其中的命令）。
+      若配置含敏感信息、要求完全本机处理，请改用本地扫描：
+      <code class="text-sky-300">npx aishield-mcp-server</code>，
+      或 <code class="text-sky-300">python -m collector.aishield_collector --once</code>。
     </p>
   </div>
 </section>

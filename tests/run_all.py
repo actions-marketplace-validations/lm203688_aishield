@@ -81,6 +81,8 @@ def main():
         # 2026-09-19 在线扫描页 + 框架适配器 + SARIF 导出契约
         'tests.test_sarif_export',
         'tests.test_scan_inline_page',
+        # 2026-09-19 AIShield Collector：本地持续观测（不 spawn / 不联网 / 指纹幂等 / 紧凑摘要）
+        'tests.test_collector',
     ]
 
     loaded = 0

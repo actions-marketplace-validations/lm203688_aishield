@@ -66,6 +66,23 @@ class TestScanPageWiring(unittest.TestCase):
         # 静态分析承诺：页面文案须声明不执行命令
         self.assertIn("静态分析", html)
 
+    def test_scan_page_does_not_misrepresent_data_flow(self):
+        """The pasted config IS posted to the server.
+
+        Claiming "代码不出机" would be a materially false statement on a
+        security tool's landing page. Pin both halves: the false claim must be
+        gone, and an accurate disclosure must be present.
+        """
+        path = os.path.join(os.path.dirname(__file__), "..", "api", "static", "scan.html")
+        with open(path, encoding="utf-8") as f:
+            html = f.read()
+        self.assertNotIn(
+            "代码不出机", html,
+            "在线扫描页会把粘贴内容发到服务端，不得宣称「代码不出机」",
+        )
+        self.assertIn("发送到 aishield.tools", html, "需明示粘贴内容会传输到服务端")
+        self.assertIn("npx aishield-mcp-server", html, "需给出完全本机处理的替代路径")
+
     def test_server_route_registers_scan(self):
         # 确认 server.py 的 _STATIC_PAGES 含 /scan -> scan.html
         server_path = os.path.join(os.path.dirname(__file__), "..", "api", "server.py")
