@@ -3,7 +3,7 @@
 > 用途：把各平台的「去哪提交 / 贴什么」固化成可直接复制的文本，降低手动发布摩擦。
 > 维护节奏：由自动化 `AIShield 多渠道分发缺口巡检` 每周核对状态并刷新本文件。
 > 最后人工核对：2026-08-15（curl/WebFetch 实测）。
-> 最后自动巡检：**2026-09-12**（curl 实测；本域 drift 已随 4.3.0 发版消除；09-12 复测仍 4.3.0 无漂移，详见表内 aishield.tools 两行）。
+> 最后自动巡检：**2026-09-19**（curl 实测；本域无 drift，4.3.0/238 稳定；Registry 4.3.0 active 复测在册；npm 4.3.0 latest；详见表内 aishield.tools 两行）。
 
 ---
 
@@ -142,7 +142,7 @@
 
 ## 发布状态速查（每周由自动化刷新）
 
-> 状态截止 **2026-09-12** 自动巡检（全部经 curl 实测）。
+> 状态截止 **2026-09-19** 自动巡检（全部经 curl 实测；本域无 drift、Registry/npm 复测一致）。
 
 | 渠道 | 状态 | 资产就绪 | 需用户手动 |
 |---|---|---|---|
@@ -162,7 +162,7 @@
 | TeamAI | ✅ **source 已就绪（2026-09-15，无需账号）** | ✅ `teamai.yaml` + `skills/aishield-scan/SKILL.md` | 无 |
 | CocoLoop | 🟡 **文案就绪，待注册**（2026-09-15） | ✅ LISTING.md | 注册 + 社区投稿 |
 | aishield.tools 静态发现文件 | ✅ **已修复 4.3.0 → 235 MCP/241 Skill**（2026-09-15 sweep 复测） | ✅ main 已同步 | 无 |
-| aishield.tools `/api/v1` 后端 | ✅ **4.3.0/235**（仓库代码 208 static + 8 intel + 19 radar，2026-09-18 去重+精简后；线上实测仍为 238，待 03:17 spine 下一次部署生效——PAT 缺 `Workflows:write`，无法手动 `workflow_dispatch`） | — | 部署时滞 |
+| aishield.tools `/api/v1` 后端 | ✅ **4.3.0/238**（deployed 2026-09-18T08:22:26Z, commit 83d6318b；rules_breakdown {static:210, generated:9, radar:19}，与 server-card 238 MCP 一致） | — | 无（已部署） |
 | GitHub Pages（github.io） | ⛔ **死端表面**：301→aishield.tools，内容不可达 | — | 无（勿再修，见下） |
 
 ### 表面拓扑（2026-08-22 实测厘清）
