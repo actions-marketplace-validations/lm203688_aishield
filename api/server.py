@@ -226,9 +226,23 @@ def check_prompt_injection(prompt):
     for f in findings:
         score -= {"critical": 30, "high": 15, "medium": 5, "low": 1}.get(f["severity"], 0)
     score = max(0, min(100, score))
-    
-    risk = "safe" if score >= 80 else "low" if score >= 60 else "medium" if score >= 40 else "high" if score >= 20 else "critical"
-    
+
+    # 由分数定档，但**绝不轻于实际找到的最严重 finding**。
+    # 单条 critical 只扣 30 分 → 70 分 → 落在 `>= 60` 档 → 会被标成 risk "low"，
+    # 而它明明是一段带隐藏指令的载荷；一条 high + 一条 medium 恰好 80 分 → "safe"。
+    # 结论标签是调用方直接照做的东西，不能与证据脱节。
+    band = "safe" if score >= 80 else "low" if score >= 60 else "medium" if score >= 40 else "high" if score >= 20 else "critical"
+    _RISK_RANK = {"safe": 0, "low": 1, "medium": 2, "high": 3, "critical": 4}
+    _SEV_FLOOR = {"critical": "critical", "high": "high", "medium": "medium"}
+    floor = None
+    for _sev in ("critical", "high", "medium"):
+        if any(f.get("severity") == _sev for f in findings):
+            floor = _SEV_FLOOR[_sev]
+            break
+    risk = floor if (floor and _RISK_RANK[floor] > _RISK_RANK[band]) else band
+    # worst_severity 让调用方看见标签背后的原因
+    worst_severity = floor
+
     summary_parts = []
     critical = [f for f in findings if f["severity"] == "critical"]
     high = [f for f in findings if f["severity"] == "high"]
@@ -240,9 +254,13 @@ def check_prompt_injection(prompt):
         summary_parts.append("未发现安全风险")
     
     return {
-        "safe": score >= 80,
+        # safe 由 risk 派生，而不是再独立算一次 score >= 80：否则会出现
+        # `safe: true` 与一条 high finding 并列（high 只扣 15 分，85 分仍越线）。
+        # 同一个结论只有一个真值来源。
+        "safe": risk == "safe",
         "score": score,
         "risk": risk,
+        "worst_severity": worst_severity,
         "findings": findings,
         "total_findings": len(findings),
         "summary": "，".join(summary_parts),
@@ -2441,7 +2459,7 @@ blockquote{{border-left:4px solid #3b82f6;padding-left:16px;margin-left:0;color:
                         },
                         {
                             "name": "aishield_digest",
-                            "description": "Compact trust digest (aishield-digest/v1) — a few hundred bytes plus a content fingerprint, so an agent can answer 'can I trust this?' every turn without re-pulling the full report. Accepts {configs} (static analysis only), {scan_result}, or {source_url}.",
+                            "description": "Compact trust digest (aishield-digest/v1) — a few hundred bytes plus a content fingerprint, so an agent can answer 'can I trust this?' every turn without re-pulling the full report. Accepts {configs} (static analysis only), {scan_result}, or {source_url}. The returned `risk` is never lighter than the worst finding actually present (a config with high findings is never labelled 'safe'), and no plaintext credential is ever echoed back.",
                             "inputSchema": {
                                 "type": "object",
                                 "properties": {

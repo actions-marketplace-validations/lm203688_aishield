@@ -188,5 +188,98 @@ class TestRiskBanding(unittest.TestCase):
         self.assertEqual(trust_api._risk_from_score(None), 'unknown')
 
 
+class TestRiskFloor(unittest.TestCase):
+    """分数不能单独决定风险标签。
+
+    这是实测抓到的一个**假安心**：两条 high 各扣 8 分 → 84 分 → 落在
+    `>= 80` 档 → 摘要输出 `risk: "safe"`，同时并列 `severity_counts:
+    {"high": 2}`。下游 agent 只读 risk，于是拿着一个带明文 HTTP 远程传输的
+    配置走了。安全产品里最危险的不是漏报，是报了个"安全"。
+    """
+
+    # 分数 84 = 100 - 2×8（high 权重 8），恰好落在 safe 档内 —— 必须是 high。
+    HIGH_SCORE_WITH_HIGH_FINDINGS = {
+        'summary': {
+            'config_score': 84,
+            'findings_total': 2,
+            'servers_found': 1,
+            'severity_counts': {'high': 2},
+        },
+        'findings': [
+            {'severity': 'high', 'type': 'runtime_package_fetch', 'owasp_category': 'MCP04'},
+            {'severity': 'high', 'type': 'insecure_transport', 'owasp_category': 'MCP03'},
+        ],
+    }
+
+    def test_high_findings_are_never_branded_safe(self):
+        payload, status = trust_api.trust_digest(
+            data={'scan_result': self.HIGH_SCORE_WITH_HIGH_FINDINGS}
+        )
+        self.assertEqual(status, 200)
+        self.assertEqual(payload['score'], 84)
+        self.assertNotEqual(payload['risk'], 'safe',
+                            '84 分带着 2 条 high 被判 safe —— 假安心，会误导下游 agent')
+        self.assertEqual(payload['risk'], 'high')
+        self.assertEqual(payload['worst_severity'], 'high')
+
+    def test_critical_finding_outranks_a_perfect_score(self):
+        """一条 critical 不该被 100 分洗白。"""
+        result = {
+            'summary': {'config_score': 100, 'severity_counts': {'critical': 1},
+                        'findings_total': 1, 'servers_found': 1},
+            'findings': [{'severity': 'critical', 'type': 'privileged_container',
+                          'owasp_category': 'MCP05'}],
+        }
+        payload, _ = trust_api.trust_digest(data={'scan_result': result})
+        self.assertEqual(payload['risk'], 'critical')
+        self.assertEqual(payload['worst_severity'], 'critical')
+
+    def test_floor_never_lightens_a_band(self):
+        """下限只能加重，不能减轻 —— 39 分仍必须是 critical。"""
+        result = {
+            'summary': {'config_score': 39, 'severity_counts': {'low': 5},
+                        'findings_total': 5, 'servers_found': 1},
+            'findings': [{'severity': 'low', 'type': 'verbose_logging'}],
+        }
+        payload, _ = trust_api.trust_digest(data={'scan_result': result})
+        self.assertEqual(payload['risk'], 'critical')
+
+    def test_posture_noise_alone_does_not_raise_the_band(self):
+        """low/info 是姿态噪音，不该把一份干净配置抬成风险。"""
+        result = {
+            'summary': {'config_score': 95, 'severity_counts': {'low': 1, 'info': 2},
+                        'findings_total': 3, 'servers_found': 1},
+            'findings': [{'severity': 'low', 'type': 'verbose_logging'}],
+        }
+        payload, _ = trust_api.trust_digest(data={'scan_result': result})
+        self.assertEqual(payload['risk'], 'safe')
+        self.assertIsNone(payload['worst_severity'])
+
+    def test_no_findings_at_all_is_honestly_safe(self):
+        """干干净净的配置应当得到 safe，且不编造 worst_severity。"""
+        result = {'summary': {'config_score': 100, 'severity_counts': {},
+                              'findings_total': 0, 'servers_found': 1},
+                  'findings': []}
+        payload, _ = trust_api.trust_digest(data={'scan_result': result})
+        self.assertEqual(payload['risk'], 'safe')
+        self.assertIsNone(payload['worst_severity'])
+
+    def test_floor_is_wired_into_the_configs_path(self):
+        """configs 路径（现扫）同样要过下限 —— 别只修了 scan_result 那条。"""
+        payload, status = trust_api.trust_digest(
+            data={'configs': {'/tmp/mcp.json': EVIL_CONFIG}}
+        )
+        self.assertEqual(status, 200)
+        counts = payload['severity_counts']
+        if counts.get('critical') or counts.get('high'):
+            self.assertNotEqual(payload['risk'], 'safe',
+                                'configs 路径漏了 risk 下限')
+
+    def test_backward_compatible_when_counts_omitted(self):
+        """省略 counts 时行为与旧版一致 —— 既有调用方不受影响。"""
+        self.assertEqual(trust_api._risk_from_score(95), 'safe')
+        self.assertEqual(trust_api._risk_from_score(95, None), 'safe')
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)

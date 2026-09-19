@@ -274,7 +274,8 @@ server.tool('aishield_digest', `AIShield紧凑信任摘要 — 几百字节拿�
   scan_result — 已有扫描结果，只做压缩
 
 返回: 分数 + 风险等级 + 严重度分布 + 首 N 条 + content fingerprint。
-指纹对同一份配置恒定不变 —— 存下来，下一轮先比指纹，没变就不必重复拉取。`, {
+指纹对同一份配置恒定不变 —— 存下来，下一轮先比指纹，没变就不必重复拉取。
+风险等级绝不比实际找到的最严重 finding 更轻（有 high 就不会报 safe），摘要里也不会出现明文凭证。`, {
     source_url: zod_1.z.string().optional().describe('GitHub repo URL — return the current verdict as a digest'),
     configs: zod_1.z.record(zod_1.z.any()).optional().describe('{path: file content} MCP client config map (static analysis only)'),
     scan_result: zod_1.z.record(zod_1.z.any()).optional().describe('An existing scan result to compress'),
@@ -299,7 +300,7 @@ server.tool('aishield_digest', `AIShield紧凑信任摘要 — 几百字节拿�
             `AIShield Trust Digest (${d.schema || 'aishield-digest/v1'})`,
             `${'─'.repeat(44)}`,
             `Score:   ${d.score === null || d.score === undefined ? 'n/a' : d.score} / 100`,
-            `Risk:    ${d.risk || 'unknown'}`,
+            `Risk:    ${d.risk || 'unknown'}${d.worst_severity ? `  (worst finding: ${d.worst_severity})` : ''}`,
             `Subject: ${d.subject || 'n/a'}`,
             `Findings: ${d.findings_total === null || d.findings_total === undefined ? 'n/a' : d.findings_total}  ${JSON.stringify(counts)}`,
             `Fingerprint: ${d.fingerprint || 'n/a'}`,

@@ -137,6 +137,32 @@ theft` 等词）。这类文本是误报重灾区 —— 一个讨论 prompt inj
 | `trigger` | **这次写入由什么触发**（来源情报，或"仅凭候选文件"） | 2026-09-19 新增 |
 | `intended_effect` | **期望它产生什么效果**（要检出哪类此前漏掉的载荷，且不得误报良性语料） | 2026-09-19 新增 |
 
+### 6.2 结论层的不变量：risk 不得轻于 finding
+
+规则闸门保证的是「规则按标准进入规则库」。但**结论**是另一层：一个分数、一个风险
+标签，agent 会直接照它行动。这一层实测出现过一次**假安心**——
+
+`aishield-digest/v1` 的风险标签原本只由分数分档决定（`>= 80` → `safe`）。high 权重
+8 分，于是两条 high 的配置得 84 分，摘要输出 `risk: "safe"` 的同时并列
+`severity_counts: {"high": 2}`——一份带明文 HTTP 远程传输的配置被标成"安全"。
+下游只读 `risk` 字段，读到的就是这个字面意思。
+
+现在 risk 取「分数档」与「实际最严重 finding」中**更重**的一方，并额外输出
+`worst_severity` 让调用方看见原因。分数本身照旧输出（它是既有的项目级约定），只是
+不再单独决定风险标签。
+
+这条被写成契约测试（`tests/test_trust_digest.py::TestRiskFloor`，7 项），因为它是
+**结论层的诚实性**，不是实现细节：我们宁可说"high"，也不说一个下游会照做的谎。
+
+同一缺陷同类也存在于 `/scan` 的 prompt 扫描路径（`api/server.py::check_prompt_injection`）：
+单条 critical 只扣 30 分 → 70 分 → 旧分档会给出 risk `"low"`；一条 high（扣 15）单独
+出现则 85 分 → `safe: true`。该路径已同样加上下限，且 `safe` 改为由 `risk` 派生
+（同一个结论只有一个真值来源，不再独立算一次 `score >= 80`）。
+回归断言见 `tests/test_security.py::TestPromptInjectionDetection.test_detect_bypass_security`。
+
+> 这属于本项目的一条经验：**结论层缺陷是群居的**。修掉摘要里的那一处，下一处会
+> 在另一个入口顶着 —— 所以发现一处后必须横向扫一遍同类标签，而不是只修被撞见的那一个。
+
 **向后兼容**：缺失 `trigger` / `intended_effect` 的老记录视为 legacy，加载器照常接受、
 不隔离、不告警 —— 由 `tests/test_provenance_audit.py::TestLegacyDataStillLoads` 钉住。
 一个"加了字段就读不了老文件"的改动，会把小升级变成事故。
@@ -196,3 +222,6 @@ python tests/run_all.py
 - 确定性基线与分数：`docs/benchmark/v1.md`、`python scripts/benchmark.py --json`
 - 信任凭证信封：`docs/trust-attestation-spec.md`（`aishield-trust/v1`）
 - 紧凑信任摘要：`aishield-digest/v1`，见 `api/trust_api.py::trust_digest`
+  - 输出契约：`no_spawn_guarantee` / `offline_scan` 恒真；`top[]` 永不回传 evidence；
+    `risk` 不得轻于 `worst_severity`（见 §6.2）
+  - 端点：`GET|POST /api/v1/trust/digest`（别名 `/api/v1/digest`）；MCP 工具 `aishield_digest`

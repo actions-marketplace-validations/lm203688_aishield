@@ -97,7 +97,7 @@ C2C 的结论是**工程性**的：紧凑的语义载体优于逐 token 的文�
 
 **落地**：
 - `P0` ✅ **本次已落地**：`collector.summarize()` 输出紧凑 digest + `fingerprint()`（sha256）供 agent 缓存与变更检测。已在契约测试中钉死「digest < 1000 字节」。
-- `P1` 待批：把它提升为对外端点 `GET /api/v1/trust/digest` + MCP 工具 `aishield_digest`，让远程 agent 也能低成本消费。
+- `P1` ✅ **本次已落地**：提升为对外端点 `GET|POST /api/v1/trust/digest`（别名 `/api/v1/digest`）+ MCP 工具 `aishield_digest`（第 7 个），让远程 agent 也能低成本消费。裸 `GET` 无参返回 400 + 自描述 `hint`/`schema`；三种输入模式 `configs`（现扫）/ `scan_result`（现压）/ `src`（现判）。实测紧凑载荷 ~519 字节、带 sha256 指纹、同配置指纹稳定（可缓存）。
 
 ---
 
@@ -126,7 +126,7 @@ C2C 的结论是**工程性**的：紧凑的语义载体优于逐 token 的文�
 | 首轮 GEO 推广落地（`/scan` 上线公告 + 渠道清单） | ✅ 见 `docs/blog/blog-online-scan-launch-2026-09-19.md` · `distribution/launch-channels-2026-09-19.md` |
 | GEO 资产刷新（`docs/llms.txt` 规则数 + `/scan` 入口） | ✅ |
 | AIShield Security Benchmark v1（P1，AndroidWorld 借鉴） | ✅ 已实现（`scripts/benchmark.py` · `docs/benchmark/v1.md` · 16 项契约测试） |
-| `/api/v1/trust/digest` + `aishield_digest` MCP 工具（P1，C2C 借鉴） | ✅ 已实现（第 7 个 MCP 工具 · 16 项契约测试） |
+| `/api/v1/trust/digest` + `aishield_digest` MCP 工具（P1，C2C 借鉴） | ✅ 已实现（第 7 个 MCP 工具 · 23 项契约测试，含 §3.1 第 4 条 risk 下限回归） |
 | `docs/aishield-verification-harness.md`（P2，Prime Agent 借鉴） | ✅ 已交付 |
 | `provenance` 增补 `trigger` / `intended_effect`（P2） | ✅ 19/19 已回填，晋升路径同步写入（8 项契约测试） |
 
@@ -139,8 +139,15 @@ C2C 的结论是**工程性**的：紧凑的语义载体优于逐 token 的文�
 | **`ws://` 远程配置零告警** | 检测盲区。原正则只匹配 `https?://`，`ws://` 的 scheme 解析成空串，连带跳过明文传输/通配监听/无鉴权三个分支 —— 一个 websocket 远端 server **一条 finding 都不产生** | 改为通用 scheme 解析 + 远程协议白名单（`http/https/ws/wss/sse`），`ws://` 同 http 判为明文传输；`file://` 等本地协议不受影响 |
 | **`docker run --privileged` 配置面不检** | 检测盲区。该 critical 规则存在于文件扫描规则集，但配置面扫描器不跑规则集，特权容器启动的配置只拿到零扣分的 `info` | 在 `analyze_server_entry` 补特权参数检查，按隔离解除程度分级（`--privileged`/`--cap-add=SYS_ADMIN` = critical，`--pid=host`/`--net=host` = high） |
 | **`mcp-server/server.json` 版本停在 4.2.2** | 版本漂移。它是 npm `files` 清单里**会被真实发布出去**的 MCP Registry 清单，却不在 `sync_version.py` 的 11 个受检位里 —— registry/ 那份跟着升到 4.3.0，这份无人察觉 | 纳入门禁（第 12 个声明位），已在 `--check` 下对齐 4.3.0 |
+| **摘要把带 2 条 high 的配置标成 `risk: "safe"`** | **假安心**（最危险的一类错误）。风险标签只看分数分档（`>=80` → safe），high 权重 8 分 → 两条 high 得 84 分 → 落在 safe 档。于是同一个摘要里 `risk: "safe"` 与 `severity_counts: {"high": 2}` 并列，而该配置同时具有明文 HTTP 远程传输与未锁定版本的启动方式。**下游 agent 只读 risk 字段** | risk 改为取「分数档」与「实际最严重 finding」中更重的一方，并输出 `worst_severity` 说明原因（分数照旧输出，只是不再单独决定标签）。`low`/`info` 不设下限，避免姿态噪音把干净配置抬成风险。7 项契约测试钉死（`TestRiskFloor`） |
+| **`/scan` prompt 扫描的同类假安心** | 同一缺陷类的另一处入口：单条 critical 只扣 30 分 → 70 分 → 旧分档标成 risk `"low"`；一条 high（扣 15）单独出现则 85 分 → `safe: true`。"能绕过安全过滤"这类载荷被判 safe | 同一处理：risk 加下限，`safe` 改为由 `risk` 派生（不再独立算一次 `score >= 80`，一个结论一个真值来源）；`test_detect_bypass_security` 从「只断言有 finding」升级为断言 `risk == "high"` / `safe is False` |
 
 基准因此从 **召回 92.0% / 误报 0%** 提升到 **召回 96.0% / 误报 0%**。
+
+> 第 4 条是**上线后实测**抓到的，不是本地测试抓到的 —— 单测里 `risk` 只在
+> `scan_result` 路径被断言过分数档，`configs`（现扫）路径从没断言过 risk 与
+> severity 的自洽性。这是「本地绿 ≠ 线上对」在本项目的又一次具体形态。
+
 
 另有一类"疑似误报"经逐条核查后判定为**记账错误而非扫描器缺陷**：首轮把 `npx -y` /
 `bash -c` / 无鉴权远程 URL 照搬进良性对照组，扫描器正确报了 high，却被记成 3 例误报。

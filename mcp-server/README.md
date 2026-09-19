@@ -54,7 +54,7 @@ npx aishield-mcp-server
 | `aishield_banned_words` | Chinese content compliance — 6 platform rules |
 | `aishield_rug_pull` | Rug pull detection — security code removed or new exfil paths across commits |
 | `aishield_handshake` | MCP config review — `npx -y` risk, sensitive env vars, over-long tool descriptions |
-| `aishield_digest` | Compact trust digest — a few hundred bytes + a content fingerprint, so an agent can answer "can I trust this?" every turn without re-pulling the full report |
+| `aishield_digest` | Compact trust digest — a few hundred bytes + a content fingerprint, so an agent can answer "can I trust this?" every turn without re-pulling the full report. Its `risk` is never lighter than the worst finding present (high findings are never reported as "safe") and plaintext credentials are never echoed back |
 
 ## Scoring Dimensions
 

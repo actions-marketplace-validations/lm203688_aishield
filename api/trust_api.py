@@ -358,9 +358,73 @@ def _verify_envelope(source_url, subject_type=None):
 #   configs     — 手里有 MCP 客户端配置文本（本机发现到的、或用户粘贴的）
 #   scan_result — 已经有扫描结果，只想压一压
 #   src         — 只有一个远程 URL，要现成的信任裁决
+#
+# 对外承诺（可被下游依赖，不要悄悄改）：
+#   · 不 spawn 被扫配置、不联网扫描 —— 见 no_spawn_guarantee / offline_scan
+#   · 不出现凭证原文（top[] 只放 severity/type/owasp，永不回传 evidence）
+#   · **risk 绝不比实际找到的最严重 finding 更轻** —— 报「安全」的门槛是
+#     真的没有 critical/high/medium，而不是分数恰好越过了某一档。
+#     这一条是本次实测抓到的假安心缺陷的修复（见 _SEVERITY_RISK_FLOOR）。
 
 DIGEST_SCHEMA = "aishield-digest/v1"
 _SEVERITY_ORDER = ("critical", "high", "medium", "low", "info")
+
+# 由「实际存在的最严重 finding」推出的风险下限。
+#
+# 为什么必须有下限：分数的分档只看数字。两条 high 各扣 8 分 → 84 分 → 落在
+# `>= 80` 这一档 → 摘要会把 `risk: "safe"` 和 `severity_counts: {"high": 2}`
+# 并列发出去。agent 只读 risk 字段，于是拿到一个「安全」的配置，而它同时具有
+# 明文 HTTP 远程传输和每次启动都拉未锁定版本的启动方式 —— 这是安全产品里最
+# 危险的一类错误：**假安心**（plausible-but-wrong）。
+#
+# 所以 risk 取「分数档」与「最严重 finding 档」中更重的一方。分数仍然照原样
+# 输出（它是既有的项目级约定，其它页面/审计都依赖它），只是不再允许它单独
+# 决定风险标签。
+# low / info 不设下限：姿态类噪音不该把一份干净配置抬成风险。
+_SEVERITY_RISK_FLOOR = {"critical": "critical", "high": "high", "medium": "medium"}
+
+# risk 值的严重程度排序，用于取二者之中更重的一方。
+_RISK_RANK = {"unknown": 0, "safe": 0, "medium": 1, "high": 2, "critical": 3}
+
+
+def _risk_floor(severity_counts):
+    """返回 (下限 risk, 最严重 severity)；无实质 finding 时返回 (None, None)。"""
+    counts = severity_counts or {}
+    if not isinstance(counts, dict):
+        return None, None
+    for sev in _SEVERITY_ORDER:  # critical → high → medium → low → info
+        if sev not in _SEVERITY_RISK_FLOOR:
+            continue
+        try:
+            n = int(counts.get(sev, 0) or 0)
+        except (TypeError, ValueError):
+            n = 0
+        if n > 0:
+            return _SEVERITY_RISK_FLOOR[sev], sev
+    return None, None
+
+
+def _risk_from_score(score, severity_counts=None):
+    """由分数定档，但**绝不低于实际找到的最严重 finding**。
+
+    severity_counts 省略时行为与旧版一致（纯分数分档），因此既有调用方与
+    契约测试不受影响；摘要路径传入 counts，避免「safe + high×2」自相矛盾。
+    """
+    if score is None:
+        band = "unknown"
+    elif score >= 80:
+        band = "safe"
+    elif score >= 60:
+        band = "medium"
+    elif score >= 40:
+        band = "high"
+    else:
+        band = "critical"
+
+    floor, _worst = _risk_floor(severity_counts)
+    if floor and _RISK_RANK.get(floor, 0) > _RISK_RANK.get(band, 0):
+        return floor
+    return band
 
 
 def _digest_fingerprint(payload):
@@ -368,18 +432,6 @@ def _digest_fingerprint(payload):
 
     blob = json.dumps(payload, sort_keys=True, ensure_ascii=False)
     return "sha256:" + hashlib.sha256(blob.encode("utf-8")).hexdigest()
-
-
-def _risk_from_score(score):
-    if score is None:
-        return "unknown"
-    if score >= 80:
-        return "safe"
-    if score >= 60:
-        return "medium"
-    if score >= 40:
-        return "high"
-    return "critical"
 
 
 def _digest_envelope(envelope, max_findings=3):
@@ -392,10 +444,13 @@ def _digest_envelope(envelope, max_findings=3):
     verdict = (envelope or {}).get("verdict", {}) or {}
     subject = (envelope or {}).get("subject", {}) or {}
     score = verdict.get("score")
+    counts = {}
+    floor, worst = _risk_floor(counts)
     core = {
         "subject": subject.get("url") or subject.get("name"),
         "score": score,
-        "risk": verdict.get("risk") or _risk_from_score(score),
+        "risk": verdict.get("risk") or _risk_from_score(score, counts),
+        "worst_severity": worst,
         "level": verdict.get("level"),
         "severity_counts": {},
         "findings_total": None,
@@ -443,6 +498,8 @@ def _digest_scan_result(result, max_findings=3, subject=None, include_collector=
     score = summary.get("config_score")
     if score is None:
         score = summary.get("overall_score")
+    counts = summary.get("severity_counts", {}) or {}
+    _floor, worst = _risk_floor(counts)
     out = {
         "schema": DIGEST_SCHEMA,
         "ready": True,
@@ -451,8 +508,11 @@ def _digest_scan_result(result, max_findings=3, subject=None, include_collector=
         "offline_scan": True,
         "subject": subject,
         "score": score,
-        "risk": _risk_from_score(score),
-        "severity_counts": summary.get("severity_counts", {}),
+        # risk 取「分数档」与「最严重 finding」中更重的一方：84 分配置带着 2 条
+        # high 时不能报 safe，否则摘要自相矛盾且给出假安心。
+        "risk": _risk_from_score(score, counts),
+        "worst_severity": worst,
+        "severity_counts": counts,
         "findings_total": summary.get("findings_total"),
         "servers_found": summary.get("servers_found"),
         "top": top,
