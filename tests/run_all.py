@@ -6,14 +6,102 @@ test_governance, test_mcp_contract 等
   python tests/run_all.py
   python tests/run_all.py -v          # 详细模式
   python -m tests.run_all            # 模块方式运行
+
+Hermetic 守卫
+-------------
+套件跑完会核对一份「被跟踪数据面」的哈希快照。如果某个测试把生产数据文件
+改写了（2026-09-19 实测：test_commercialization 里 `FleetService()` 漏传 path，
+直接 reset 掉了真实的 data/fleet.json），守卫会：
+
+  1. 打印被改动的文件清单；
+  2. 从快照还原原文件；
+  3. 让整次运行以非 0 退出。
+
+为什么不是「警告一下就算了」：这类污染不会红。测试全绿、数据已脏，改动混在
+下次 `git add -A` 里当成人工变更提交上线 —— 和假绿是同一个病，只是更难看见。
 """
 
+import hashlib
+import shutil
+import tempfile
 import unittest
 import sys
 import os
 
 # 确保项目根目录在 sys.path 中
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+
+_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+# 被跟踪的数据面。测试可以读，但绝不该写。
+_PROTECTED_FILES = (
+    'data/batch_scans.json',
+    'data/fleet.json',
+    'data/generated_rules.json',
+    'data/monitored_tools.json',
+    'data/radar_rules.json',
+    'data/threat_intel.json',
+    'mcp-server/README.md',
+    'README.md',
+)
+
+
+def _protected_paths(root=None):
+    root = root or _ROOT
+    paths = list(_PROTECTED_FILES)
+    state_dir = os.path.join(root, 'data', 'state')
+    if os.path.isdir(state_dir):
+        for name in sorted(os.listdir(state_dir)):
+            if os.path.isfile(os.path.join(state_dir, name)):
+                paths.append(os.path.join('data', 'state', name))
+    return [p for p in paths if os.path.exists(os.path.join(root, p))]
+
+
+def _sha256(path):
+    with open(path, 'rb') as fh:
+        return hashlib.sha256(fh.read()).hexdigest()
+
+
+class _DataGuard:
+    """快照 → 运行 → 核对 → 还原。
+
+    ``root`` / ``paths`` 可覆写，唯一目的是让 tests/test_hermetic_guard.py 能
+    用一个临时目录做**正向对照**：守卫必须真的能抓到一次写入，否则它自己就是
+    一层假绿 —— 一个永远不报错的守卫，和没有守卫是一样的。
+    """
+
+    def __init__(self, root=None, paths=None):
+        self._root = root or _ROOT
+        self._paths = list(paths) if paths is not None else _protected_paths(self._root)
+        self._dir = tempfile.mkdtemp(prefix='aishield_dataguard_')
+        self._before = {}
+        self.leaked = []
+
+    @staticmethod
+    def _backup_name(rel):
+        return rel.replace('/', '__').replace('\\', '__')
+
+    def __enter__(self):
+        for rel in self._paths:
+            abs_p = os.path.join(self._root, rel)
+            self._before[rel] = _sha256(abs_p)
+            shutil.copyfile(abs_p, os.path.join(self._dir, self._backup_name(rel)))
+        return self
+
+    def __exit__(self, *exc):
+        for rel in self._paths:
+            abs_p = os.path.join(self._root, rel)
+            if not os.path.exists(abs_p):
+                self.leaked.append((rel, 'DELETED'))
+            elif _sha256(abs_p) != self._before[rel]:
+                self.leaked.append((rel, 'MODIFIED'))
+        if self.leaked:
+            for rel, _kind in self.leaked:
+                src = os.path.join(self._dir, self._backup_name(rel))
+                if os.path.exists(src):
+                    shutil.copyfile(src, os.path.join(self._root, rel))
+        shutil.rmtree(self._dir, ignore_errors=True)
+        return False
 
 
 def main():
@@ -78,6 +166,18 @@ def main():
         'tests.test_deployment_observability',  # 退出码传导契约：诊断语句不得抢占部署/自愈的退出码
         'tests.test_notify_hardening',  # 2026-09-18：告警链路出站脱敏 + fail-closed 退出码 + 未送达台账闭环
         'tests.test_rule_audit_contract',  # 2026-09-18：基线审计契约（零 critical 误报/引用抑制/情报去重/对抗式评审闸门有效）
+        # 2026-09-19 在线扫描页 + 框架适配器 + SARIF 导出契约
+        'tests.test_sarif_export',
+        'tests.test_scan_inline_page',
+        # 2026-09-19 AIShield Collector：本地持续观测（不 spawn / 不联网 / 指纹幂等 / 紧凑摘要）
+        'tests.test_collector',
+        # 2026-09-19 紧凑信任摘要（aishield-digest/v1）+ 套件脏数据守卫的正向对照
+        'tests.test_trust_digest',
+        'tests.test_hermetic_guard',
+        # 2026-09-19 安全基准 v1（固定语料 + 参数化变体 + 确定性 + 质量门禁）
+        'tests.test_benchmark',
+        # 2026-09-19 雷达规则 provenance 可审计性（trigger / intended_effect + 老数据兼容）
+        'tests.test_provenance_audit',
     ]
 
     loaded = 0
@@ -94,7 +194,8 @@ def main():
     print(f"{'=' * 60}\n")
 
     runner = unittest.TextTestRunner(verbosity=2)
-    result = runner.run(suite)
+    with _DataGuard() as guard:
+        result = runner.run(suite)
 
     # 输出摘要
     passed = result.testsRun - len(result.failures) - len(result.errors)
@@ -108,7 +209,18 @@ def main():
     print(f"Skipped:  {len(result.skipped)}")
     print(f"{'=' * 60}")
 
-    if result.wasSuccessful():
+    if guard.leaked:
+        print("")
+        print("!" * 60)
+        print("HERMETIC GUARD: THE SUITE MUTATED TRACKED DATA FILES")
+        print("!" * 60)
+        for rel, kind in guard.leaked:
+            print(f"  {kind:9s} {rel}")
+        print("  -> originals restored from snapshot")
+        print("  -> a test is writing production data; give it a temp path")
+        print("!" * 60)
+
+    if result.wasSuccessful() and not guard.leaked:
         print("ALL TESTS PASSED")
     else:
         print("SOME TESTS FAILED")
@@ -120,8 +232,12 @@ def main():
             print(f"\n--- Errors ({len(result.errors)}) ---")
             for test, traceback in result.errors:
                 print(f"  ERROR: {test}")
+        if guard.leaked:
+            print(f"\n--- Data Leaks ({len(guard.leaked)}) ---")
+            for rel, kind in guard.leaked:
+                print(f"  LEAK: {kind} {rel}")
 
-    sys.exit(0 if result.wasSuccessful() else 1)
+    sys.exit(0 if (result.wasSuccessful() and not guard.leaked) else 1)
 
 
 if __name__ == '__main__':

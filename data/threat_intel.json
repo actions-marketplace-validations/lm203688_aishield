@@ -1,6 +1,20 @@
 {
   "intel": [
     {
+      "id": "GHSA-2vh9-42vm-xmv2",
+      "source": "github-advisory",
+      "severity": "critical",
+      "cvss": 9.8,
+      "title": "LMDeploy has Remote Code Execution by Pickle Deserialization via handle_zmq_recv in lmdeploy/lmdeploy/pytorch/disagg/conn/engine_conn.py",
+      "summary": "## Summary\n\nLMDeploy's PyTorch DistServe/PD-disaggregation control plane used\n`recv_pyobj()` to deserialize messages received through a ZeroMQ PULL\nsocket. PyZMQ implements `recv_pyobj()` using Python pickle\ndeserialization, which can execute arbitrary code while reconstructing\nan object.\n\nThe peer address used by the receiver was supplied through the\n`POST /distserve/p2p_connect` HTTP endpoint. An attacker who could reach\nan affected DistServe API server could cause the server to connect to an\n",
+      "affected": "pip:lmdeploy",
+      "references": [
+        "https://github.com/advisories/GHSA-2vh9-42vm-xmv2"
+      ],
+      "published": "2026-09-18T17:03:56Z",
+      "fetched": "2026-09-19T08:01:41.819903+00:00"
+    },
+    {
       "id": "GHSA-gjv8-xp57-g29c",
       "source": "github-advisory",
       "severity": "medium",
@@ -5806,7 +5820,7 @@
       "fetched": "2026-08-04T06:34:53.913899+00:00"
     }
   ],
-  "updated": "2026-09-18T08:13:22.089361+00:00",
+  "updated": "2026-09-19T08:01:42.322059+00:00",
   "sources": [
     "osv",
     "nvd",
@@ -5825,40 +5839,40 @@
         "items": 0,
         "attempts": 1,
         "error": null,
-        "checked_at": "2026-09-18T08:12:59.162780+00:00",
+        "checked_at": "2026-09-19T08:01:20.185888+00:00",
         "consecutive_failures": 0,
         "degraded_since": null
       },
       "nvd": {
         "ok": true,
-        "items": 43,
+        "items": 42,
         "attempts": 1,
         "error": null,
-        "checked_at": "2026-09-18T08:13:18.428491+00:00",
+        "checked_at": "2026-09-19T08:01:39.637744+00:00",
         "consecutive_failures": 0,
         "degraded_since": null
       },
       "github-advisory": {
         "ok": true,
-        "items": 32,
+        "items": 29,
         "attempts": 1,
         "error": null,
-        "checked_at": "2026-09-18T08:13:22.089114+00:00",
+        "checked_at": "2026-09-19T08:01:42.321760+00:00",
         "consecutive_failures": 0,
         "degraded_since": null
       }
     },
     "degraded": [],
-    "last_success": "2026-09-18T08:13:22.089361+00:00",
-    "last_attempt": "2026-09-18T08:13:22.089361+00:00"
+    "last_success": "2026-09-19T08:01:42.322059+00:00",
+    "last_attempt": "2026-09-19T08:01:42.322059+00:00"
   },
   "stats": {
+    "critical": 54,
     "medium": 116,
     "high": 184,
-    "critical": 53,
     "unknown": 34,
     "low": 5,
     "moderate": 1
   },
-  "total": 393
+  "total": 394
 }

@@ -361,6 +361,48 @@ def _live_counts():
         return None
 
 
+def _provenance_entry(data, promoted_from):
+    """构造一条 provenance 记录。
+
+    2026-09-19 增补 `trigger` / `intended_effect`（借鉴 PrimeIntellect prime-agent 的
+    Continual Harness：每一次对 rules / prompts / memories 的写入都带 trigger 与
+    intended effect，且可回滚）。原来的 provenance 只回答「它从哪来」，回答不了
+    「当初为什么觉得该加它、期望它改变什么」—— 半年后要判断一条规则是否还该留着，
+    缺的正是后者。
+
+    向后兼容：老记录没有这两个字段，加载器视为 legacy、不报错（契约测试覆盖）。
+    候选文件可以自带 `trigger` / `intended_effect`；没带就**从已有的真实字段派生**
+    （来源情报标题 / 攻击类别），不编造内容。
+    """
+    signal = data.get("signal") or {}
+    category = data.get("attack_category", "") or ""
+    trigger = (data.get("trigger") or "").strip()
+    if not trigger:
+        title = (signal.get("title") or "").strip()
+        url = (signal.get("url") or "").strip()
+        if title or url:
+            trigger = "signal: %s%s" % (title, " (%s)" % url if url else "")
+        else:
+            trigger = "promotion candidate: %s" % promoted_from
+    intended = (data.get("intended_effect") or "").strip()
+    if not intended:
+        intended = (
+            "detect %s payloads that previously went undetected; "
+            "verified zero false positive on BENIGN_CORPUS"
+            % (category or "the target attack class")
+        )
+    return {
+        "signal_title": signal.get("title", ""),
+        "signal_url": signal.get("url", ""),
+        "source": signal.get("source", ""),
+        "attack_category": category,
+        "promoted_from": promoted_from,
+        "drafted_at": data.get("drafted_at", ""),
+        "trigger": trigger,
+        "intended_effect": intended,
+    }
+
+
 def simulate(store, data):
     """Apply a candidate's rules onto a COPY of `store`. Writes nothing."""
     import copy
@@ -373,14 +415,9 @@ def simulate(store, data):
             r["description"].strip(),
             r["severity"].strip().lower(),
         ]
-        sim["provenance"][pattern] = {
-            "signal_title": (data.get("signal") or {}).get("title", ""),
-            "signal_url": (data.get("signal") or {}).get("url", ""),
-            "source": (data.get("signal") or {}).get("source", ""),
-            "attack_category": data.get("attack_category", ""),
-            "promoted_from": os.path.basename(data.get("promoted_from_path", "")) or "",
-            "drafted_at": data.get("drafted_at", ""),
-        }
+        sim["provenance"][pattern] = _provenance_entry(
+            data, os.path.basename(data.get("promoted_from_path", "")) or ""
+        )
     return sim
 
 
@@ -505,14 +542,7 @@ def promote(path, data):
             r["description"].strip(),
             r["severity"].strip().lower(),
         ]
-        store["provenance"][pattern] = {
-            "signal_title": (data.get("signal") or {}).get("title", ""),
-            "signal_url": (data.get("signal") or {}).get("url", ""),
-            "source": (data.get("signal") or {}).get("source", ""),
-            "attack_category": data.get("attack_category", ""),
-            "promoted_from": os.path.basename(path),
-            "drafted_at": data.get("drafted_at", ""),
-        }
+        store["provenance"][pattern] = _provenance_entry(data, os.path.basename(path))
         added += 1
 
     # 先快照：一次误晋升必须可撤销（见 snapshot_current 上方注释）。

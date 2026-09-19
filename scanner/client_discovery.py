@@ -367,6 +367,30 @@ _AUTH_KEY_RE = re.compile(
 )
 _VERSION_PIN_RE = re.compile(r"@\d+\.\d+")
 
+# 会被当作「远程 MCP server」的传输协议白名单。
+# 用白名单而非「任何有 scheme 的 URL」：`file://` / `docker://` 这类本地协议
+# 走「无鉴权远程服务」分支是误报，而 `ws://` 走不进去则是漏报 —— 两者都是错的，
+# 白名单是唯一能同时避免这两种错的写法。
+_REMOTE_TRANSPORT_SCHEMES = frozenset({"http", "https", "ws", "wss", "sse"})
+
+# 容器启动时的隔离解除开关 → (严重度, 说明)。
+#
+# 刻意分级：`--privileged` 与 `--cap-add=SYS_ADMIN` 是全隔离解除，与文件扫描规则集里
+# 那条 critical 规则同级；`--pid=host` / `--net=host` 是单项命名空间共享，确实危险但
+# 不等价 —— 本地自建 server 用 `--net=host` 是常见且合理的做法。把它们一律打成
+# critical 会制造"看到就跳过"的噪声，那比不报更糟。因此这两项记 high。
+#
+# 文件扫描规则集里本来就有 `docker run --privileged 特权容器（关闭全部隔离）`
+# （critical），但配置面扫描器此前完全没有调用它 —— 一份用特权容器启动的
+# MCP 配置只拿到一条零扣分的 info。这是真空区，补在这里。
+_PRIVILEGED_CONTAINER_FLAGS = {
+    "--privileged": ("critical", "解除了容器的全部隔离（设备、内核能力、挂载）"),
+    "--cap-add=sys_admin": ("critical", "授予 SYS_ADMIN 能力，等价于逃出容器的关键能力"),
+    "--pid=host": ("high", "共享宿主 PID 命名空间，可观察并影响宿主进程"),
+    "--net=host": ("high", "共享宿主网络命名空间，容器内端口直接对外可达"),
+}
+_CONTAINER_RUNNERS = {"docker", "podman", "nerdctl", "ctr", "containerd"}
+
 
 def _finding(ftype, severity, description, owasp, evidence, remediation, **extra):
     f = {
@@ -406,6 +430,31 @@ def analyze_server_entry(name, entry, source="", scope="user"):
             f"MCP server '{name}' 以提权方式启动（{base}），agent 可获得 root 等价权限",
             "MCP01", f"{command} {argline}",
             "移除提权包装，改用最小权限账户运行")
+
+    # 1b) 特权 / 解除隔离的容器启动（2026-09-19 补）
+    #     规则集里已有「docker run --privileged 特权容器」这条 critical 规则，但
+    #     配置面扫描器不跑规则集 —— 于是这类配置此前只命中零扣分的 stdio info。
+    #     检测的是**写法**（启动参数），与容器里跑什么包无关。
+    if base in _CONTAINER_RUNNERS:
+        lowered = [a.lower() for a in args_s]
+        flagged = [f for f in lowered if f in _PRIVILEGED_CONTAINER_FLAGS]
+        # `--cap-add sys_admin` 也可能拆成两个 argv
+        for i, a in enumerate(lowered[:-1]):
+            if a == "--cap-add" and lowered[i + 1] == "sys_admin":
+                flagged.append("--cap-add=sys_admin")
+        if flagged:
+            unique = sorted(set(flagged))
+            # 取命中项里最高的严重度，避免同一处配置刷出多条同级告警
+            severity = min(
+                (_PRIVILEGED_CONTAINER_FLAGS[f][0] for f in unique),
+                key=lambda s: ("critical", "high", "medium", "low", "info").index(s),
+            )
+            add("privileged_container_launch", severity,
+                f"server '{name}' 以 {', '.join(unique)} 启动容器，"
+                f"容器隔离被削弱（{'；'.join(_PRIVILEGED_CONTAINER_FLAGS[f][1] for f in unique)}）",
+                "MCP02", f"{command} {argline}",
+                "移除特权参数；确需内核能力时用 --cap-add 精确授予最小集合，"
+                "并改用无 root 的用户命名空间")
 
     # 2) STDIO 启动命令暴露面（OX Security 2026-04）
     #    注意：这对 100% 的 stdio server 都成立（Anthropic 明确回应「by design」），
@@ -466,22 +515,30 @@ def analyze_server_entry(name, entry, source="", scope="user"):
 
     # 7) 传输安全 / 远程鉴权
     if url:
-        m = re.match(r"^(https?)://([^/:]+)", url, re.I)
+        # 2026-09-19 修正：原正则只匹配 https?，于是 `ws://` 这类远程传输
+        # **一条 finding 都不产生** —— scheme 匹配不到就成了空串，下面三个分支
+        # （明文传输 / 通配监听 / 无鉴权）全部因为 scheme 为假而跳过。
+        # 一个 websocket 远端 server 静默通过，是真空区，不是判断分歧。
+        # 现在：通用解析 scheme，但只把已知的远程传输协议当作"远程 server"
+        # （白名单，避免 `file://` 之类被误判成"无鉴权的远程服务"）。
+        m = re.match(r"^([a-z][a-z0-9+.\-]*)://([^/:]+)", url, re.I)
         scheme = (m.group(1).lower() if m else "")
         host = (m.group(2) if m else "")
         is_private = bool(_PRIVATE_HOST_RE.match(host))
-        if scheme == "http" and not is_private:
+        # ws:// 与 http:// 同属明文传输：令牌与工具描述都可被中间人读写。
+        if scheme in ("http", "ws") and not is_private:
             add("insecure_transport", "high",
-                f"server '{name}' 使用明文 HTTP 连接远程主机 {host}，令牌与工具描述可被中间人篡改",
+                f"server '{name}' 使用明文 {scheme.upper()} 连接远程主机 {host}，"
+                f"令牌与工具描述可被中间人篡改",
                 "MCP03", url,
-                "改用 HTTPS；如为自建服务请配置 TLS")
+                "改用加密传输（HTTPS / WSS）；如为自建服务请配置 TLS")
         if host in ("0.0.0.0", "::"):
             add("wildcard_bind", "high",
                 f"server '{name}' 指向通配地址 {host}，该 MCP 端点对整个局域网可达",
                 "MCP03", url,
                 "绑定 127.0.0.1；确需跨机访问时必须叠加 TLS 与鉴权")
         has_auth = any(_AUTH_KEY_RE.search(str(k)) for k in list(env) + list(headers))
-        if not has_auth and scheme:
+        if not has_auth and scheme in _REMOTE_TRANSPORT_SCHEMES:
             add("remote_server_without_auth", "medium" if is_private else "high",
                 f"远程 server '{name}' 未见任何鉴权材料"
                 f"（学界实测 7,973 个在线远程 MCP server 中 40.55% 无鉴权）",

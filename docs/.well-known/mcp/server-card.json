@@ -29,6 +29,10 @@
     {
       "name": "aishield_handshake",
       "description": "MCP handshake verification: npx auto-install risk, sensitive env vars, oversized tool descriptions."
+    },
+    {
+      "name": "aishield_digest",
+      "description": "Compact trust digest: a few hundred bytes + a content fingerprint, so an agent can answer 'can I trust this?' every turn without re-pulling the full report."
     }
   ],
   "trust": {

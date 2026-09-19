@@ -1,40 +1,59 @@
-# AIShield 长期记忆（精简索引版）
-
-> 全量历史见 `.workbuddy/memory/archive/MEMORY-full-2026-08-10.md`；活态势表见私有 skill `~/.workbuddy/skills/aishield-ops/references/competitive-landscape.md`。
+# AIShield 长期记忆（2026-09-19，限 3K）
+> 细节看按日日志。
 
 ## 定位
-Agent 原生 AI 工具安全扫描器：扫 MCP server / AI skill / GPTs / prompt。规则底座 **214 MCP / 220 Skill**（含 11 条 SANDBOX 沙箱硬化 + 雷达晋升规则），对齐 OWASP MCP Top10 + Agentic AI Top10。**零第三方依赖（仅 urllib）**，本地规则引擎 + 可选远程 LLM 语义后端。
-仓库 `lm203688/aishield`（public，Pages baseurl `/aishield`）；npm `aishield-mcp-server` **4.2.2**（已发布可用）。
-**核心不变量：绝不 spawn 被扫配置里的命令**（竞品会真实执行）。基准 20 良性 0 误报 / 10 恶意 10/10。
+Agent 原生 AI 工具安全扫描器（MCP/skill/GPTs/prompt），对齐 OWASP MCP Top10 + ASI01–10，
+零依赖。`lm203688/aishield`(public)，npm **4.3.0**。**不变量：绝不 spawn 被扫配置的命令。**
 
-## 卡位
-空白位 =「本地不上云 + MCP+Agentic 双维 + 中性信任机构 + Fleet 看板 + 机器可结算付费认证 + **agent 计算机的内容安全平面**」。
-最危险竞品 mcp-audit（89 SAST 规则、全离线）。forgevm / Cloudflare Sandbox / Open Interpreter / Goose 只做 OS 隔离，不做内容安全 → **互补非竞品**。
-关键认知：**缺口是可见性不是能力**，杠杆在 GEO/agent 化露出。
+## 规则数（勿引用旧数）
+**235 = 静态 208 + 生成 8 + 雷达 19**（live）；Skill **244**。看 `/api/v1/health`.`rules_breakdown`。
+`promote_rule` 自动同步，但**须手改 mcp-server/README 逐类表 + 根 README 徽章**。
 
-## 能力索引（按文件找，不复述细节）
-- `scanner/`：rules / engine（`_DIM_CONFIG` 驱动评分）/ sbom / osv / attack_path / policy / telemetry / live_probe / fleet / **workspace_scan（启动前预扫）**
-- `eco/`：badge / payment / x402 / **hupijiao（CNY 轨）** / monetization / credentials / **spend_cap（fail-closed 三档）** / **runtime_governance（kill switch + 哈希链审计）** / **attestation（持续鉴证，支持 live workspace 复扫）** / **guardrail_harness（stdio JSON-RPC 准入）**
-- `api/server.py`：eco 模块用 `register_routes(handler)` monkey-patch 链式包装；静态页全离线 0 CDN
-- `scripts/`：gh_push / tech_radar / promote_rule / capability_gap / scan_workspace / sync_version / gen_task_registry
-- 测试 `tests/run_all.py`：**404 通过 / 0 失败 / 9 skipped**（unittest，无 pytest）
+## 线上拓扑
+CF Named Tunnel（cloudflared→:8450→api/server.py），前缀 **`/api/v1`**，无 CF Pages；
+部署不需 CF token（VPS 有 cert.pem）。**部署身份 root**→所有 API 启动路径必须
+**`AISHIELD_ALLOW_ROOT=1`**（漏一处即 502 静默停机）。**禁 `pkill -f cloudflared`**（会杀
+healthlens tunnel）→按 PID 停。`deploy-server.yml` 只有 `workflow_call`+`workflow_dispatch`，
+由 03:17 spine 调用；`pages.yml` 有 `push: docs/**` 自动部署。
 
-## 工程铁律
-- **推送**：本地 .git 损坏 + git 直连 github.com 不通 → 一律 `scripts/gh_push.py`（Contents API PUT 带 sha）。**推完必须 API 复验**。
-- **PAT**（`.workbuddy/schedule-revert-pat.txt`，gitignored）：已具 repo + workflow + delete_repo。曾明文出现在对话，**建议轮换**。delete_repo 高危，删仓库须用户明确确认。
-- **门禁教训**：恒定输出的门禁等于没门禁。`tests/test_ci_contract.py` 钉死「门禁读的键 API 必须提供」。改 workflow 后必跑 `gen_task_registry.py`，否则 CI 红。
-- **环境**：Git Bash 无 `sleep`（用 Python）；别用 `timeout`（命中 Windows timeout.exe）；`rm` 用 Windows 绝对路径；npm 走 `C:/Users/xing/node/node.exe .../npm-cli.js`。
-- **密钥红线**：仓库 public，真实密钥只进 gitignored 文件或环境变量。
-- **自带洞最难堪**：对外发布物（npm 依赖、分发的 skill）必须先过自家扫描器，纳入守夜必检。
-- **发布留底**：任何对外渠道（Agensi/Claude Skill/GPT Store/HF）发布的产物，源必须入 `distribution/` 留底。
+## 铁律
+- **假绿六层**：吞异常／传输层 `if not res: continue`（退化成 `[]`，最隐蔽）／`| tail` 退出码恒 0
+  （需 `pipefail`）／mock 外部 IO 须断言请求路径／`echo "X=$?"` 抢占退出码／`notify()` 恒 0
+  （已修 `--fail-on-undelivered`+未送达台账）。**群居的，修一处下一处顶上**。
+- 退出码显式传导 `rc=$?`→`exit $rc`；`run_all.py` 共 **1199 tests**。
+- 契约测试坑：注释字面量致子串断言误报→先剥注释（辅助函数自身需正向对照）；
+  `addCleanup(patcher.stop())` 传的是 **None**。
+- 禁 `|| true`/2>/dev/null 吞门禁；404 先读 body；实地 curl；本地绿≠CI 绿；
+  `paths-ignore` 提交不触发 CI。
+- 雷达规则须含 `|` 或有界 `.{n,m}`，裸关键字留 draft；**误报比没有规则更糟**，必配正样本。
+  `BENIGN_CORPUS` 含防御工具描述→裸关键字必误报，须区分「话题提及」与「祈使式执行」。
+- **结论层铁律（2026-09-19 线上抓到）**：`risk`/`safe` 等**结论字段不得轻于实际最严重的
+  finding** —— 取「分数档 vs 最严重 finding」更重者 + 输出 `worst_severity`；布尔结论须由
+  等级字段派生（勿独立再算 `score>=N`，否则 `safe:true` 与 high 并列）；`low/info` 不设下限。
+  路径 `trust_api._risk_from_score`（digest）/ `server.check_prompt_injection`（/scan）。
+  **群居缺陷**：修一处必 grep 同类标签一次修完；测试要断言**字段间自洽**而非各自取值。
+  复验走 `contents` API（raw 有 CDN 滞后会误报）。
+- GHA `needs` 依赖被跳过的 job 会一并跳过→作业内自闭环；`set +e` 脚本必须
+  `if ! func; then`；删除守卫：`rm`/`os.remove` 被吞、`mv` 不受限。
+- 推送用 `_push_batch.py`（多文件一个 commit）；新测试与 `run_all.py` 登记**须原子推送**；
+  `gh_push.py` 首参是 message **无 `-m`**；Contents API 无法 amend。根目录探针统一 `_` 前缀。
+- secret scanning 拦测试假 token（422）→用 `bypass_placeholders.placeholder_id` 替换；
+  其余缩短到检测器阈值下（ghp_ 36 位、JWT 需合法 base64）。**不得破坏 `redact()` 最小长度断言**。
+- 告警出站**每个出口都要脱敏**（`finding.evidence` 就是源代码行）；台账按 fingerprint **upsert 非 append**。
+- 本机**无 `.git`**→`git status`/`check-ignore` 全假阴性；验证 .gitignore 用 Python 语义匹配。
+  `mcp-server/dist/` 在 .gitignore **但已跟踪**→dist 改动照样要推（`tsc` 重建）。
+- MSYS2：argv POSIX 路径被转换、env 里的不会；`/tmp` 不可靠；CI 日志 API 需 `-L`。
 
-## 巡检
-日度守夜 `automation-1785826846646`（08:30，报告 `eco/reports/guard-*.md`）；周度竞争情报 `automation-1785849857521`（周一）；Tech Radar `automation-1786262658410`（daily 02:00）。
-**带外巡检必查**：GitHub API 最近运行时间 + 各 workflow `state` 是否 active（仓库内自检看不到 Actions 被禁用）。最强存活信号 = 远端 `data/state/health.json` 的 `updated`（Contents API 读，本地副本不算数）。
-调度加速期 HOURLY 至 2026-08-30，回滚由 `automation-1785890505506`（08-31）执行。
+## 自动化 / 分发
+`self_scan.py`：`blocking_unsuppressed=0` 且 `stale_allowlist=0`=健康。19 workflow，
+03:17 spine 串行 9 子；守夜 08:30 / 竞争情报 周一 / Tech Radar 02:00。
+已上架 Glama + npm + Official MCP Registry；Marketplace 须独立仓 `lm203688/aishield-action`。
 
-## 路线图（剩余）
-1. 中立跨注册中心发现层（104k agents / 15 registries / 0 互操作）——挂起。
-2. 运行时治理：补行为监控采集 + CI 门禁调 evaluate。
-3. Fleet 接 monitor 版本流；x402 接真实 facilitator；enterprise 多租户。
-4. Agent 计算机安全底座 #1–#4 已全闭环（预扫/沙箱硬化/harness 准入/持续鉴证）。
+## 待办
+- 🟡 轮换 CF token：secret 已建 + `install-cf-token.yml` 已跑通过。
+  **仅剩用户手动吊销旧 token**（https://dash.cloudflare.com/profile/api-tokens）。
+- 🟡 4 条 skill 指令载荷候选待评审（`scanner/_proposed/...instruction_payload__c84a4b.json`，
+  draft 不自动晋升；远程载荷管道/指令覆盖/记忆投毒/数据外泄，BENIGN_CORPUS fp=0）；
+  待决 R1 是否扩展 `| python3`；晋升前须并入 `scripts/rule_corpus.py`。
+- 🟡 `promote_rule.py --shadow` 报 2 条 catch=0 死规则待拍板。
+- 🟡 `.workbuddy/memory/` 在 main 被跟踪，清理需 rewrite history。

@@ -4,7 +4,7 @@
  * AIShield MCP Server
  *
  * OWASP MCP Top 10 aligned security scanner.
- * 6 tools: scan / guardrail / prompt_check / banned_words / rug_pull / handshake
+ * 7 tools: scan / guardrail / prompt_check / banned_words / rug_pull / handshake / digest
  *
  * Usage:
  *   npx aishield-mcp-server
@@ -254,6 +254,68 @@ server.tool('aishield_handshake', `MCP握手验证 — 分析MCP配置、检测n
     }
     catch (e) {
         return { content: [{ type: 'text', text: `Handshake check failed: ${e.message}` }] };
+    }
+});
+// ══════════════════════════════════════════════════════════════
+// Tool 7: Compact Trust Digest
+// ══════════════════════════════════════════════════════════════
+//
+// 一个 agent 每轮对话都要回答同一个问题「这个东西我能不能信」。完整裁决信封
+// 里有一个字段能用、二十个字段用不上，每次都拉一遍等于把同一份不变的内容反复
+// 塞进上下文。这个工具只回几百字节 + 一个内容指纹：指纹没变就不必再拉。
+//
+// 借的是 Cache-to-Cache 那条观察（紧凑的语义载体优于整份文本重传），落地为纯
+// 工程压缩 —— 不动模型内部，不需要任何模型侧配合。
+server.tool('aishield_digest', `AIShield紧凑信任摘要 — 几百字节拿到结论，适合每轮都要判断"能不能信"的 agent。
+
+输入三选一:
+  configs     — {path: 文件内容} 的 MCP 客户端配置映射（静态分析，绝不执行其中命令）
+  source_url  — 只要一个远程仓库 URL，取现成的信任裁决
+  scan_result — 已有扫描结果，只做压缩
+
+返回: 分数 + 风险等级 + 严重度分布 + 首 N 条 + content fingerprint。
+指纹对同一份配置恒定不变 —— 存下来，下一轮先比指纹，没变就不必重复拉取。
+风险等级绝不比实际找到的最严重 finding 更轻（有 high 就不会报 safe），摘要里也不会出现明文凭证。`, {
+    source_url: zod_1.z.string().optional().describe('GitHub repo URL — return the current verdict as a digest'),
+    configs: zod_1.z.record(zod_1.z.any()).optional().describe('{path: file content} MCP client config map (static analysis only)'),
+    scan_result: zod_1.z.record(zod_1.z.any()).optional().describe('An existing scan result to compress'),
+    max_findings: zod_1.z.number().int().min(0).max(20).default(3).describe('How many top findings to include'),
+}, async ({ source_url, configs, scan_result, max_findings }) => {
+    try {
+        const body = { max_findings: max_findings ?? 3 };
+        if (configs)
+            body.configs = configs;
+        else if (scan_result)
+            body.scan_result = scan_result;
+        else if (source_url)
+            body.source_url = source_url;
+        else {
+            return {
+                content: [{ type: 'text', text: 'Provide one of: configs, scan_result, source_url' }],
+            };
+        }
+        const d = await apiCall('/api/v1/trust/digest', body);
+        const counts = d.severity_counts || {};
+        const lines = [
+            `AIShield Trust Digest (${d.schema || 'aishield-digest/v1'})`,
+            `${'─'.repeat(44)}`,
+            `Score:   ${d.score === null || d.score === undefined ? 'n/a' : d.score} / 100`,
+            `Risk:    ${d.risk || 'unknown'}${d.worst_severity ? `  (worst finding: ${d.worst_severity})` : ''}`,
+            `Subject: ${d.subject || 'n/a'}`,
+            `Findings: ${d.findings_total === null || d.findings_total === undefined ? 'n/a' : d.findings_total}  ${JSON.stringify(counts)}`,
+            `Fingerprint: ${d.fingerprint || 'n/a'}`,
+        ];
+        if (Array.isArray(d.top) && d.top.length > 0) {
+            lines.push('', '── Top ──');
+            for (const t of d.top) {
+                lines.push(`  [${t.severity || '?'}] ${t.type || '?'}${t.owasp ? ' (' + t.owasp + ')' : ''}`);
+            }
+        }
+        lines.push('', 'Cache on the fingerprint: same fingerprint = same verdict, no need to re-fetch.');
+        return { content: [{ type: 'text', text: lines.join('\n') }] };
+    }
+    catch (e) {
+        return { content: [{ type: 'text', text: `Digest failed: ${e.message}` }] };
     }
 });
 // ── Helper ──

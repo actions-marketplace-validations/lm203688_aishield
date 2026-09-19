@@ -106,6 +106,16 @@ TARGETS: List[Tuple[str, str, str]] = [
     ("registry/server.json",
      r'("identifier": "aishield-mcp-server",\r?\n\s+"version": ")([^"]+)(")',
      r"\g<1>{v}\g<3>"),
+    # 2026-09-19：第 12 个声明位。`mcp-server/server.json` 是 npm 包 files 清单里
+    # 会被**真实发布出去**的 MCP Registry 清单，但它并不在门禁内 —— 于是 registry/
+    # 那份跟着升到 4.3.0，mcp-server/ 这份停在 4.2.2 无人察觉。用户解包看清单
+    # 得到的是一个和包本身不符的版本号。同一个坑，换了个文件名又来一次。
+    ("mcp-server/server.json",
+     r'("description": "[^"]+",\r?\n\s+"version": ")([^"]+)(")',
+     r"\g<1>{v}\g<3>"),
+    ("mcp-server/server.json",
+     r'("identifier": "aishield-mcp-server",\r?\n\s+"version": ")([^"]+)(")',
+     r"\g<1>{v}\g<3>"),
     # 公开静态面 / 生态清单自报版本 —— 此前不在门禁内，于是长期停在 4.2.2
     # 而 npm / registry 已是 4.3.0（2026-09-15 规则数 sweep 时才发现）。
     # 每个声明位锚点不同，同一文件多处需各自一条（count=1 只替换首个命中）。

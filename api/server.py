@@ -226,9 +226,23 @@ def check_prompt_injection(prompt):
     for f in findings:
         score -= {"critical": 30, "high": 15, "medium": 5, "low": 1}.get(f["severity"], 0)
     score = max(0, min(100, score))
-    
-    risk = "safe" if score >= 80 else "low" if score >= 60 else "medium" if score >= 40 else "high" if score >= 20 else "critical"
-    
+
+    # 由分数定档，但**绝不轻于实际找到的最严重 finding**。
+    # 单条 critical 只扣 30 分 → 70 分 → 落在 `>= 60` 档 → 会被标成 risk "low"，
+    # 而它明明是一段带隐藏指令的载荷；一条 high + 一条 medium 恰好 80 分 → "safe"。
+    # 结论标签是调用方直接照做的东西，不能与证据脱节。
+    band = "safe" if score >= 80 else "low" if score >= 60 else "medium" if score >= 40 else "high" if score >= 20 else "critical"
+    _RISK_RANK = {"safe": 0, "low": 1, "medium": 2, "high": 3, "critical": 4}
+    _SEV_FLOOR = {"critical": "critical", "high": "high", "medium": "medium"}
+    floor = None
+    for _sev in ("critical", "high", "medium"):
+        if any(f.get("severity") == _sev for f in findings):
+            floor = _SEV_FLOOR[_sev]
+            break
+    risk = floor if (floor and _RISK_RANK[floor] > _RISK_RANK[band]) else band
+    # worst_severity 让调用方看见标签背后的原因
+    worst_severity = floor
+
     summary_parts = []
     critical = [f for f in findings if f["severity"] == "critical"]
     high = [f for f in findings if f["severity"] == "high"]
@@ -240,9 +254,13 @@ def check_prompt_injection(prompt):
         summary_parts.append("未发现安全风险")
     
     return {
-        "safe": score >= 80,
+        # safe 由 risk 派生，而不是再独立算一次 score >= 80：否则会出现
+        # `safe: true` 与一条 high finding 并列（high 只扣 15 分，85 分仍越线）。
+        # 同一个结论只有一个真值来源。
+        "safe": risk == "safe",
         "score": score,
         "risk": risk,
+        "worst_severity": worst_severity,
         "findings": findings,
         "total_findings": len(findings),
         "summary": "，".join(summary_parts),
@@ -432,6 +450,7 @@ class AIShieldHandler(BaseHTTPRequestHandler):
             "/attack-graph": "attack-graph.html",
             "/fleet": "fleet.html",
             "/enterprise": "enterprise.html",
+            "/scan": "scan.html",
         }
         if path in _STATIC_PAGES:
             html_path = os.path.join(BASE, "static", _STATIC_PAGES[path])
@@ -2439,6 +2458,19 @@ blockquote{{border-left:4px solid #3b82f6;padding-left:16px;margin-left:0;color:
                             },
                         },
                         {
+                            "name": "aishield_digest",
+                            "description": "Compact trust digest (aishield-digest/v1) — a few hundred bytes plus a content fingerprint, so an agent can answer 'can I trust this?' every turn without re-pulling the full report. Accepts {configs} (static analysis only), {scan_result}, or {source_url}. The returned `risk` is never lighter than the worst finding actually present (a config with high findings is never labelled 'safe'), and no plaintext credential is ever echoed back.",
+                            "inputSchema": {
+                                "type": "object",
+                                "properties": {
+                                    "configs": {"type": "object", "description": "{path: file content} MCP client config map — static analysis, no command in the config is ever executed"},
+                                    "scan_result": {"type": "object", "description": "An existing scan result to compress"},
+                                    "source_url": {"type": "string", "description": "GitHub repo URL — return the current trust verdict as a digest"},
+                                    "max_findings": {"type": "integer", "minimum": 0, "maximum": 20, "default": 3, "description": "How many top findings to include"},
+                                },
+                            },
+                        },
+                        {
                             "name": "aishield_vertical_risk",
                             "description": "Vertical-industry risk scan — detect high-risk claims for finance/medical/gov sectors (unlicensed diagnosis, illegal medical device, financial over-promise, etc.)",
                             "inputSchema": {
@@ -2526,6 +2558,16 @@ blockquote{{border-left:4px solid #3b82f6;padding-left:16px;margin-left:0;color:
                 elif tool_name == "aishield_vertical_risk":
                     result_data = scan_vertical_risk(args["text"], args.get("domain", "finance"))
                     text = json.dumps(result_data, ensure_ascii=False, indent=2)
+                elif tool_name == "aishield_digest":
+                    # 紧凑信任摘要：几百字节 + 内容指纹，供 agent 每轮低成本复用。
+                    # 与本地 MCP 工具同源，都走 api/trust_api.py 的 trust_digest()。
+                    import trust_api as _trust
+                    payload, status = _trust.trust_digest(
+                        data=args, max_findings=args.get("max_findings", 3)
+                    )
+                    text = json.dumps(payload, ensure_ascii=False, indent=2)
+                    if status != 200:
+                        raise ValueError(str(payload.get("error", "digest failed")))
                 elif tool_name == "agent_register":
                     from eco.agent_gateway import agent_setup
                     result_data = agent_setup(args)
