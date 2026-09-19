@@ -1,0 +1,201 @@
+{
+  "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+  "version": "2.1.0",
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "name": "AIShield",
+          "version": "4.3.0",
+          "informationUri": "https://aishield.tools",
+          "rules": [
+            {
+              "id": "MCP04",
+              "name": "MCP04",
+              "shortDescription": {
+                "text": "STDIO server 'weather' 的启动命令会在客户端加载时被执行，且无论进程是否成功启动都会执行（MCP 协议设计使然）"
+              },
+              "helpUri": "https://aishield.tools/owasp"
+            },
+            {
+              "id": "MCP03",
+              "name": "MCP03",
+              "shortDescription": {
+                "text": "server 'internal' 指向通配地址 0.0.0.0，该 MCP 端点对整个局域网可达"
+              },
+              "helpUri": "https://aishield.tools/owasp"
+            },
+            {
+              "id": "MCP05",
+              "name": "MCP05",
+              "shortDescription": {
+                "text": "远程 server 'internal' 未见任何鉴权材料（学界实测 7,973 个在线远程 MCP server 中 40.55% 无鉴权）"
+              },
+              "helpUri": "https://aishield.tools/owasp"
+            },
+            {
+              "id": "MCP01",
+              "name": "MCP01",
+              "shortDescription": {
+                "text": "server 'fetcher' 通过 shell -c 启动，命令串易被注入且难以审计"
+              },
+              "helpUri": "https://aishield.tools/owasp"
+            },
+            {
+              "id": "ASI05",
+              "name": "ASI05",
+              "shortDescription": {
+                "text": "同一 agent 会话中并存 [shell_exec] 与 [network_out] 能力：命令执行结果可外发，且可下载并执行载荷"
+              },
+              "helpUri": "https://aishield.tools/owasp"
+            }
+          ]
+        }
+      },
+      "originalUriBaseIds": {
+        "SRC": {
+          "uri": "./"
+        }
+      },
+      "results": [
+        {
+          "ruleId": "MCP04",
+          "level": "note",
+          "message": {
+            "text": "STDIO server 'weather' 的启动命令会在客户端加载时被执行，且无论进程是否成功启动都会执行（MCP 协议设计使然）"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "pasted-config.json"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "MCP04",
+          "level": "error",
+          "message": {
+            "text": "server 'weather' 每次启动都从注册表拉取未锁定版本的包（@weather/mcp@latest），存在 rug-pull 与幻觉包落地风险"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "pasted-config.json"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "MCP03",
+          "level": "error",
+          "message": {
+            "text": "server 'internal' 指向通配地址 0.0.0.0，该 MCP 端点对整个局域网可达"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "pasted-config.json"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "MCP05",
+          "level": "warning",
+          "message": {
+            "text": "远程 server 'internal' 未见任何鉴权材料（学界实测 7,973 个在线远程 MCP server 中 40.55% 无鉴权）"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "pasted-config.json"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "MCP04",
+          "level": "note",
+          "message": {
+            "text": "STDIO server 'fetcher' 的启动命令会在客户端加载时被执行，且无论进程是否成功启动都会执行（MCP 协议设计使然）"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "pasted-config.json"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "MCP01",
+          "level": "error",
+          "message": {
+            "text": "server 'fetcher' 通过 shell -c 启动，命令串易被注入且难以审计"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "pasted-config.json"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "ASI05",
+          "level": "warning",
+          "message": {
+            "text": "同一 agent 会话中并存 [shell_exec] 与 [network_out] 能力：命令执行结果可外发，且可下载并执行载荷"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "unknown"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ]
+        }
+      ],
+      "properties": {
+        "target": "aishield-demo",
+        "generated_at": "2026-09-19T10:04:08.540358+08:00"
+      }
+    }
+  ]
+}

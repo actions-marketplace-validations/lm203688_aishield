@@ -1,0 +1,118 @@
+{
+  "servers": [
+    {
+      "server": {
+        "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+        "name": "io.github.lm203688/aishield",
+        "description": "Scans MCP servers for tool poisoning, prompt injection and supply chain risks.",
+        "title": "AIShield Security Scanner",
+        "repository": {
+          "url": "https://github.com/lm203688/aishield",
+          "source": "github"
+        },
+        "version": "4.2.1",
+        "websiteUrl": "https://aishield.tools",
+        "packages": [
+          {
+            "registryType": "npm",
+            "registryBaseUrl": "https://registry.npmjs.org",
+            "identifier": "aishield-mcp-server",
+            "version": "4.2.1",
+            "transport": {
+              "type": "stdio"
+            }
+          }
+        ],
+        "remotes": [
+          {
+            "type": "streamable-http",
+            "url": "https://aishield.tools/api/v1/mcp"
+          }
+        ]
+      },
+      "_meta": {
+        "io.modelcontextprotocol.registry/official": {
+          "status": "active",
+          "statusChangedAt": "2026-08-05T05:37:28.047534Z",
+          "publishedAt": "2026-08-05T05:37:28.047534Z",
+          "updatedAt": "2026-08-05T05:37:28.047534Z",
+          "isLatest": false
+        }
+      }
+    },
+    {
+      "server": {
+        "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+        "name": "io.github.lm203688/aishield",
+        "description": "Scans MCP servers for tool poisoning, prompt injection and supply chain risks.",
+        "title": "AIShield Security Scanner",
+        "repository": {
+          "url": "https://github.com/lm203688/aishield",
+          "source": "github"
+        },
+        "version": "4.2.2",
+        "websiteUrl": "https://aishield.tools",
+        "packages": [
+          {
+            "registryType": "npm",
+            "registryBaseUrl": "https://registry.npmjs.org",
+            "identifier": "aishield-mcp-server",
+            "version": "4.2.2",
+            "transport": {
+              "type": "stdio"
+            }
+          }
+        ],
+        "remotes": [
+          {
+            "type": "streamable-http",
+            "url": "https://aishield.tools/api/v1/mcp"
+          }
+        ]
+      },
+      "_meta": {
+        "io.modelcontextprotocol.registry/official": {
+          "status": "active",
+          "statusChangedAt": "2026-08-07T12:54:18.353854Z",
+          "publishedAt": "2026-08-07T12:54:18.353854Z",
+          "updatedAt": "2026-08-07T12:54:18.353854Z",
+          "isLatest": false
+        }
+      }
+    },
+    {
+      "server": {
+        "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+        "name": "io.github.lm203688/aishield",
+        "description": "Scans MCP servers for tool poisoning, prompt injection and supply chain risks.",
+        "title": "AIShield Security Scanner",
+        "repository": {
+          "url": "https://github.com/lm203688/aishield",
+          "source": "github"
+        },
+        "version": "4.3.0",
+        "websiteUrl": "https://aishield.tools",
+        "packages": [
+          {
+            "registryType": "npm",
+            "registryBaseUrl": "https://registry.npmjs.org",
+            "identifier": "aishield-mcp-server",
+            "version": "4.3.0",
+            "transport": {
+              "type": "stdio"
+            }
+          }
+        ]
+      },
+      "_meta": {
+        "io.modelcontextprotocol.registry/official": {
+          "status": "active",
+          "statusChangedAt": "2026-08-28T04:37:15.33484Z",
+          "publishedAt": "2026-08-28T04:37:15.33484Z",
+          "updatedAt": "2026-09-19T02:05:22.172928+00:00",
+          "isLatest": true
+        }
+      }
+    }
+  ]
+}

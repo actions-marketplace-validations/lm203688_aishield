@@ -432,6 +432,7 @@ class AIShieldHandler(BaseHTTPRequestHandler):
             "/attack-graph": "attack-graph.html",
             "/fleet": "fleet.html",
             "/enterprise": "enterprise.html",
+            "/scan": "scan.html",
         }
         if path in _STATIC_PAGES:
             html_path = os.path.join(BASE, "static", _STATIC_PAGES[path])

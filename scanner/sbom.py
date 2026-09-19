@@ -15,7 +15,7 @@ from datetime import datetime, timezone, timedelta
 
 TZ = timezone(timedelta(hours=8))
 TOOL_NAME = "AIShield"
-TOOL_VERSION = "4.2.0"
+TOOL_VERSION = "4.3.0"
 
 _SEV_TO_SARIF = {
     "critical": "error", "high": "error",
