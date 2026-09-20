@@ -2,7 +2,7 @@
   "serverInfo": {
     "name": "AIShield",
     "version": "4.3.0",
-    "description": "AI Agent Security Shield — OWASP MCP Top 10 + OWASP Agentic AI Top 10 aligned security scanning. 235 MCP rules (+241 skill rules) covering prompt injection, zero-width characters, Rug Pull, permission audit, supply-chain and agentic risk. Local-first: no code leaves your machine. Features pre-install guardrail gating, OpenAPI auto-discovery and embeddable security badges."
+    "description": "AI Agent Security Shield — OWASP MCP Top 10 + OWASP Agentic AI Top 10 aligned security scanning. 235 MCP rules (+244 skill rules) covering prompt injection, zero-width characters, Rug Pull, permission audit, supply-chain and agentic risk. Local-first: no code leaves your machine. Features pre-install guardrail gating, OpenAPI auto-discovery, compact trust digest (aishield-digest/v1) and embeddable security badges."
   },
   "url": "https://github.com/lm203688/aishield",
   "transport": "stdio",
@@ -120,6 +120,27 @@
         "required": [
           "source_url"
         ]
+      }
+    },
+    {
+      "name": "aishield_digest",
+      "description": "Compact trust digest (aishield-digest/v1): ~520 bytes + a content fingerprint (sha256). Lets an agent answer 'can I trust this config?' every turn without re-pulling the full report. Accepts {configs} (static analysis only, no spawn), {scan_result}, or {source_url}. The risk label is floored by the worst finding — it will never say 'safe' for a config that has a high/critical finding.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "configs": {
+            "type": "string",
+            "description": "MCP client config (JSON text) to analyze statically — no commands are spawned"
+          },
+          "scan_result": {
+            "type": "object",
+            "description": "A previous AIShield scan result to compress into a digest"
+          },
+          "source_url": {
+            "type": "string",
+            "description": "Remote URL of an MCP server to evaluate"
+          }
+        }
       }
     }
   ],
