@@ -50,7 +50,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 from rule_corpus import ATTACK_SAMPLES, BENIGN_CORPUS  # noqa: E402
 
 # 样本放在 /skills/ 下喂样，使 is_agent_instruction_doc=True、analyze() 的
-# is_doc 降级不生效 —— 这是最坏情况，也是引用场景误报真正危害所在的位置
+# is_doc 置为 False —— 这是最坏情况，也是引用场景误报真正危害所在的位置
 # （防御类 SKILL.md）。文件名必须各不相同，否则 20 条样本会落进同一文件互相覆盖。
 WORST_CASE_FILENAMES = ("skills/skill_%02d.md",)
 
@@ -104,7 +104,7 @@ def _load_rule_stores() -> Dict[str, Dict[str, Tuple[str, str]]]:
 
 
 def audit_false_positives(stores: Dict[str, Dict[str, Tuple[str, str]]]) -> Dict[str, Any]:
-    """在 analyze() 层测良性误报，反映引用抑制与 is_doc 降级后的真实行为。
+    """在 analyze() 层测良性误报，反映引用抑制生效后的真实行为。
 
     逐条样本单独成文件（每个样本一个文件名），避免规则在同一文件里重复计数
     干扰"这条规则是否误报"的判断。
@@ -112,7 +112,7 @@ def audit_false_positives(stores: Dict[str, Dict[str, Tuple[str, str]]]) -> Dict
     import importlib
     rules_mod = importlib.import_module("scanner.rules")
 
-    # 路径落在 /skills/ 下 → is_agent_instruction_doc=True → is_doc 降级不生效。
+    # 路径落在 /skills/ 下 → is_agent_instruction_doc=True → is_doc 不生效。
     # 这是最坏情况，也是引用场景误报真正危害所在的位置（防御类 skill 文档）。
     # 不能只用 SKILL.md 这个名字：20 条样本会全部落进同一个文件，互相覆盖。
     files = {"skills/skill_%02d.md" % i: t for i, t in enumerate(BENIGN_CORPUS)}
@@ -266,7 +266,7 @@ def _print_report(a: Dict[str, Any]) -> None:
     print("规则数: %-6d  良性样本: %-3d  攻击样本: %d"
           % (a["rules_audited"], a["benign_samples"], a["attack_samples"]))
     fp = a["false_positives"]
-    print("\n[1] 良性语料误报（analyze() 层，含引用抑制与 is_doc 降级）")
+    print("\n[1] 良性语料误报（analyze() 层，含引用上下文抑制）")
     print("    findings: %d  |  critical/high: %d  |  medium/low/info: %d"
           % (fp["total_findings"], fp["critical_high"], fp["noisy"]))
     for h in fp["critical_high_details"]:
@@ -276,7 +276,7 @@ def _print_report(a: Dict[str, Any]) -> None:
     if fp["critical_high"]:
         print("    -> 不可发布：良性语料上的 critical/high 级误报比没有规则更糟")
     for h in fp["noisy_details"]:
-        # description 已自带 analyze() 加的 "(文档示例)"/"(引用上下文)" 标记，
+        # description 已自带 analyze() 加的 "(引用上下文)" 标记，
         # 这里不再重复拼接。
         print("    [%-8s] %-12s %s" % (h["severity"], h["rule_id"] or "-",
                                        (h["description"] or "")[:52]))

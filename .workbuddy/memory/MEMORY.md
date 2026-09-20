@@ -6,8 +6,29 @@ Agent 原生 AI 工具安全扫描器（MCP/skill/GPTs/prompt），对齐 OWASP 
 零依赖。`lm203688/aishield`(public)，npm **4.3.0**。**不变量：绝不 spawn 被扫配置的命令。**
 
 ## 规则数（勿引用旧数）
-**235 = 静态 208 + 生成 8 + 雷达 19**（live）；Skill **244**。看 `/api/v1/health`.`rules_breakdown`。
-`promote_rule` 只同步部分声明位，README 逐类表须手改（规则数尚未门禁化，见待办）。
+**235 = 静态 208 + 生成 8 + 雷达 19**（live）；Skill **241**（2026-09-20 实测纠正，旧记 244 是错的）。
+看 `/api/v1/health`.`rules_breakdown`。**规则数已门禁化**：`scripts/rule_count_gate.py`
+（`--check`/`--sync`，权威值运行时取不写死，CI 已挂 `ci.yml`，47 声明位受约束）+ 31 测试。
+坑：声明位须「先锚语境再校数」——散文里 `238` 可能是 `rgba(238,69,96)`；`(?<!Top)` 挡不住
+引擎从数字内部起跳（`Top 10`→`Top 1235`），捕获组前缀必须 `(?<!\d)`；分解行豁免须拆
+`ROW_MARKERS`（整行）与 `CELL_MARKERS`（单点+CELL_WINDOW=14），否则行内话题提及会把同行
+真声明位一起放走（smithery.yaml 假绿）。
+
+## 基准（勿引用 96%/98%）
+现行 `scripts/benchmark.py`：**主口径 serious_only：45/50 = 90.0% 召回、0/45 = 0.0% 误报；
+副口径 any_finding：规则覆盖 50/50 = 100.0%**。两平面**同口径**（都 serious_only）总分才可相加；
+副口径只算覆盖率、不配误报率（良性 low/info 是信息性标注，给它算 fp 会得到 40%+ 的废数）。
+指令面 24/28、配置面 21/22；检出缺口 5 条已公开列在 v1.md。
+**is_doc 一刀切降级已改**（2026-09-20）：analyze() 原对 .md/.txt 把 critical/high 降 low，
+而注入的天然栖息地就是文本 → 指令面 serious-only 召回曾 0/28、旗舰样本只有 low。
+现按**规则语义**豁免（MCP06 注入类 + ASI* 整组），**不是按 OWASP 类别** —— MCP06 里混着
+「持久化/自启动指令」cron 类，文档给 cron 示例是正常实践，整类豁免会把 guardrail-harness 的
+deny 演示样本报成阻断项。引用抑制另补了中文标记（例如/示例/检测/拦截/阻止/威胁模型/测试用例/
+测试样本/已知攻击/已知漏洞）：词表此前只有英文，中文防御文档整块盲区。
+指令面喂样路径从 `sample.md` 改 `skills/payload_NN.md` —— 生产路径
+`server.check_prompt_injection` 对提示词文本不施加文档降级，`sample.md` 测的不是生产行为。
+`tests/test_benchmark.py` 的 `--fail-under-recall 1.5` 是**故意**测门禁会红，不是脚本瑕疵
+（2026-09-20 守夜报告误诊）。MIN_RECALL=0.85 / MIN_COVERAGE=1.00。
 
 ## 线上拓扑
 CF Named Tunnel（cloudflared→:8450→api/server.py），前缀 **`/api/v1`**，无 CF Pages。
@@ -19,7 +40,7 @@ CF Named Tunnel（cloudflared→:8450→api/server.py），前缀 **`/api/v1`**�
 - **假绿六层**：吞异常／传输层 `if not res: continue`（退化成 `[]`，最隐蔽）／`| tail` 退出码恒 0
   （需 `pipefail`）／mock 外部 IO 须断言请求路径／`echo "X=$?"` 抢占退出码／`notify()` 恒 0
   （已修 `--fail-on-undelivered`+未送达台账）。**群居的，修一处下一处顶上**。
-- 退出码显式传导 `rc=$?`→`exit $rc`；`run_all.py` 共 **1199 tests**。
+- 退出码显式传导 `rc=$?`→`exit $rc`；`run_all.py` 共 **1230 tests**（2026-09-20）。
 - 契约测试坑：注释字面量致子串断言误报→先剥注释（辅助函数自身需正向对照）；
   `addCleanup(patcher.stop())` 传的是 **None**。
 - 禁 `|| true`/2>/dev/null 吞门禁；404 先读 body；实地 curl；本地绿≠CI 绿；
@@ -37,12 +58,11 @@ CF Named Tunnel（cloudflared→:8450→api/server.py），前缀 **`/api/v1`**�
 - **push 与 workflow_dispatch 非原子**：dispatch 部署「那一刻」的 main HEAD。实测 dispatch
   早于目标 commit 25 秒 → run 绿但部署旧 sha，线上仍缺修复。push 后先取 main HEAD 再 dispatch，
   并核对 run `head_sha` 含目标 commit。
-- secret scanning 拦测试假 token（422）→用 `bypass_placeholders.placeholder_id` 替换；
-  其余缩短到检测器阈值下（ghp_ 36 位、JWT 需合法 base64）。**不得破坏 `redact()` 最小长度断言**。
-- 告警出站**每个出口都要脱敏**（`finding.evidence` 就是源代码行）；台账按 fingerprint **upsert 非 append**。
-- 本机**无 `.git`**→`git status`/`check-ignore` 全假阴性；验证 .gitignore 用 Python 语义匹配。
-  `mcp-server/dist/` 在 .gitignore **但已跟踪**→dist 改动照样要推（`tsc` 重建）。
-- MSYS2：argv POSIX 路径被转换、env 里的不会；`/tmp` 不可靠；CI 日志 API 需 `-L`。
+- 测试假 token 触发 secret scanning 422 → 用 `bypass_placeholders.placeholder_id`；不得破坏
+  `redact()` 最小长度断言。告警出站**每个出口都要脱敏**；台账按 fingerprint **upsert 非 append**。
+- 本机**无 `.git`**→`git status`/`check-ignore` 全假阴性；.gitignore 用 Python 语义匹配验证。
+  `mcp-server/dist/` 在 .gitignore **但已跟踪**→改动照样要推（`tsc` 重建）。
+  MSYS2：argv POSIX 路径被转换、env 里的不会；`/tmp` 不可靠。
 
 ## 自动化 / 分发
 **20 workflow**，03:17 spine 串行 9 子；5 本地自动化（守夜 08:30 / 竞品 周一 / Radar 02:00 /
@@ -55,9 +75,13 @@ CF Named Tunnel（cloudflared→:8450→api/server.py），前缀 **`/api/v1`**�
 
 ## 待办
 - 🟡 吊销旧 CF token（曾硬编码进 public 仓历史）+ aishield.tools CF Pages Retry。
-- 🟡 **规则数声明位未门禁化**：`mcp-server/README.md` 同存 113/201/208/235/241/62 六个数，
-  `server.json` skill 数 241（应 244）。`sync_version.py` 只管版本号，规则数需另建门禁。
-- 🟡 **`docs/` 线上全 404**：benchmark（96%召回/0%误报）与 harness 文档有数据无对外通道。
 - 🟡 4 条 skill 指令载荷候选待评审（`scanner/_proposed/...instruction_payload__c84a4b.json`）；
   `promote_rule.py --shadow` 报 2 条 catch=0 死规则待拍板。
 - 🟡 `.workbuddy/memory/` 在 main 被跟踪，清理需 rewrite history。
+- 🟡 配置面 `axis_credential=generic_password` 3/4、`axis_launcher=uvx_auto_install` 3/4
+  仍 75%：唯一公开检出缺口 `cfg-mal-uvx_auto_install-generic_password`（最高只到 medium）。
+- 🟢 已完成（2026-09-20）：规则数门禁（47 声明位 + 31 测试 + CI 挂点）；docs 对外通道
+  （`api/docs_render.py` 零依赖渲染 + `server.py` `/docs`、`/docs/<rel>` 路由，102 篇可列）；
+  基准语料扩充（BENIGN 20→30、配置良性 6→10）+ 修正 ATTACK_SAMPLES[2] 叙述体误标；
+  **基准双口径统一**（serious_only 45/50=90% + any_finding 覆盖 50/50=100%）；
+  **is_doc 注入豁免 + 中文引用标记 + 指令面喂样路径修正**（指令面 serious 0/28 → 24/28）。

@@ -211,6 +211,34 @@ def benign_config_samples():
             "content": json.dumps({"mcpServers": {
                 "weather": {"command": "uvx", "args": ["mcp-server-weather==2.0.1"]}}}),
         },
+        # --- 2026-09-20 扩充：非「拉包型」的良性形态 -----------------------
+        # 此前的 6 条对照组全部落在「拉包启动器 / 远端传输」两个轴上，
+        # 本地二进制、本地脚本、本地 socket 这一大类完全没有负样本。
+        # 那意味着 fp=0% 在「本地 server」这个最常见的部署形态上是没测过的。
+        {
+            "id": "cfg-benign-node-local-script",
+            "axis_launcher": "node_local_file",
+            "content": _config("weather", "node", ["servers/weather/index.js"]),
+        },
+        {
+            "id": "cfg-benign-python-module",
+            "axis_launcher": "python_local_module",
+            "content": _config("db", "python",
+                               ["-m", "mcp_servers.sqlite", "--readonly", "./data.db"]),
+        },
+        {
+            "id": "cfg-benign-local-binary-stdio",
+            "axis_launcher": "local_binary_socket",
+            "content": _config("local", "./bin/mcp-bridge",
+                               ["--socket", "/tmp/bridge.sock"]),
+        },
+        {
+            "id": "cfg-benign-remote-apikey-placeholder",
+            "axis_transport": "remote_https_apikey_placeholder",
+            "content": _config("api", None, [],
+                               url="https://api.example.com/mcp",
+                               headers={"X-API-Key": "${MCP_API_KEY}"}),
+        },
         {
             "id": "cfg-benign-empty",
             "content": json.dumps({"mcpServers": {}}),
@@ -250,18 +278,39 @@ def _plane_a():
     attacks = list(rule_corpus.ATTACK_SAMPLES)
     benign = list(rule_corpus.BENIGN_CORPUS) + list(DEFENSE_TEXT_SAMPLES)
 
+    # 喂样路径：`skills/` 下 → is_agent_instruction_doc=True → analyze() 的
+    # is_doc 文档降级**不生效**。这不是为了让数字好看，而是这三条必须同时成立：
+    #
+    #  1. 这些样本是 agent 指令攻击（提示词注入、记忆投毒、agent 操控），不是
+    #     人类文档。扫描器本来就有 is_agent_instruction_doc 来区分两者：
+    #     SKILL.md 是 agent 的代码，不是文档。
+    #  2. 生产路径 `server.check_prompt_injection` 对提示词文本**完全不施加**
+    #     文档降级（直接跑 MCP06 + SKILL_EXTRA + ZH_PROMPT_INJECTION_RULES，
+    #     返回规则基准严重度）。基准若用 `sample.md` 喂样，测的就不是生产行为。
+    #  3. `scripts/audit_rules.py` 对**良性**侧早已用 `skills/skill_NN.md` 喂样，
+    #     注释写明这是最坏情况。指令面用同类路径才与良性侧可比。
+    #
+    # 2026-09-20 从 `sample.md` 改过来。旧路径让每条攻击样本都触发「这是文档」
+    # 的降级，serious-only 召回因此是 0/28 —— 那个 0 不是扫描器看不见注入，
+    # 是基准把攻击标注成了文档。与 ATTACK_SAMPLES[2] 是同一类标注错误。
+    def _path(i, kind):
+        return "skills/%s_%02d.md" % (kind, i)
+
     hit = 0
+    hit_any = 0
     missed = []
     for i, text in enumerate(attacks):
-        findings = analyze({"sample.md": text}, "mcp").get("findings", [])
+        findings = analyze({_path(i, "payload"): text}, "mcp").get("findings", [])
         if findings:
+            hit_any += 1
+        if [f for f in findings if f.get("severity") in ("critical", "high")]:
             hit += 1
         else:
             missed.append(i)
 
     fp = []
     for i, text in enumerate(benign):
-        findings = analyze({"sample.md": text}, "mcp").get("findings", [])
+        findings = analyze({_path(i, "skill"): text}, "mcp").get("findings", [])
         if findings:
             # 只统计 critical/high —— 引用上下文抑制会把防御文档降级，降级不算误报
             serious = [f for f in findings if f.get("severity") in ("critical", "high")]
@@ -273,6 +322,16 @@ def _plane_a():
         "positives": len(attacks),
         "detected": hit,
         "recall": round(hit / len(attacks), 4) if attacks else None,
+        # 主检出线：critical/high。这是运维真正会去处理的那一档。
+        "detection_bar": "serious_only",
+        # 副指标「规则覆盖」：任一 finding（含 low/info）即算命中。它回答的是
+        # 「规则层认不认得这个意图」，与主口径的「告警值不值得处理」是两件事。
+        # 不给它配误报率：良性配置/文档上的 low/info 命中是信息性标注（例如
+        # 「该配置使用运行时拉包」），不是误报——给它算 fp 会得到 42% 这种
+        # 既不可操作也无法治理的数字。
+        "detected_any": hit_any,
+        "recall_any": round(hit_any / len(attacks), 4) if attacks else None,
+        "coverage_bar": "any_finding",
         "missed_indices": missed,
         "negatives": len(benign),
         "false_positives": len(fp),
@@ -287,10 +346,20 @@ def _plane_b():
     检出分两档记账，因为「报了」和「报到了该报的严重度」不是同一件事：
 
       serious（critical/high）—— 计入召回率。这是运维真正会去处理的那一档。
-      below_threshold         —— 报了但只有 medium/low。**不算漏报**，
-                                 单列出来是为了不让口径掩盖实情：`uvx <pkg>`
-                                 没有 `-y`（不会自动确认安装）本来就比 `npx -y`
-                                 低一档，给 medium 是站得住的判断，不是缺陷。
+      below_threshold         —— 报了但只有 medium/low。**不计入检出**，因此
+                                 拉低召回率；单列出来是为了不让口径掩盖实情：
+                                 `uvx <pkg>` 没有 `-y`（不会自动确认安装）
+                                 本来就比 `npx -y` 低一档，给 medium 是站得住
+                                 的判断，不是缺陷。
+
+    注意 `recall = serious / positives` —— below_threshold 虽被单独列出，
+    仍然从分母里算作未检出。此前的注释写「不算漏报」，与这行算术直接矛盾
+    （2026-09-20 修）：同一个样本既出现在「不计入漏报」的表里，又出现在
+    「检出缺口」清单里，读者无法判断它到底算不算数。
+
+    2026-09-20 起两平面口径已统一：主检出线与误报线都是 serious_only。
+    `recall_any`（any_finding）另作副指标「规则覆盖」，两平面同口径，
+    因此总分可以相加而不再是混合口径求和。
     """
     from scanner.client_discovery import scan_client_configs
 
@@ -299,6 +368,7 @@ def _plane_b():
 
     by_axis = {}
     detected = 0
+    detected_any = 0
     missed = []
     below_threshold = []
     for s in positives:
@@ -307,6 +377,7 @@ def _plane_b():
         serious = [f for f in findings if f.get("severity") in ("critical", "high")]
         ok = bool(serious)
         detected += 1 if ok else 0
+        detected_any += 1 if findings else 0
         if not ok:
             missed.append(s["id"])
             if findings:
@@ -333,6 +404,12 @@ def _plane_b():
         "positives": len(positives),
         "detected": detected,
         "recall": round(detected / len(positives), 4) if positives else None,
+        # 检出线：只有 critical / high 算命中。medium / low 单列于
+        # detected_below_threshold，但仍从召回分母算作未检出。
+        "detection_bar": "serious_only",
+        "detected_any": detected_any,
+        "recall_any": round(detected_any / len(positives), 4) if positives else None,
+        "coverage_bar": "any_finding",
         "missed": missed,
         "detected_below_threshold": below_threshold,
         "negatives": len(negatives),
@@ -364,6 +441,13 @@ def run():
             "false_positive_rate": round(
                 (plane_a["false_positives"] + plane_b["false_positives"])
                 / max(1, plane_a["negatives"] + plane_b["negatives"]), 4),
+            # 副指标「规则覆盖」：任一 finding 即算命中。两平面同口径，可相加。
+            "detected_any": plane_a["detected_any"] + plane_b["detected_any"],
+            "recall_any": round(
+                (plane_a["detected_any"] + plane_b["detected_any"])
+                / max(1, plane_a["positives"] + plane_b["positives"]), 4),
+            "detection_bar": "serious_only",
+            "coverage_bar": "any_finding",
         },
         "invariants": {
             "network_calls": False,
@@ -387,21 +471,37 @@ def render_markdown(result):
         "|---|---|",
         "| 规则数 | MCP %d / Skill %d |" % (result["rules"]["mcp"], result["rules"]["skill"]),
         "| 正样本（应检出） | %d |" % s["positives"],
-        "| 检出 | %d |" % s["detected"],
+        "| 检出（critical/high） | %d |" % s["detected"],
         "| **召回率** | **%.1f%%** |" % (s["recall"] * 100),
         "| 负样本（应不报） | %d |" % s["negatives"],
-        "| 误报 | %d |" % s["false_positives"],
+        "| 误报（critical/high） | %d |" % s["false_positives"],
         "| **误报率** | **%.1f%%** |" % (s["false_positive_rate"] * 100),
+        "| 规则覆盖（任一 finding） | %d / %d |" % (s["detected_any"], s["positives"]),
+        "| **规则覆盖率** | **%.1f%%** |" % (s["recall_any"] * 100),
+        "",
+        "> **两套口径，各自内部一致**：主口径是 `serious_only`——只有 critical/high "
+        "才算检出、才算误报。这是运维真正会去处理的那一档，两个平面同口径，所以"
+        "总分可以相加。副口径 `any_finding` 只用来算「规则覆盖」：规则层认不认得"
+        "这个攻击意图。两者不相加、不混算。",
+        "> ",
+        "> 不为副口径配误报率：良性配置与文档上的 low/info 命中是信息性标注（例如"
+        "「该配置使用运行时拉包」），不是误报。给它算 fp 会得到 40% 以上这种既"
+        "不可操作也无法治理的数字。",
+        "> ",
+        "> 覆盖率高于召回率是正常且应该的：一条规则命中但只给了 medium，说明它认得"
+        "这个意图却没给到可处理的严重度——那正是要盯的缺口，见「检出缺口」一节。",
         "",
         "## 分平面",
         "",
-        "| 平面 | 正样本 | 检出 | 召回 | 负样本 | 误报 |",
-        "|---|---|---|---|---|---|",
+        "| 平面 | 检出线 | 正样本 | 检出 | 召回 | 覆盖 | 负样本 | 误报 |",
+        "|---|---|---|---|---|---|---|---|",
     ]
     for p in result["planes"]:
-        lines.append("| `%s` | %d | %d | %.1f%% | %d | %d |" % (
-            p["name"], p["positives"], p["detected"],
-            (p["recall"] or 0) * 100, p["negatives"], p["false_positives"]))
+        lines.append("| `%s` | `%s` | %d | %d | %.1f%% | %.1f%% | %d | %d |" % (
+            p["name"], p.get("detection_bar", "?"),
+            p["positives"], p["detected"],
+            (p["recall"] or 0) * 100, (p.get("recall_any") or 0) * 100,
+            p["negatives"], p["false_positives"]))
     b = result["planes"][1]
     lines += [
         "",
@@ -418,7 +518,7 @@ def render_markdown(result):
     if b.get("detected_below_threshold"):
         lines += [
             "",
-            "### 报了但低于阈值（不计入漏报）",
+            "### 报了但低于阈值（未达召回线，仍计入检出缺口）",
             "",
             "| 样本 | 最高严重度 |",
             "|---|---|",

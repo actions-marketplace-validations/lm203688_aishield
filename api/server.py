@@ -466,6 +466,75 @@ class AIShieldHandler(BaseHTTPRequestHandler):
                 _record_usage(path.lstrip("/"), self.client_address[0])
                 return
 
+        # ── 技术文档（docs/ 内容站挂载）──────────────────────────────
+        # 此前 docs/ 里全套文档（benchmark 分数表、验证 harness、雷达 shadow
+        # gate、情报简报）没有任何对外通道：GitHub Pages 的
+        # lm203688.github.io/aishield 被 CNAME 重定向到 aishield.tools，
+        # Jekyll 构建产物从未被任何人访问过；而本站只有逐页硬编码的静态
+        # 路由。于是 benchmark 的 96% 召回 / 0% 误报只存在于 git 仓库里 ——
+        # 外部用户看不到，等于不存在。这里补上唯一可达的对外入口。
+        if path == "/docs" or path == "/docs/":
+            from api import docs_render
+            body = docs_render.render_index(
+                os.path.join(PROJECT_ROOT, "docs")).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            _record_usage("docs-index", self.client_address[0])
+            return
+
+        if path.startswith("/docs/"):
+            from urllib.parse import unquote
+            from api import docs_render
+            doc_root = os.path.join(PROJECT_ROOT, "docs")
+            # unquote：%2e%2e 必须先解码再校验。若先校验后解码，编码会在
+            # os.path 里被解释第二次，等于把 safe_doc_path 的防线架空。
+            rel = unquote(path[len("/docs/"):])
+            full = docs_render.safe_doc_path(doc_root, rel)
+            # SEO 兼容：Jekyll 惯例、sitemap 与搜索引擎都用 .html 后缀，而
+            # docs/ 里只有 .md。不映射的话 benchmark 分数表照旧 404 ——
+            # 通道打通一半又被后缀差异堵回去。
+            if not full and rel.endswith(".html"):
+                md_rel = rel[: -len(".html")] + ".md"
+                full = docs_render.safe_doc_path(doc_root, md_rel)
+                if full:
+                    rel = md_rel
+            # safe_doc_path 内部做 realpath + 前缀校验，任何 ../ 越界返回 None
+            if full:
+                ext = os.path.splitext(full)[1].lower()
+                if ext == ".md":
+                    with open(full, "r", encoding="utf-8") as f:
+                        md = f.read()
+                    # 不预设 title：交给 render_markdown 按
+                    # front matter > 正文 `# ` 标题 > 默认 的优先级提取。
+                    # 此前这里传 basename[:-3]，导致 benchmark 页的 <title>
+                    # 退化成文件名 "v1" —— SEO 抓到的就是 "v1 — AIShield"。
+                    title = ""
+                    body = docs_render.render_markdown(
+                        md, title=title, rel=rel).encode("utf-8")
+                    ctype = "text/html; charset=utf-8"
+                else:
+                    with open(full, "rb") as f:
+                        body = f.read()
+                    ctype = {
+                        ".html": "text/html; charset=utf-8",
+                        ".svg": "image/svg+xml",
+                        ".txt": "text/plain; charset=utf-8",
+                        ".json": "application/json; charset=utf-8",
+                        ".png": "image/png",
+                    }.get(ext, "application/octet-stream")
+                self.send_response(200)
+                self.send_header("Content-Type", ctype)
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+                _record_usage("docs", self.client_address[0])
+                return
+            self._send_json({"error": "文档不存在", "path": rel}, 404)
+            return
+
         # Sitemap XML
         if path == "/sitemap.xml":
             sitemap_path = os.path.join(BASE, "static", "sitemap.xml")
