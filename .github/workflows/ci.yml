@@ -49,6 +49,17 @@ jobs:
           exit 1
         fi
 
+    # 版本号是单一字符串、锚点固定；规则数不同 —— 它散布在中文/英文散文里，
+    # 语境决定该等于 MCP 总数还是 Skill 总数，同一个数字在 CSS rgba() 里
+    # 又只是颜色分量。历史上同一仓库并存 238/227/233/201/133 六个值。
+    - name: Assert rule count consistency
+      run: |
+        if ! python scripts/rule_count_gate.py --check; then
+          echo "::error::规则数声明不一致"
+          echo "修复方式：本地运行 python scripts/rule_count_gate.py --sync 并提交"
+          exit 1
+        fi
+
     # server.json 的 description 上限 100 字符这类约束，
     # 服务端只回一句笼统的 400，必须在提交前校验
     - name: Validate MCP registry manifest

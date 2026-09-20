@@ -32,10 +32,18 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'scripts'))
 import benchmark as B  # noqa: E402
 
 
-# 目标准入门槛（当前实测值：recall 0.96 / fp 0.0）。
+# 目标准入门槛（当前实测值：recall 0.90 / fp 0.0 / 规则覆盖 1.00）。
 # 留出一点余量，但不留太多 —— 门禁的意义是"退步就红"，不是"随便怎样都绿"。
-MIN_RECALL = 0.95
+MIN_RECALL = 0.85
 MAX_FALSE_POSITIVE_RATE = 0.0
+
+# 2026-09-20：召回下限从 0.95 降到 0.85，不是放宽标准，而是**换口径**。
+# 此前 `recall` 是「指令面 any-finding + 配置面 serious-only」的混合求和
+# （0.96），两个平面用了不同的检出线，那个数字无法被任何单一标准解读。
+# 现在两平面统一到 serious_only，90% 是同一个标准下的真值，5 条未达可处理
+# 严重度的样本已公开列在「检出缺口」里。混合口径的 96% 不是更优成绩，
+# 是不自洽的记账。
+MIN_COVERAGE = 1.00
 
 # 语料规模下限。删样本可以让任何指标变好看，这里堵住。
 MIN_POSITIVES = 50
@@ -91,6 +99,103 @@ class TestQualityGates(unittest.TestCase):
                                 '正样本被删到 %d 条（下限 %d）' % (self.summary["positives"], MIN_POSITIVES))
         self.assertGreaterEqual(self.summary["negatives"], MIN_NEGATIVES,
                                 '负样本被删到 %d 条（下限 %d）' % (self.summary["negatives"], MIN_NEGATIVES))
+
+    def test_coverage_does_not_regress(self):
+        """规则覆盖率不达标意味着规则层开始认不得攻击意图了。"""
+        self.assertGreaterEqual(
+            self.summary["recall_any"], MIN_COVERAGE,
+            '规则覆盖率退化到 %.4f（下限 %.2f）' % (self.summary["recall_any"], MIN_COVERAGE))
+
+    def test_coverage_not_below_recall(self):
+        """覆盖率不可能低于召回率 —— 达到可处理严重度必然先有 finding。
+
+        两者倒挂只可能是口径又分裂了（比如召回按 any-finding、覆盖按
+        serious-only）。这条断言把顺序钉死，不依赖具体数字。
+        """
+        self.assertGreaterEqual(self.summary["recall_any"], self.summary["recall"],
+                                '规则覆盖率 %.4f 低于召回率 %.4f —— 口径可能又分裂了'
+                                % (self.summary["recall_any"], self.summary["recall"]))
+
+
+class TestInstructionPlaneFeedsAgentInstructions(unittest.TestCase):
+    """指令面必须按「agent 指令」而非「人类文档」喂样。
+
+    2026-09-20 从 `sample.md` 改过来。`sample.md` 会命中 analyze() 的 is_doc
+    文档降级，让每条攻击样本的 critical 被压成 low，serious-only 召回因此是
+    0/28 —— 那个 0 不是扫描器看不见注入，是基准把攻击标注成了文档。
+    与 ATTACK_SAMPLES[2]（叙述体被标成正样本）是同一类标注错误。
+
+    三条依据写在 benchmark._plane_a 的注释里：样本是 agent 指令攻击；生产路径
+    check_prompt_injection 不施加文档降级；良性侧早已用 skills/ 喂样。
+    """
+
+    def src(self):
+        return open(os.path.join(os.path.dirname(__file__), '..', 'scripts', 'benchmark.py'),
+                    encoding='utf-8').read()
+
+    def test_uses_agent_instruction_path(self):
+        src = self.src()
+        self.assertIn('skills/%s_%02d.md', src,
+                      '指令面未使用 skills/ 路径喂样 —— is_doc 降级会把召回压回 0/28')
+        self.assertNotIn('analyze({"sample.md"', src,
+                         '指令面退回 sample.md 喂样 —— 攻击被当成文档，serious 召回会归零')
+
+    def test_injection_sample_reaches_serious_severity(self):
+        """行为级断言：旗舰注入样本必须给到可处理的严重度。
+
+        不依赖具体路径写法 —— 只要基准算出来的 serious 召回还是 0/28 就红。
+        """
+        p = self.result = B.run()["planes"][0]
+        self.assertGreaterEqual(
+            p["recall"], 0.5,
+            '指令面 serious 召回 %.4f —— is_doc 降级可能又被吃进基准了' % p["recall"])
+
+    def test_benign_side_uses_same_path_convention(self):
+        """正负两侧必须同一类路径，否则严重度口径不可比。"""
+        src = self.src()
+        self.assertIn('_path(i, "payload")', src)
+        self.assertIn('_path(i, "skill")', src)
+
+
+class TestBarsAreUnifiable(unittest.TestCase):
+    """两平面的检出线必须一致，否则总分不可比。
+
+    2026-09-20 修的正是这个：指令面用 any_finding、配置面用 serious_only，
+    相加得到的「召回率」不是任何单一标准下的数字，容易被读成严肃告警下的
+    召回。总分是两平面之和，这个前提必须先成立。
+    """
+
+    def setUp(self):
+        self.result = B.run()
+
+    def test_all_planes_share_one_detection_bar(self):
+        bars = set(p.get("detection_bar") for p in self.result["planes"])
+        self.assertEqual(bars, {"serious_only"},
+                         '平面检出线不统一：%s —— 总分成了混合口径求和' % sorted(bars))
+
+    def test_all_planes_share_one_coverage_bar(self):
+        bars = set(p.get("coverage_bar") for p in self.result["planes"])
+        self.assertEqual(bars, {"any_finding"},
+                         '平面覆盖线不统一：%s' % sorted(bars))
+
+    def test_summary_declares_its_bars(self):
+        """总分必须自己声明口径，不能让读者去猜。"""
+        s = self.result["summary"]
+        self.assertEqual(s["detection_bar"], "serious_only")
+        self.assertEqual(s["coverage_bar"], "any_finding")
+
+    def test_no_coverage_false_positive_rate(self):
+        """副口径不得配误报率。
+
+        良性配置/文档上的 low/info 命中是信息性标注（「该配置使用运行时拉包」），
+        不是误报。给它算 fp 会得到 40%+ 这种既不可操作也无法治理的数字 ——
+        那个数字会诱导人去「优化」规则，把真正需要报的也一起压掉。
+        """
+        for p in self.result["planes"]:
+            self.assertNotIn("false_positive_rate_any", p,
+                             '%s 给副口径配了误报率' % p["name"])
+        self.assertNotIn("false_positive_rate_any", self.result["summary"],
+                         '总分给副口径配了误报率')
 
 
 class TestParameterization(unittest.TestCase):

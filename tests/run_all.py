@@ -178,6 +178,9 @@ def main():
         'tests.test_benchmark',
         # 2026-09-19 雷达规则 provenance 可审计性（trigger / intended_effect + 老数据兼容）
         'tests.test_provenance_audit',
+        # 2026-09-20 规则数一致性门禁契约：scan/sync 口径不得分裂、pair 替换
+        # 不得截断、正则不得从数字中间起跳、分解表与 CSS 颜色不得误报
+        'tests.test_rule_count_gate',
     ]
 
     loaded = 0
