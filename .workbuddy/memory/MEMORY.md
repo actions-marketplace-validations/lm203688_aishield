@@ -45,15 +45,20 @@ healthlens tunnel）→按 PID 停。`deploy-server.yml` 只有 `workflow_call`+
 - MSYS2：argv POSIX 路径被转换、env 里的不会；`/tmp` 不可靠；CI 日志 API 需 `-L`。
 
 ## 自动化 / 分发
-`self_scan.py`：`blocking_unsuppressed=0` 且 `stale_allowlist=0`=健康。19 workflow，
-03:17 spine 串行 9 子；守夜 08:30 / 竞争情报 周一 / Tech Radar 02:00。
-已上架 Glama + npm + Official MCP Registry；Marketplace 须独立仓 `lm203688/aishield-action`。
+**20 workflow**，03:17 spine 串行 9 子；5 本地自动化（守夜 08:30 / 竞品 周一 /
+Radar 02:00 / 分发 周六 / 周报 周日）职责互不重叠无需融合。`self_scan.py`
+`blocking_unsuppressed=0`+`stale_allowlist=0`=健康；**不在任何 CI 里**→守夜是
+台账外自检唯一执行者（by design，需本地全树+allowlist）。已上架 Glama+npm；
+Marketplace 须独立仓 `lm203688/aishield-action`。
+- **workflow permissions 铁律（2026-09-20 抓到）**：会 `git push` 的 workflow 必须
+  `contents: write`——`geo-indexnow` 用 `contents: read` 致心跳 `git_push_safe`
+  403 重试 5 次后 exit 1，9/9 全红（核心提交其实都成功）。**装饰性心跳 push 加
+  `|| true`**：best-effort 状态回写不该盖过核心红绿灯。
 
 ## 待办
-- 🟡 轮换 CF token：secret 已建 + `install-cf-token.yml` 已跑通过。
-  **仅剩用户手动吊销旧 token**（https://dash.cloudflare.com/profile/api-tokens）。
+- 🟡 吊销旧 CF token（曾硬编码进 public 仓历史）+ aishield.tools CF Pages Retry
+  （3 个 cfut_ 权限不足，无法 API 触发）。
 - 🟡 4 条 skill 指令载荷候选待评审（`scanner/_proposed/...instruction_payload__c84a4b.json`，
-  draft 不自动晋升；远程载荷管道/指令覆盖/记忆投毒/数据外泄，BENIGN_CORPUS fp=0）；
-  待决 R1 是否扩展 `| python3`；晋升前须并入 `scripts/rule_corpus.py`。
+  draft 不自动晋升；晋升前须并入 `scripts/rule_corpus.py`）。
 - 🟡 `promote_rule.py --shadow` 报 2 条 catch=0 死规则待拍板。
 - 🟡 `.workbuddy/memory/` 在 main 被跟踪，清理需 rewrite history。
