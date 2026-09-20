@@ -1,6 +1,6 @@
 # AIShield MCP安全扫描报告
 
-生成时间: 2026-09-19 16:00:54
+生成时间: 2026-09-20 16:32:26
 扫描引擎版本: 4.1
 扫描工具总数: 70
 平均安全评分: 74.4/100
@@ -36,7 +36,7 @@
 - **assafelovic/gpt-researcher** — 42/100, 38 issues
 - **amruthpillai/reactive-resume** — 42/100, 31 issues
 - **reactive-resume/app** — 42/100, 32 issues
-- **reactive-resume/reactive-resume** — 42/100, 32 issues
+- **reactive-resume/reactive-resume** — 42/100, 33 issues
 - **sansan0/TrendRadar** — 47/100, 40 issues
 - **snyk/agent-scan** — 48/100, 21 issues
 - **mrexodia/ida-pro-mcp** — 50/100, 31 issues
