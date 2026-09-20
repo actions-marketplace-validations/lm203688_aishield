@@ -1,4 +1,4 @@
-# AIShield 长期记忆（2026-09-19，限 3K）
+# AIShield 长期记忆（2026-09-20，限 3K）
 > 细节看按日日志。
 
 ## 定位
@@ -7,14 +7,13 @@ Agent 原生 AI 工具安全扫描器（MCP/skill/GPTs/prompt），对齐 OWASP 
 
 ## 规则数（勿引用旧数）
 **235 = 静态 208 + 生成 8 + 雷达 19**（live）；Skill **244**。看 `/api/v1/health`.`rules_breakdown`。
-`promote_rule` 自动同步，但**须手改 mcp-server/README 逐类表 + 根 README 徽章**。
+`promote_rule` 只同步部分声明位，README 逐类表须手改（规则数尚未门禁化，见待办）。
 
 ## 线上拓扑
-CF Named Tunnel（cloudflared→:8450→api/server.py），前缀 **`/api/v1`**，无 CF Pages；
-部署不需 CF token（VPS 有 cert.pem）。**部署身份 root**→所有 API 启动路径必须
-**`AISHIELD_ALLOW_ROOT=1`**（漏一处即 502 静默停机）。**禁 `pkill -f cloudflared`**（会杀
-healthlens tunnel）→按 PID 停。`deploy-server.yml` 只有 `workflow_call`+`workflow_dispatch`，
-由 03:17 spine 调用；`pages.yml` 有 `push: docs/**` 自动部署。
+CF Named Tunnel（cloudflared→:8450→api/server.py），前缀 **`/api/v1`**，无 CF Pages。
+部署身份 **root** → API 启动路径必须 `AISHIELD_ALLOW_ROOT=1`（漏一处即 502 静默停机）。
+**禁 `pkill -f cloudflared`**（会杀 healthlens tunnel）→按 PID 停。
+`deploy-server.yml` 仅 `workflow_dispatch`（03:17 spine 调用）；`pages.yml` 走 `push: docs/**`。
 
 ## 铁律
 - **假绿六层**：吞异常／传输层 `if not res: continue`（退化成 `[]`，最隐蔽）／`| tail` 退出码恒 0
@@ -27,16 +26,17 @@ healthlens tunnel）→按 PID 停。`deploy-server.yml` 只有 `workflow_call`+
   `paths-ignore` 提交不触发 CI。
 - 雷达规则须含 `|` 或有界 `.{n,m}`，裸关键字留 draft；**误报比没有规则更糟**，必配正样本。
   `BENIGN_CORPUS` 含防御工具描述→裸关键字必误报，须区分「话题提及」与「祈使式执行」。
-- **结论层铁律（2026-09-19 线上抓到）**：`risk`/`safe` 等**结论字段不得轻于实际最严重的
-  finding** —— 取「分数档 vs 最严重 finding」更重者 + 输出 `worst_severity`；布尔结论须由
-  等级字段派生（勿独立再算 `score>=N`，否则 `safe:true` 与 high 并列）；`low/info` 不设下限。
-  路径 `trust_api._risk_from_score`（digest）/ `server.check_prompt_injection`（/scan）。
+- **结论层铁律**：`risk`/`safe` **不得轻于实际最严重的 finding** —— 取「分数档 vs 最严重
+  finding」更重者 + 输出 `worst_severity`；布尔结论须由等级字段派生（勿独立再算 `score>=N`）；
+  `low/info` 不设下限。路径 `trust_api._risk_from_score` / `server.check_prompt_injection`。
   **群居缺陷**：修一处必 grep 同类标签一次修完；测试要断言**字段间自洽**而非各自取值。
-  复验走 `contents` API（raw 有 CDN 滞后会误报）。
-- GHA `needs` 依赖被跳过的 job 会一并跳过→作业内自闭环；`set +e` 脚本必须
-  `if ! func; then`；删除守卫：`rm`/`os.remove` 被吞、`mv` 不受限。
+- GHA `needs` 依赖被跳过的 job 会一并跳过→作业内自闭环；`set +e` 脚本必须 `if ! func; then`；
+  删除守卫：`rm`/`os.remove` 被吞、`mv` 不受限。
 - 推送用 `_push_batch.py`（多文件一个 commit）；新测试与 `run_all.py` 登记**须原子推送**；
   `gh_push.py` 首参是 message **无 `-m`**；Contents API 无法 amend。根目录探针统一 `_` 前缀。
+- **push 与 workflow_dispatch 非原子**：dispatch 部署「那一刻」的 main HEAD。实测 dispatch
+  早于目标 commit 25 秒 → run 绿但部署旧 sha，线上仍缺修复。push 后先取 main HEAD 再 dispatch，
+  并核对 run `head_sha` 含目标 commit。
 - secret scanning 拦测试假 token（422）→用 `bypass_placeholders.placeholder_id` 替换；
   其余缩短到检测器阈值下（ghp_ 36 位、JWT 需合法 base64）。**不得破坏 `redact()` 最小长度断言**。
 - 告警出站**每个出口都要脱敏**（`finding.evidence` 就是源代码行）；台账按 fingerprint **upsert 非 append**。
@@ -45,20 +45,19 @@ healthlens tunnel）→按 PID 停。`deploy-server.yml` 只有 `workflow_call`+
 - MSYS2：argv POSIX 路径被转换、env 里的不会；`/tmp` 不可靠；CI 日志 API 需 `-L`。
 
 ## 自动化 / 分发
-**20 workflow**，03:17 spine 串行 9 子；5 本地自动化（守夜 08:30 / 竞品 周一 /
-Radar 02:00 / 分发 周六 / 周报 周日）职责互不重叠无需融合。`self_scan.py`
-`blocking_unsuppressed=0`+`stale_allowlist=0`=健康；**不在任何 CI 里**→守夜是
-台账外自检唯一执行者（by design，需本地全树+allowlist）。已上架 Glama+npm；
-Marketplace 须独立仓 `lm203688/aishield-action`。
-- **workflow permissions 铁律（2026-09-20 抓到）**：会 `git push` 的 workflow 必须
-  `contents: write`——`geo-indexnow` 用 `contents: read` 致心跳 `git_push_safe`
-  403 重试 5 次后 exit 1，9/9 全红（核心提交其实都成功）。**装饰性心跳 push 加
-  `|| true`**：best-effort 状态回写不该盖过核心红绿灯。
+**20 workflow**，03:17 spine 串行 9 子；5 本地自动化（守夜 08:30 / 竞品 周一 / Radar 02:00 /
+分发 周六 / 周报 周日）职责互不重叠无需融合。`self_scan.py` 需 `blocking_unsuppressed=0`
++`stale_allowlist=0`；**不在任何 CI 里** → 守夜是台账外自检唯一执行者。
+已上架 Glama+npm；Marketplace 须独立仓 `lm203688/aishield-action`。
+- **workflow permissions 铁律**：会 `git push` 的 workflow 必须 `contents: write` ——
+  `geo-indexnow` 用 `contents: read` 致心跳 push 403 重试 5 次后 exit 1，9/9 全红
+  （核心提交其实都成功）。装饰性心跳 push 加 `|| true`。
 
 ## 待办
-- 🟡 吊销旧 CF token（曾硬编码进 public 仓历史）+ aishield.tools CF Pages Retry
-  （3 个 cfut_ 权限不足，无法 API 触发）。
-- 🟡 4 条 skill 指令载荷候选待评审（`scanner/_proposed/...instruction_payload__c84a4b.json`，
-  draft 不自动晋升；晋升前须并入 `scripts/rule_corpus.py`）。
-- 🟡 `promote_rule.py --shadow` 报 2 条 catch=0 死规则待拍板。
+- 🟡 吊销旧 CF token（曾硬编码进 public 仓历史）+ aishield.tools CF Pages Retry。
+- 🟡 **规则数声明位未门禁化**：`mcp-server/README.md` 同存 113/201/208/235/241/62 六个数，
+  `server.json` skill 数 241（应 244）。`sync_version.py` 只管版本号，规则数需另建门禁。
+- 🟡 **`docs/` 线上全 404**：benchmark（96%召回/0%误报）与 harness 文档有数据无对外通道。
+- 🟡 4 条 skill 指令载荷候选待评审（`scanner/_proposed/...instruction_payload__c84a4b.json`）；
+  `promote_rule.py --shadow` 报 2 条 catch=0 死规则待拍板。
 - 🟡 `.workbuddy/memory/` 在 main 被跟踪，清理需 rewrite history。
