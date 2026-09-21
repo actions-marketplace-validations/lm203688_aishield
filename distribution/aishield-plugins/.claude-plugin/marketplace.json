@@ -1,0 +1,16 @@
+{
+  "$schema": "https://www.anthropic.com/schema/marketplace.json",
+  "name": "lm203688-plugins",
+  "owner": "lm203688",
+  "metadata": {
+    "description": "lm203688's plugins — agent security scanner and related tooling.",
+    "homepage": "https://aishield.tools"
+  },
+  "plugins": [
+    {
+      "name": "aishield-security-scan",
+      "source": ".",
+      "description": "AIShield security scanner for MCP servers, AI Skills, and agent workspaces."
+    }
+  ]
+}

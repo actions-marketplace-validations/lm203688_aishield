@@ -325,12 +325,81 @@ MCP10_RULES = {
 # Skill/GPT/Prompt 专用额外规则
 # ============================================================
 SKILL_EXTRA_RULES = {
+    # ---- 基础操作类（原有） ----
     r'(write|create|delete|remove)\s+file': ("文件操作指令", "medium"),
     r'(access|read|send).*(contact|calendar|location|camera|microphone)': ("隐私数据访问指令", "high"),
     r'(encrypt|ransom|lock).*(file|data|disk)': ("勒索/加密行为", "critical"),
     r'(spread|propagate|infect|replicate)\b': ("自我传播行为", "critical"),
     r'(elevate|privilege|sudo|root|admin).*(access|permission|escalat)': ("权限提升指令", "critical"),
     r'api[_-]?key|secret[_-]?key|access_token': ("敏感凭证请求", "high"),
+
+    # ---- 供应链 / 依赖注入（借鉴 OpenSquilla 生态 + limbo-ai 装脚本模式）----
+    # `curl | sh` / `wget | bash` 是最经典的供应链投毒入口，SKILL.md 里出现
+    # 就是让 agent 拉外部脚本执行，比 prompt injection 更难拦（agent 会当
+    # 常规安装步骤照做）。
+    r'(curl|wget)\s+[^\n|]*\|\s*(bash|sh|zsh|python)': ("供应链投毒: 远程脚本管道执行", "critical"),
+    r'npx\s+(?:-p\s+\S+\s+)?(?:add|skills\s+add|skills\s*use)\s+\S+': ("供应链投毒: npx 从未审计源安装 skill", "high"),
+    # 未审计 npm/pypi 包硬编码进 skill 的 install 步骤
+    r'(pip|pip3)\s+install\s+(?:--index-url\s+\S+\s+)?\S+'
+    r'|npm\s+install\s+(?:--registry\s+\S+\s+)?\S+'
+    r'|pnpm\s+add\s+\S+'
+    r'|yarn\s+add\s+\S+': ("供应链投毒: 依赖源可能未审计", "medium"),
+    # 第三方 MCP server 自动注册到 .mcp.json / mcpServers（供应链升级路径）
+    r'(mcpServers|mcp_servers)\s*[:=]'
+    r'|claude\s+plugin\s+marketplace\s+add\s+\S+'
+    r'|\.mcp\.json.*(?:add|install|register)'
+    r'|openchiip-harness\s+init'
+    r'|opensquilla\s+install': ("供应链升级: skill 试图自动注册 MCP/Plugin", "high"),
+
+    # ---- 上下文劫持 / 自我修改（借鉴 RSIAgent 自曝的 verifier 漏洞 + limbo-ai vault 暴露）----
+    # 让 agent 修改自身 SKILL.md / plugin.json / settings.json / memory。这是
+    # 自我进化类框架（RSI / OpenSquilla MetaSkills / OpenChiip MetaSkill）最
+    # 常见被攻击面：伪造一次"经验"写死，后续所有任务都被劫持。
+    r'(edit|update|modify|rewrite|overwrite)\s+(?:your\s+|the\s+|this\s+|./)?'
+    r'(?:SKILL\.md|plugin\.json|marketplace\.json|settings\.json|\.mcp\.json|'
+    r'\.claude/settings\.json|AGENTS\.md|CLAUDE\.md|system\.prompt)':
+        ("上下文劫持: skill 试图修改自身配置", "critical"),
+    # 让 agent 写自身 memory / blackboard / state（RSI 类框架的攻击点）
+    # 覆盖三种表达："write X to your long-term memory" / "add this to memory" /
+    # "remember X"（RSI 的 verifier 漏洞：一次被批准的错误经验就写死）
+    r'(?:'
+    r'(write|add|append|inject|remember|store|save)\s+(?:this|that|the\s+\S+|anything)?'
+    r'\s*(?:to|into)\s+(?:your\s+|the\s+|my\s+|its\s+|long[- ]?term\s+)*'
+    r'(?:memory|blackboard|state\s*file|experience\s*bank|memory\s*bank|'
+    r'personal\s+preferences|preferences|rules|settings)'
+    r'|'
+    r'(?:add|include)\s+this\s+(?:instruction|rule|directive)'
+    r'\s+(?:to|into)\s+(?:your|the|my)\s+(?:memory|preferences|rules)'
+    r')':
+        ("上下文劫持: skill 试图写入 agent 记忆", "high"),
+    # 让 agent 加载另一个 skill / MetaSkill（横向信任）
+    r'(load|install|add|fetch|pull)\s+(?:another\s+|the\s+|that\s+|external\s+)?'
+    r'(skill|metaskill|meta[- ]?skill|plugin)'
+    r'|npx\s+skills\s+(?:add|use)\s+\S+'
+    r'|\/plugin\s+install\s+\S+'
+    r'|install\s+(?:the\s+)?(?:skill|plugin)\s+at\s+\S+':
+        ("上下文劫持: skill 试图加载其他 skill", "high"),
+    # 让 agent 触发 channel / identity 切换（OpenSquilla/OpenChiip 元能力）
+    r'(switch|change)\s+(?:the\s+)?(?:channel|identity|provider|gateway|persona)'
+    r'|set\s+(?:channel|identity|provider|gateway)\s*[:=]'
+    r'|override\s+(?:channel|identity|provider|gateway)':
+        ("Harness 元能力滥用: 试图替换 channel/identity/provider", "high"),
+    # 让 agent 修改 sandbox 策略 / 关闭安全护栏
+    r'(disable|bypass|turn\s+off|skip|suspend)'
+    r'\s+(?:the\s+)?(?:sandbox|security\s*guard|guardrail|approval\s*flow|'
+    r'credential\s*scrubbing|credential\s*redact|pre[- ]?hook|post[- ]?hook)':
+        ("Harness 元能力滥用: 试图绕过沙箱/护栏", "critical"),
+
+    # ---- 中文供应链 / 上下文劫持（中文 skill 生态差异化）----
+    r'(下载|获取|拉取|安装).{0,10}(外部|第三方|远程).{0,6}(脚本|程序|包|组件)':
+        ("中文供应链: 引导 agent 拉外部脚本", "high"),
+    r'(修改|更新|改写|覆盖).{0,6}(自身的|自己的|这个)?.{0,6}'
+    r'(SKILL\.md|plugin\.json|配置|设置|记忆|黑板)':
+        ("中文上下文劫持: 引导 agent 修改自身配置/记忆", "critical"),
+    r'(加载|安装|引入).{0,6}(其他|另一个|外部).{0,6}(skill|技能|插件)':
+        ("中文上下文劫持: 引导 agent 加载其他 skill", "high"),
+    r'(关闭|禁用|跳过|绕过|取消).{0,8}(沙箱|sandbox|护栏|approval|审批流|脱敏|pre[- ]?hook|post[- ]?hook|凭证剥离|credential.{0,4}scrub)':
+        ("中文Harness滥用: 引导 agent 绕过沙箱/护栏", "critical"),
 }
 
 # ============================================================
