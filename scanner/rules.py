@@ -400,6 +400,53 @@ SKILL_EXTRA_RULES = {
         ("中文上下文劫持: 引导 agent 加载其他 skill", "high"),
     r'(关闭|禁用|跳过|绕过|取消).{0,8}(沙箱|sandbox|护栏|approval|审批流|脱敏|pre[- ]?hook|post[- ]?hook|凭证剥离|credential.{0,4}scrub)':
         ("中文Harness滥用: 引导 agent 绕过沙箱/护栏", "critical"),
+
+    # ---- 未复现 benchmark 声称（借鉴 PenguinHarness 未开源 benchmark 事件）----
+    # 2026-09-21 案例：PenguinHarness 宣称 Agent 准确率 50%→90%、成本 = Claude
+    # Code 的 1/70，但 FollowAgents 审计指出其 benchmark 尚未公开，"100x/1-70
+    # cost/$0.02" 等数字无法独立验证。任何 skill/plugin 用无来源、无代码仓库、
+    # 无数据集的量化提升做宣传，都是可疑营销——不是攻击载荷，但会让 agent
+    # 用户误判可信度、放宽权限边界。降到 info 级只标记、不阻断，避免误伤。
+    # 关键判据：出现数字提升/成本对比，但没有 URL、benchmark 名、repo、issue
+    # 号等可复现锚点。这里保守匹配「明确性能指标名 + 两个百分比 + 提升动词」
+    # 或「量化成本对比到具体模型名」——避免把防御文档中引用公开 benchmark
+    # （OWASP / SWE-bench）的表述误报。
+    r'(?:准确率|accuracy|success\s*rate).{0,25}\d+%?[^.\n]{0,15}'
+    r'(?:到|→|->|提升|提高|improv|to)\s*\d+%?'
+    r'|'
+    r'(?:准确率|accuracy|success\s*rate).{0,15}'
+    r'(?:提升到|提高到|reaches?|improves?|improved?|up\s+to)\s*\d+%?'
+    r'|'
+    r'(?:cost|成本|费用).{0,20}1\s*/\s*\d+\s*(?:的|of|than)?\s*(?:Claude|GPT|OpenAI|Gemini|Copilot)'
+    r'|'
+    r'(?:\b\d{2,5}\b)\s*(?:x|倍)\s*(?:cheaper|faster|better|cost|price)':
+        ("未复现 benchmark 声称: 量化对比缺可复现来源", "info"),
+
+    # ---- 桌面驱动工具调用（借鉴 Cua / Mano-CUA / Browser-Use / OpenCUA 生态）----
+    # 端侧 GUI-VLA agent（Mano-CUA、OpenCUA）+ 桌面控制基础设施（Cua Driver、
+    # Browser-Use、Playwright stealth）都能让 agent 在用户看不见或不注意的情况
+    # 下点击"确认购买""转账""删除"。skill 里显式引用这类工具本身就是可疑信号，
+    # 因为 agent 一旦信任 skill 就会调用它——用户不会看到后台的鼠标移动。
+    # 匹配两类：安装/调用这些工具的显式指令 + MCP server 名。
+    r'(pip|npm|brew)\s+(?:install|add)\s+'
+    r'(?:cua|mano-cua|@1mcp/agent|browser-use|opencvui|pyautogui|pynput|'
+    r'pyscreeze|playwright-stealth)'
+    r'|'
+    r'(cua-driver|cua\.driver|mano-cua|openclaw\s*driver)'
+    r'\s+(?:mcp|serve|run|start)'
+    r'|'
+    r'control\s+(?:the\s+|your\s+)?(?:desktop|screen|mouse|keyboard)'
+    r'|'
+    r'(click|type|scroll).{0,6}(?:on\s+the\s+)?(?:screen|desktop|display)'
+    r'|'
+    r'background\s+(?:automation|input\s+injection)':
+        ("桌面驱动调用: skill 试图操作本机 GUI/鼠标键盘", "high"),
+
+    # 中文版：端侧 GUI agent 类工具
+    r'(控制|操作|驱动).{0,6}(本机|桌面|屏幕|鼠标|键盘|显示器)'
+    r'|'
+    r'(后台|隐形|无声|静默).{0,6}(操作|点击|输入|自动化|驱动)':
+        ("中文桌面驱动: 引导 agent 操作本机 GUI", "high"),
 }
 
 # ============================================================

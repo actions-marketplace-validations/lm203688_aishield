@@ -109,9 +109,9 @@ Subtotal: **235 rules**
 
 Static baseline: **235 rules** (113 MCP + 62 ASI + 11 sandbox + 22 Chinese)
 
-**Total: 235 rules** (MCP type) / **254 rules** (Skill type)
+**Total: 235 rules** (MCP type) / **257 rules** (Skill type)
 
-The Skill total adds 19 skill-specific rules on top of the MCP set.
+The Skill total adds 22 skill-specific rules on top of the MCP set.
 
 > The two dynamic sets are loaded at startup from JSON files in `data/`. If a
 > deployment has an older copy of those files, `GET /api/v1/health` reports the
