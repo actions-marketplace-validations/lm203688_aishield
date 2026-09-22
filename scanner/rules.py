@@ -447,6 +447,114 @@ SKILL_EXTRA_RULES = {
     r'|'
     r'(后台|隐形|无声|静默).{0,6}(操作|点击|输入|自动化|驱动)':
         ("中文桌面驱动: 引导 agent 操作本机 GUI", "high"),
+
+    # ---- Agent 支付 / 预算控制攻击面（借鉴 AIsa / AgentPay Guard / x402）----
+    # 2026-09 AIsa 引入 AgentPay Guard："quote first, spend second, never act
+    # without approval"。核心控制点：per-request / per-task / per-time 限额、
+    # approval policy、"cost can't be capped → don't run"、"paid endpoints not
+    # for testing"。这些控制的存在说明一个新的攻击面正式形成：**agent 有了
+    # 花别人的钱的能力**，任何引导 agent 绕过或扩大这个预算边界的 skill /
+    # prompt 都是新的 critical。
+    #
+    # 覆盖三类：
+    # (1) 授权劫持：让 agent 跳过 quote / approval、直接执行付费动作；
+    # (2) 预算扩大：把每日/单次/总额预算调到远超合理的值，或"unlimited"；
+    # (3) 稳定币钱包访问：直接操作 x402 / USDC / Circle / facilitator 端点。
+    r'(approve|confirm|sign\s*off|skip|bypass).{0,20}'
+    r'(budget|spend|payment|expense|spending|cost\s*control)'
+    r'(?:\s*(flow|policy|guard|guardrail|control|approval))?'
+    r'|'
+    r'(turn|switch|set).{0,4}(on|off|auto)\s+(?:the\s+)?(?:auto[- ]?approv|auto[- ]?pay|spending)'
+    r'|'
+    r'never\s+(?:ask|confirm|require|need)\s+(?:for\s+|the\s+|user\s+)?'
+    r'(?:approval|consent|permission|confirmation)'
+    r'|'
+    r'(?:no|no\s+need|without)\s+(?:for\s+|user\s+|human\s+)?'
+    r'(?:approval|consent|confirmation|consent).{0,25}'
+    r'(?:paid|payment|spend|call|request)'
+    r'|'
+    r'(?:unlimited|no\s+limit|disable)\s+(?:the\s+)?(?:budget|spending|spend)\s*(?:limit|cap|control)':
+        ("Agent 支付授权劫持: 引导 agent 跳过预算审批", "critical"),
+
+    # 预算数值扩大：把 budget 提到异常高（$10K+）或明确设 "no cap"。
+    # 判据是"动词 + 预算名词 + 具体大数值"，而不是任意"预算 + 数字"，
+    # 否则防御文档中"每日限额 $5000 是合理上限"这种会误报。
+    r'(?:raise|set|bump|increase|update|change|adjust|move)\s+'
+    r'(?:the\s+|my\s+|your\s+|daily\s+|per[- ]?task\s+|per[- ]?request\s+|total\s+)?'
+    r'(?:budget|limit|cap|allowance|ceiling)'
+    r'.{0,30}\$?\s*\d[\d,]*\d{3,}'
+    r'|'
+    r'(?:budget|limit|cap|allowance|ceiling)\s+'
+    r'(?:to|at|of|=|set\s+to|raise\s+to)\s*\$?\s*\d[\d,]*\d{3,}'
+    r'|'
+    r'(?:set|make|configure|raise).{0,15}'
+    r'(?:budget|spending|allowance).{0,15}'
+    r'(?:unlimited|infinite|no[- ]?cap|no[- ]?limit)':
+        ("Agent 预算扩大: 试图把限额调到超常规值", "critical"),
+
+    # 稳定币钱包 / x402 支付端点直接操作：这类工具一旦连上，agent 就能在
+    # 没有人类介入下做 micropayment。skill 里显式引用 wallet 地址、facilitator
+    # URL、或签名动作，本身就是新的高风险信号。
+    #
+    # 关键约束：x402 / USDC 这类词单独出现（如学术论文引用）不算，
+    # 必须搭配动作动词（pay/sign/connect/access/signature/withdraw/transfer）
+    # 或具体钱包地址。参照之前"防御文档谈 benchmark 不算 benchmark claim"
+    # 的同类判据——「提及 ≠ 执行」。
+    r'(?:pay|pay\s*with|pay\s*using|use\s+(?:my|your|a)\s+stablecoin|'
+    r'connect\s+(?:my|your|a)\s+(?:stablecoin|USDC|USDT).{0,10}wallet)'
+    r'(?:\s+(?:my|your|a|the)\s+)?'
+    r'(?:stablecoin|USDC|USDT|DAI|ETH)\s*wallet'
+    r'|'
+    r'(?:sign|withdraw|transfer|approve|broadcast)\s+'
+    r'(?:the\s+|a\s+)?(?:USDC|USDT|DAI|ETH|stablecoin)\s+(?:transaction|payment|transfer|tx)'
+    r'|'
+    r'(?:sign|withdraw|transfer|approve|broadcast|pay)'
+    r'(?:\s+(?:my|your|the|a)\s+)?'
+    r'(?:wallet|treasury)\s+(?:address\s+)?'
+    r'(?:0x[0-9a-fA-F]{20,}|\d{4,})'
+    r'|'
+    r'(?:wallet|treasury)\s+(?:address\s+)?(?:0x[0-9a-fA-F]{20,})'
+    r'(?:\s+(?:to|for|via|at)\s+(?:pay|withdraw|transfer|x402))'
+    r'|'
+    r'(?:call|access|use|hit|execute|run)\s+'
+    r'(?:the\s+|an?\s+)?(?:x402|x[- ]?402|paywall)'
+    r'\s+(?:payment|paywall|endpoint|url|api|flow)'
+    r'|'
+    r'(?:use|hit|execute|run)\s+(?:the\s+|an?\s+)?(?:x402|x[- ]?402|paywall)'
+    r'\s+to\s+(?:pay|call|hit|execute|run|make|send)'
+    r'|'
+    r'(?:enable|setup|configure|install|connect)\s+'
+    r'(?:the\s+|my\s+|your\s+|an?\s+)?(?:x402|x[- ]?402|paywall)'
+    r'\s+(?:payment|paywall|endpoint|url|api|wallet|facilitator)'
+    r'|'
+    r'(?:circle|coinbase|solana|base\s+facilitator|agentic.wallet)\s+'
+    r'(?:pay|transfer|withdraw|sign|approve)'
+    r'|'
+    r'(?:circle|coinbase|solana|base\s+facilitator|agentic.wallet)\s+'
+    r'wallet\s+(?:address\s+)?0x[0-9a-fA-F]{20,}'
+    r'|'
+    r'(?:pay|sign|transfer|withdraw|approve)\s+'
+    r'(?:the\s+|a\s+|my\s+|your\s+)?x402\s+(?:payment|paywall|transfer|tx)'
+    r'(?:\s+(?:with|at|to|on|for)\s+\S+)?':
+        ("稳定币钱包 / x402 端点操作: 直接访问 agent 支付能力", "high"),
+
+    # 中文：Agent 支付授权劫持
+    r'(跳过|绕过|自动|免|无需).{0,6}(预算|费用|支付|花费|额度).{0,6}(审批|确认|授权|同意)'
+    r'|'
+    r'(取消|移除|设为|改为).{0,6}(预算|额度|限额|花费上限).{0,4}(为|成|到)?.{0,4}(无|不限|无限|解除|取消)'
+    r'|'
+    r'(把|将|让).{0,6}(预算|额度|限额).{0,6}(调|改|设|提到|放到).{0,6}(无|不限|无限|最高|无上限)':
+        ("中文Agent支付授权劫持: 引导 agent 跳过预算审批", "critical"),
+
+    # 中文：预算数值扩大 / 稳定币访问
+    r'(把|将|让).{0,6}(预算|额度|花费上限|每日额度|单次额度|总金额)'
+    r'.{0,15}(调|改|设|提到|放到).{0,10}(¥|RMB|CNY|USD|\$)?\s*\d[\d,]*\d{3,}'
+    r'|'
+    r'(接入|连上|绑定|连接|授权).{0,6}(稳定币|USDC|USDT|钱包|x402|circle|coinbase)'
+    r'.{0,20}(支付|付款|转账|签名|私钥)'
+    r'|'
+    r'(稳定币|USDC|USDT).{0,6}(钱包|x402|circle|coinbase).{0,20}(支付|付款|转账|签名|私钥)':
+        ("中文预算扩大/稳定币访问", "critical"),
 }
 
 # ============================================================
