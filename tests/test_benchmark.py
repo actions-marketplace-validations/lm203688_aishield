@@ -169,12 +169,16 @@ class TestBarsAreUnifiable(unittest.TestCase):
         self.result = B.run()
 
     def test_all_planes_share_one_detection_bar(self):
-        bars = set(p.get("detection_bar") for p in self.result["planes"])
+        """Plane A/B 的检出线必须一致（Plane C 无此概念，跳过）。"""
+        bars = set(p.get("detection_bar") for p in self.result["planes"]
+                   if p.get("name") != "harness_plane")
         self.assertEqual(bars, {"serious_only"},
-                         '平面检出线不统一：%s —— 总分成了混合口径求和' % sorted(bars))
+                         '平面检出线不统一：%s —— 总分成了混合口径求sum' % sorted(bars))
 
     def test_all_planes_share_one_coverage_bar(self):
-        bars = set(p.get("coverage_bar") for p in self.result["planes"])
+        """Plane A/B 的覆盖线必须一致（Plane C 无此概念，跳过）。"""
+        bars = set(p.get("coverage_bar") for p in self.result["planes"]
+                   if p.get("name") != "harness_plane")
         self.assertEqual(bars, {"any_finding"},
                          '平面覆盖线不统一：%s' % sorted(bars))
 
