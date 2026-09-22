@@ -52,9 +52,10 @@ from .dark_pattern_scan import dark_pattern_analysis
 from .mcp_oauth_scan import mcp_oauth_analysis
 from .computeruse_scan import computeruse_analysis
 from .memory_integrity_scan import memory_integrity_analysis
+from .mcp_manifest_scan import mcp_manifest_analysis
 
 TZ = timezone(timedelta(hours=8))
-SCANNER_VERSION = "4.0-preflight.3"
+SCANNER_VERSION = "4.0-preflight.4"
 
 # 复用引擎清单（门禁断言 + 不变量声明共用的单一来源）
 ENGINES_REUSED = [
@@ -66,6 +67,7 @@ ENGINES_REUSED = [
     "memory_analysis", "antitamper_analysis", "least_agency_analysis",
     "scope_composition_analysis", "goal_hijack_analysis", "dark_pattern_analysis",
     "mcp_oauth_analysis", "computeruse_analysis", "memory_integrity_analysis",
+    "mcp_manifest_analysis",
 ]
 
 # 安全护栏：避免误读巨型 workspace
@@ -297,6 +299,17 @@ def parse_forge_yaml(path):
 SKILL_FILE_GLOBS = ["SKILL.md", "skill.md", "skills/*.md", ".claude/skills/*.md"]
 SKILL_FILE_MAX_DEPTH = 5
 
+# MCP SEP-2640 manifest 文件名模式（2025-09-13 Final 官方收编 Skills 扩展）
+MANIFEST_GLOBS = [
+    ".mcp/manifest.json",
+    "manifest.json",
+    "*.manifest.json",
+    ".mcp.json",
+    ".well-known/mcp.json",
+    ".well-known/agent-card.json",
+    ".well-known/agent.json",
+]
+
 
 def collect_skill_files(workspace_dir, max_files=MAX_SKILL_FILES):
     """收集 workspace 下的 skill 文件。带深度 + 数量上限，避免巨型树爆炸。"""
@@ -342,6 +355,43 @@ def _read_text(path, max_bytes=MAX_FILE_BYTES):
         return ""
 
 
+def collect_manifest_files(workspace_dir, max_files=MAX_SKILL_FILES):
+    """收集 workspace 下的 MCP SEP-2640 manifest 文件与 A2A agent-card 文件。
+
+    2025-09-13 MCP SEP-2640 Final 之后，skill 可以附带 .mcp/manifest.json
+    声明 requiredScopes / requiredTools / installCommands，这是新的攻击面。
+    A2A agent-card（.well-known/agent-card.json）也一并收，交给 agentcard_analysis 处理。
+    """
+    root = Path(workspace_dir).resolve()
+    if not root.exists() or not root.is_dir():
+        return []
+    found = []
+    seen = set()
+    for glob in MANIFEST_GLOBS:
+        for p in root.rglob(glob):
+            try:
+                rel = p.relative_to(root)
+                if len(rel.parts) > SKILL_FILE_MAX_DEPTH + 1:
+                    continue
+                if any(part in SKIP_DIR_NAMES for part in rel.parts[:-1]):
+                    continue
+            except ValueError:
+                continue
+            key = str(p.resolve())
+            if key in seen:
+                continue
+            seen.add(key)
+            try:
+                if not p.is_file() or p.stat().st_size > MAX_FILE_BYTES:
+                    continue
+            except OSError:
+                continue
+            found.append(p)
+            if len(found) >= max_files:
+                return sorted(found)
+    return sorted(found)
+
+
 # ============================================================================
 # 镜像 engine.scan() 的本地版流水线（不抓 URL / 不 spawn）
 # ============================================================================
@@ -372,6 +422,7 @@ def _local_pipeline(files, name, tool_type="mcp"):
     mcp_oauth = mcp_oauth_analysis(files)
     computeruse = computeruse_analysis(files)
     memory_integrity = memory_integrity_analysis(files)
+    mcp_manifest = mcp_manifest_analysis(files)
     extra_findings = (identity.get("findings", []) + network.get("findings", [])
                       + agentcard.get("findings", []) + authentik.get("findings", [])
                       + slop.get("findings", []) + payment.get("findings", [])
@@ -381,7 +432,8 @@ def _local_pipeline(files, name, tool_type="mcp"):
                       + scope_composition.get("findings", []) + goal_hijack.get("findings", [])
                       + dark_pattern.get("findings", []) + mcp_oauth.get("findings", [])
                       + computeruse.get("findings", [])
-                      + memory_integrity.get("findings", []))
+                      + memory_integrity.get("findings", [])
+                      + mcp_manifest.get("findings", []))
     scores = calculate_scores(static, dependency, secrets, poisoning, taint, total_files,
                               extra_findings=extra_findings)
 
@@ -470,6 +522,7 @@ def _local_pipeline(files, name, tool_type="mcp"):
         "mcp_oauth_scan": mcp_oauth,
         "computeruse_scan": computeruse,
         "memory_integrity_scan": memory_integrity,
+        "mcp_manifest_scan": mcp_manifest,
         "recommendations": recommendations,
         # 不变量声明（与顶层报告同源，供门禁测试断言）
         "_invariants": {
@@ -507,8 +560,12 @@ def _overall_assessment(items):
     return "safe"
 
 
-def _synthesize_mcp_config_files(extracted_servers, skill_files):
-    """把解析出来的 MCP server + skill 内容构造成 files 字典喂给引擎。"""
+def _synthesize_mcp_config_files(extracted_servers, skill_files, manifest_files=None):
+    """把解析出来的 MCP server + skill 内容 + manifest 构造成 files 字典喂给引擎。
+
+    manifest_files 承载 MCP SEP-2640 manifest 与 A2A agent-card 文件，
+    交给 mcp_manifest_analysis 与 agentcard_analysis 处理（新攻击面）。
+    """
     files = {}
     # MCP server：把每个 server 的 config 序列化为合成文件，让规则引擎扫
     for srv in extracted_servers:
@@ -533,6 +590,11 @@ def _synthesize_mcp_config_files(extracted_servers, skill_files):
         except Exception:
             rel = sf.name
         files[f"<skill>/{rel}"] = _read_text(sf)
+
+    # Manifest 文件（SEP-2640 manifest / A2A agent-card）：交给专用 scan
+    if manifest_files:
+        for mf in manifest_files:
+            files[f"<manifest>/{mf.name}"] = _read_text(mf)
     return files
 
 
@@ -552,6 +614,7 @@ def preflight(workspace_dir):
 
     platforms = detect_platforms(root)
     skill_files = collect_skill_files(root)
+    manifest_files = collect_manifest_files(root)
 
     # 解析各平台 config
     extracted_servers = []
@@ -578,7 +641,7 @@ def preflight(workspace_dir):
                 pass
 
     # 构造 files 字典 → 跑引擎
-    files = _synthesize_mcp_config_files(extracted_servers, skill_files)
+    files = _synthesize_mcp_config_files(extracted_servers, skill_files, manifest_files)
     total_files = len(files)
     if total_files > MAX_FILES_PER_SCAN:
         files = dict(list(files.items())[:MAX_FILES_PER_SCAN])

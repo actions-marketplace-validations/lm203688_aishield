@@ -170,6 +170,8 @@ def main():
         'tests.test_sarif_export',
         'tests.test_scan_inline_page',
         # 2026-09-19 AIShield Collector：本地持续观测（不 spawn / 不联网 / 指纹幂等 / 紧凑摘要）
+        # 2026-09-22 MCP SEP-2640 manifest 扫描器：过度代理/供应链/凭据/签名/过期
+        'tests.test_mcp_manifest_scan',
         'tests.test_collector',
         # 2026-09-19 紧凑信任摘要（aishield-digest/v1）+ 套件脏数据守卫的正向对照
         'tests.test_trust_digest',
