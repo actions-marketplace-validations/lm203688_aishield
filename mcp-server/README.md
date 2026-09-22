@@ -55,6 +55,7 @@ npx aishield-mcp-server
 | `aishield_rug_pull` | Rug pull detection — security code removed or new exfil paths across commits |
 | `aishield_handshake` | MCP config review — `npx -y` risk, sensitive env vars, over-long tool descriptions |
 | `aishield_digest` | Compact trust digest — a few hundred bytes + a content fingerprint, so an agent can answer "can I trust this?" every turn without re-pulling the full report. Its `risk` is never lighter than the worst finding present (high findings are never reported as "safe") and plaintext credentials are never echoed back |
+| `aishield_laya_precheck` | Local Laya 421M decision-model pre-filter — calibrated probabilities for jailbreak / injection / sensitive-data / topic-classification. Non-generative, ~500 ms per call, zero cost, data never leaves the machine. Complement to the remote aishield scan: cheap inline guardrail before a scan, batch offline pre-filter. Fails soft (returns a startup hint) when the Laya HTTP service is down. English checkpoint has high false-positive rate on Chinese text — use `checkpoint=ml` for Chinese. |
 
 ## Scoring Dimensions
 
