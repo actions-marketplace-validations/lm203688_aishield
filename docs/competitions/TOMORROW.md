@@ -24,45 +24,45 @@
 
 **目的**：确认 AI 昨天推的所有代码都到位了，明天开始操作时不会踩坑。
 
-打开 https://github.com/lm203688/aishield/commits/main ，确认最近 3 个 commit 是：
-
-| Commit | 应该包含 |
-|---|---|
-| `ad6f6b8f...`（HEAD） | 4 文件：`api/arena_core.py`, `api/server.py`, `scripts/arena/arena_agent.py`, `mcp-server/README.md` |
-| 上一批 | 4 文件：`scripts/arena/arena_agent.py`, `docs/competitions/README.md`, `docs/competitions/netmind-arena/INTEGRATION.md`, `docs/competitions/owasp-landscape-2027/SUBMISSION.md` |
-| 再上一批 | 8 文件：`docs/competitions/README.md`, `docs/competitions/foresight-2026/*.md`, `docs/competitions/owasp-landscape-2027/SUBMISSION.md`, `docs/competitions/netmind-arena/INTEGRATION.md` |
-
-如果看不到这三个 commit，跑：
+**一键跑**（推荐）：
 
 ```bash
+cd C:/Users/xing/Desktop/aishield
+python scripts/arena/morning_check.py
+```
+
+它会自动检查：
+- GitHub 3 个必需 commit 是否在 main（`feat(arena)` / `TOMORROW.md` / `foresight`）
+- Live API 版本 + 规则数
+- Arena 端点是否已部署
+- arena42.ai / foresight.org / platform.claude.com 是否可达
+
+预期输出（部署前）：
+```
+[1] GitHub commits — ✓
+[2] Live API — ✓
+[3] Arena endpoint — ⏳ not_deployed  ← 需要第 1 步部署
+[4] External URLs
+    ✓ arena42_ai: HTTP 200
+    ✓ foresight: HTTP 200
+    ✗ platform_claude: HTTP 307       ← 大陆网络限制，需海外出口
+```
+
+**如果一键跑不通**，手动检查：
+
+```bash
+# GitHub commits
 curl -s --ssl-no-revoke --tlsv1.3 "https://api.github.com/repos/lm203688/aishield/commits?per_page=5" \
   | python -c "import json,sys; [print(c['sha'][:8], '-', c['commit']['message'].split(chr(10))[0][:80]) for c in json.load(sys.stdin)]"
-```
 
-**预期规则数**（live API 校验）：
+# Live API
+curl -s --ssl-no-revoke --tlsv1.3 https://aishield.tools/api/v1/health
 
-```bash
-curl -s --ssl-no-revoke --tlsv1.3 https://aishield.tools/api/v1/health | python -c "
-import json,sys
-d=json.load(sys.stdin)
-print('version:', d['version'])
-print('rules_count:', d['rules_count'])
-print('rules_breakdown:', d['rules_breakdown'])
-"
-```
-
-预期输出：
-- `version: 4.3.0`
-- `rules_count: 235`
-- `rules_breakdown: {'static': 208, 'generated': 8, 'radar': 19, 'total': 235}`
-
-**Arena 端点当前状态**（预期 404，需要部署后变 200）：
-
-```bash
+# Arena endpoint
 curl -s --ssl-no-revoke --tlsv1.3 -o /dev/null -w "HTTP %{http_code}\n" https://aishield.tools/api/v1/arena/health
 ```
 
-预期：`HTTP 404` → 走完第 1 步后应变成 `HTTP 200`。
+预期规则数：`version=4.3.0, rules_count=235`。
 
 ---
 
@@ -130,17 +130,21 @@ curl -s --ssl-no-revoke --tlsv1.3 -X POST https://aishield.tools/api/v1/arena/sc
 
 ### 2.2 填写表单（copy-paste 版）
 
+**推荐**：直接打开 `docs/competitions/netmind-arena/REGISTRATION.json`，里面已经把所有字段的建议值准备好了。按表单字段名对应填。
+
+**如果 JSON 里的字段名和表单对不上**，用下面这份精简版：
+
 | 字段 | 值（直接复制） |
 |---|---|
 | **Agent Name** | `AIShield` |
-| **Display Name** | `AIShield Agent` |
-| **Description** | `Local-first AI tool security scanner. Aligns to OWASP MCP Top 10 + Agentic AI Top 10. 235 MCP rules, 262 Skill rules. 1283 unit tests, 22 real-harness files scanned with 0 critical false positives. Never-executes invariant — no command from a scanned config is ever run.` |
-| **API Endpoint** | `https://aishield.tools/api/v1/arena/scan` |
-| **Health Endpoint** | `https://aishield.tools/api/v1/arena/health` |
-| **Documentation** | `https://aishield.tools/docs` |
-| **GitHub Repo** | `https://github.com/lm203688/aishield` |
+| **Handle** | `aishield` |
+| **Short Description** | `Local-first AI tool security scanner. 235 MCP + 262 Skill rules. Never-executes scanned payloads. OWASP MCP Top 10 + ASI01-10 aligned.` |
+| **API Scan** | `https://aishield.tools/api/v1/arena/scan` |
+| **API Health** | `https://aishield.tools/api/v1/arena/health` |
 | **License** | `MIT` |
-| **Contact / Author** | `lm203688` |
+| **Repository** | `https://github.com/lm203688/aishield` |
+| **Homepage** | `https://aishield.tools` |
+| **Author** | `lm203688` |
 | **Email** | `<填你的注册邮箱>` |
 
 **如果表单要求更多信息**：
@@ -231,8 +235,13 @@ Foresight 申请书本身在 `docs/competitions/foresight-2026/` 目录，AI 已
 - `BUDGET_INDIVIDUAL.md`（$35K）
 - `BUDGET_CORPORATE.md`（$62K）
 - `SUBMISSION_CHECKLIST.md`（39 天时间线）
+- **`PERSONAL_FILL.md`**（新）—— 所有需要填个人信息的空白都聚合在这里，避免逐个文件找
 
-你只需要：**填 §5 Team 段的姓名/资历/availability**（AI 不能替你编）。
+你只需要：
+1. 打开 `PERSONAL_FILL.md`，把每个 `_______________` 填上
+2. 决定 Path A/B、Travel A/B/C、Track、预算版本
+3. 把填好的值 copy-paste 到 `APPLICATION.md`
+4. 参考 `SUBMISSION_CHECKLIST.md` 走 39 天时间线
 
 ---
 
@@ -257,7 +266,9 @@ Foresight 申请书本身在 `docs/competitions/foresight-2026/` 目录，AI 已
 
 ### 4.3 复制粘贴的表单值
 
-打开 `distribution/aishield-plugins/SUBMISSION.md`（AI 已经写好），里面有全部字段的可复制粘贴值。
+**推荐**：打开 `distribution/aishield-plugins/FORM_VALUES.json`，里面是 JSON 格式的表单值，字段名对齐平台字段名。
+
+**如果需要人类可读版**：打开 `distribution/aishield-plugins/SUBMISSION.md`，里面是长文本版描述 + 安全自审声明 + Demo 段。
 
 **快速版（如果没时间看那份文档）**：
 
