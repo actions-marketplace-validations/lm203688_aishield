@@ -4,7 +4,7 @@
 **Project:** AIShield — Local-First AI Tool Security Scanner
 **Track:** Track 1 — AI Insurance and Open Governance
 **Deadline:** 2026-10-31 23:59 PDT (39 days from drafting)
-**Submission URL:** https://foresight.org/grants/grants-ai-for-science-safety/
+**Submission URL:** https://foresight.org/grants/ai-science-safety-nodes-rfp/
 
 ---
 
@@ -240,4 +240,4 @@ Not claimed, but a plausible upside: AIShield becomes the reference implementati
 
 ---
 
-*This document is the master application. Submit via https://foresight.org/grants/grants-ai-for-science-safety/. Attach PROJECT_PLAN.md, the appropriate BUDGET variant, and SUBMISSION_CHECKLIST.md as supporting files.*
+*This document is the master application. Submit via https://foresight.org/grants/ai-science-safety-nodes-rfp/. Attach PROJECT_PLAN.md, the appropriate BUDGET variant, and SUBMISSION_CHECKLIST.md as supporting files.*
