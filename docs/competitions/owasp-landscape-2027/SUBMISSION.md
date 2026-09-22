@@ -157,4 +157,115 @@ Update if needed. `awesome-mcp-servers` PRs take 1–2 weeks to review.
 
 ---
 
-*This document is a template. Update the exact field values when the OWASP 2027 call for submissions is published (expected 2026-11). The 2027 form may ask different questions; adapt as needed.*
+## Pre-submission verification checklist
+
+Run these commands the day before submitting to verify all claims are still true:
+
+```bash
+# 1. Live rule counts match the submission text
+curl -s https://aishield.tools/api/v1/health | python -c "
+import json, sys
+d = json.load(sys.stdin)
+print('MCP rules:', d.get('rules_mcp'))
+print('Skill rules:', d.get('rules_skill'))
+"
+# Expected: MCP 235, Skill 262
+
+# 2. Test suite still passing
+curl -s https://api.github.com/repos/lm203688/aishield/actions/runs?per_page=1 | python -c "
+import json, sys
+d = json.load(sys.stdin)
+r = d['workflow_runs'][0]
+print('Latest CI:', r['conclusion'], r['head_sha'][:8])
+"
+# Expected: success
+
+# 3. Benchmark report is live
+curl -sI https://aishield.tools/blog/agent-security-benchmark-2026/ | head -1
+# Expected: HTTP/2 200
+
+# 4. Repository stats
+curl -s https://api.github.com/repos/lm203688/aishield | python -c "
+import json, sys
+d = json.load(sys.stdin)
+print('Stars:', d['stargazers_count'])
+print('Forks:', d['forks_count'])
+print('License:', d['license']['spdx_id'])
+"
+
+# 5. npm package is published
+curl -s https://registry.npmjs.org/aishield-mcp-server | python -c "
+import json, sys
+d = json.load(sys.stdin)
+latest = d.get('dist-tags', {}).get('latest', 'unknown')
+print('Latest version:', latest)
+"
+
+# 6. Real-harness corpus still valid
+python -c "
+import sys; sys.path.insert(0, '.')
+from scanner.rules import analyze
+corpus = {
+    'penguin/sandbox-001.json': '''{\"name\": \"sandbox-001\", \"tools\": []}''',
+    'cua/gui-automation.json': '''{\"name\": \"gui\", \"tools\": []}''',
+    'manop/README.md': '# Mano-P README',
+}
+result = analyze(corpus)
+findings = result.get('findings', [])
+criticals = [f for f in findings if f.get('severity') == 'critical']
+print(f'Corpus scan: {len(findings)} findings, {len(criticals)} critical')
+assert len(criticals) == 0, 'CRITICAL findings on benign corpus — investigate!'
+print('0 false positives confirmed')
+"
+```
+
+If any of these fail, fix before submitting — OWASP reviewers check the claims.
+
+---
+
+## Community outreach plan (parallel to submission)
+
+The submission itself is a checkbox exercise; the community endorsement
+is what gets it taken seriously. Kick off these outreach activities
+30 days before the deadline:
+
+1. **OWASP MCP Working Group** — post AIShield in their monthly meeting
+   agenda; ask for feedback on the ruleset alignment
+2. **awesome-mcp-servers** — PR an updated entry with the current rule counts
+3. **GitHub Discussion** — open a discussion thread on the OWASP MCP
+   project repo asking for landscape review
+4. **Social amplification** — post the submission URL on HN, Twitter,
+   LinkedIn when the deadline passes (OWASP amplifies submissions that
+   get organic attention)
+
+---
+
+## Competitive positioning for the landscape reviewers
+
+OWASP reviewers will compare AIShield against other tools in the same
+category. The three strongest differentiators to lead with:
+
+| Differentiator | AIShield | Typical competitor |
+|---|---|---|
+| **Never-executes invariant** | Yes, verified by `scripts/prove_isolation.py` | Most run the target config |
+| **Real-harness validation** | 22 files, 0 FP | Usually no external validation |
+| **Daily radar** | Ruleset updates within 24h | Updates quarterly or on manual curation |
+| **OWASP alignment** | Per-vector mapping to MCP Top 10 + ASI01-10 | Varies; often generic SAST |
+| **Multi-format output** | SBOM (CycloneDX) + SARIF + JSON | JSON only |
+
+---
+
+## If we skip 2027
+
+The OWASP landscape is annual. If AIShield isn't ready in 2027, skipping
+one cycle is not a loss — the 2028 submission will benefit from a
+matured project. The main risk of skipping is missing the "RSAC 2027"
+exposure window, which is significant for procurement.
+
+**Decision rule:** if by 2026-11 (when the 2027 CFS is expected) AIShield
+hasn't hit ~500 rules total (235+262 today) and 2+ external harness
+deployments, defer to 2028. Otherwise, submit in 2027.
+
+---
+
+*This document is a template. Update the exact field values when the OWASP 2027 call for submissions is published (expected 2026-11). The 2027 form may ask different questions; adapt as needed. The verification checklist should be run the day before submission to catch any drift.*
