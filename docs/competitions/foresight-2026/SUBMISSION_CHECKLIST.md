@@ -2,7 +2,7 @@
 
 **Deadline:** 2026-10-31 23:59 PDT (10-31 06:59 UTC, or 10-31 14:59 China Standard Time)
 
-Submit at: https://foresight.org/grants/grants-ai-for-science-safety/
+Submit at: https://foresight.org/grants/ai-science-safety-nodes-rfp/
 
 ---
 
@@ -113,7 +113,7 @@ Submit at: https://foresight.org/grants/grants-ai-for-science-safety/
 
 ## Submission (Day 39, 2026-10-31)
 
-- [ ] **Log in at https://foresight.org/grants/grants-ai-for-science-safety/**
+- [ ] **Log in at https://foresight.org/grants/ai-science-safety-nodes-rfp/**
   - Individual variant: use personal account (name + email + LinkedIn profile URL)
   - Corporate variant: use organisational account (registered entity name + contact)
 
