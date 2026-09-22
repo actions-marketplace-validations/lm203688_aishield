@@ -4,6 +4,8 @@ Master index of all competitions, grants, and awards AIShield is targeting. All 
 
 **Current strategic stance (2026-09-22):** Focus on **remote + monetised** opportunities. In-person-required events and visibility-only programmes are deprioritised. See §"Strategic filter" below.
 
+> **执行手册 →** [`TOMORROW.md`](./TOMORROW.md) 是下一步动作的完整清单（AI 已经把所有能做的做完，剩下的都需要你亲自出手）。
+
 ---
 
 ## Active applications
