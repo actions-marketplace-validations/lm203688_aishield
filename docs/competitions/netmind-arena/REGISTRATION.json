@@ -1,0 +1,68 @@
+{
+  "_comment": "Copy-paste ready values for arena42.ai registration form. Fill each field with the corresponding value.",
+  "registration": {
+    "agent_name": "AIShield",
+    "agent_short_name": "aishield",
+    "agent_handle": "aishield",
+    "description_short": "Local-first AI tool security scanner. 235 MCP rules + 262 Skill rules. Never-executes scanned payloads. OWASP MCP Top 10 + ASI01-10 aligned.",
+    "description_long": "AIShield is an open-source, local-first security scanner for MCP servers, Agent Skills, and AI tooling configurations. It detects supply-chain attacks, prompt injections, sandbox escapes, and memory poisoning across 235 MCP + 262 Skill rules, aligned to OWASP MCP Top 10 and OWASP Agentic AI Top 10. Its core invariant is 'never-executes': AIShield statically analyzes payloads without running any command it finds, making it safe to point at unknown content. It outputs CycloneDX SBOM and SARIF for downstream tooling. Currently deployed at aishield.tools with a public API and 1283 passing tests.",
+    "author_name": "lm203688",
+    "author_handle": "lm203688",
+    "homepage": "https://aishield.tools",
+    "documentation_url": "https://github.com/lm203688/aishield",
+    "repository_url": "https://github.com/lm203688/aishield",
+    "api_endpoint_health": "https://aishield.tools/api/v1/arena/health",
+    "api_endpoint_scan": "https://aishield.tools/api/v1/arena/scan",
+    "api_endpoint_notes": "POST /api/v1/arena/scan accepts {name, tools, installCommands, files}. Response contains verdict (pass|warn|block), findings array, and SHA-256 fingerprint. Rate limit: 60 req/hr per IP. Payload cap: 2 MB.",
+    "tags": [
+      "security",
+      "mcp",
+      "agent-safety",
+      "scanner",
+      "owasp",
+      "supply-chain",
+      "prompt-injection",
+      "open-source"
+    ],
+    "categories": [
+      "defensive",
+      "scanner"
+    ],
+    "contact": {
+      "github": "lm203688",
+      "email_optional": true,
+      "email_note": "Fill your email if the form asks for contact. Optional for public submission."
+    },
+    "social": {
+      "twitter_handle_optional": true,
+      "note": "Twitter/X verification adds 800 credits per arena42.ai rules. Fill only if you have an account."
+    },
+    "license": "MIT",
+    "pricing": "free",
+    "language": "Python",
+    "runtime": "HTTP API (FastAPI/stdlib)",
+    "hosted_at": "aishield.tools (Cloudflare + Python HTTP server)",
+    "rate_limit": "60 requests/hour per IP",
+    "privacy": "stateless, no data stored server-side; each request is independent",
+    "security_posture": {
+      "never_executes_scanned_payloads": true,
+      "evidence": "https://github.com/lm203688/aishield/blob/main/scripts/prove_isolation.py",
+      "test_count": 1283,
+      "ci_green": true,
+      "owasp_alignment": ["OWASP MCP Top 10", "OWASP Agentic AI Top 10 ASI01-10"]
+    }
+  },
+  "_instructions": {
+    "step_1": "Open https://arena42.ai and find the 'Register Agent' or 'Submit Agent' button",
+    "step_2": "Fill each field using the corresponding value above. Leave optional fields empty if unsure.",
+    "step_3": "Submit and note the agent ID or URL returned.",
+    "step_4": "Verify: curl https://arena42.ai/<your-agent-path>/health should return 200 within 24h.",
+    "step_5": "Test your agent: send a challenge payload and verify verdict comes back as expected.",
+    "troubleshooting": {
+      "if_form_asks_for_webhook_url": "Use https://aishield.tools/api/v1/arena/scan as the callback URL.",
+      "if_form_asks_for_api_key": "The endpoint is public, no API key required. Send 'none' or leave empty.",
+      "if_form_asks_for_signature_secret": "Skip or use a placeholder — AIShield does not currently sign its responses.",
+      "if_form_rejects_endpoint": "The endpoint must be deployed first. Trigger deploy-server.yml on GitHub before re-submitting."
+    }
+  }
+}
