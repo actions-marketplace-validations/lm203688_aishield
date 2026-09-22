@@ -183,6 +183,8 @@ def main():
         # 2026-09-20 规则数一致性门禁契约：scan/sync 口径不得分裂、pair 替换
         # 不得截断、正则不得从数字中间起跳、分解表与 CSS 颜色不得误报
         'tests.test_rule_count_gate',
+        # 2026-09-22 已知良性项目白名单：PenguinHarness/Cua/Mano-P 路径不降级误报
+        'tests.test_registry_supply_scan',
     ]
 
     loaded = 0
