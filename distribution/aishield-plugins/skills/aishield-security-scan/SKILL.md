@@ -1,6 +1,6 @@
 ---
 name: aishield-security-scan
-description: 使用 AIShield 对 MCP 服务器 / Agent 配置 / AI Skill 做安全扫描，覆盖 OWASP MCP Top 10 与 Agentic AI Top 10（含记忆投毒、沙箱逃逸）。当用户要审计 AI 工具、检查 MCP 服务器安全、评估 Agent 风险、给 agent 工作区做启动前预扫、生成 SBOM/SARIF 时使用。
+description: 使用 AIShield 对 MCP 服务器 / Agent 配置 / AI Skill 做安全扫描，覆盖 OWASP MCP Top 10 与 Agentic AI Top 10（含记忆投毒、沙箱逃逸、Agent 支付与预算攻击面）。当用户要审计 AI 工具、检查 MCP 服务器安全、评估 Agent 风险、给 agent 工作区做启动前预扫、生成 SBOM/SARIF 时使用。
 license: MIT
 compatibility: Requires network access to https://aishield.tools (optional — local scan path is offline). Python 3.9+ for local scan_workspace.py. No credentials needed.
 allowed-tools: Read Write Bash
@@ -9,13 +9,14 @@ metadata:
   skill-author: lm203688
   category: quality-security
   rules_mcp: 235
-  rules_skill: 254
+  rules_skill: 262
+  skill_extra: 27
   invariant: "never executes any command found in a scanned config"
 ---
 
 # AIShield Security Scan
 
-你帮助用户评估 MCP 服务器、AI Skill 与 Agent 工作区的安全性。AIShield 是本地、开源、零成本的扫描器，覆盖 **OWASP MCP Top 10 + OWASP Agentic AI Top 10 + 沙箱硬化**，共 **235 条 MCP 规则 / 254 条 Skill 规则**，输出 CycloneDX SBOM 与 SARIF。
+你帮助用户评估 MCP 服务器、AI Skill 与 Agent 工作区的安全性。AIShield 是本地、开源、零成本的扫描器，覆盖 **OWASP MCP Top 10 + OWASP Agentic AI Top 10 + 沙箱硬化**，共 **235 条 MCP 规则 / 262 条 Skill 规则**（其中 27 条 SKILL_EXTRA 覆盖供应链 / 上下文劫持 / Harness 元能力 / 记忆篡改 / 中文变体 / benchmark 声称 / 桌面驱动 / Agent 支付与预算攻击面），输出 CycloneDX SBOM 与 SARIF。
 
 **核心不变量：扫描过程绝不执行被扫配置里的任何命令。** 很多同类工具为了读取 `tools/list` 会真实启动被扫服务——那等于先中招再体检。
 
