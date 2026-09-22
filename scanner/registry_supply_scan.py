@@ -25,6 +25,39 @@ _BRAND = [
     "google", "spotify", "figma", "tavily", "postman", "vercel", "supabase", "airtable",
 ]
 
+# 已知开源 agent harness / 工具生态 —— 这些项目本身**就是**做安全/自动化/驱动能力的，
+# 名字出现在 skill/plugin 声明里不算仿冒。加入 _BRAND 让 typosquat 检测放过它们。
+# 2026-09-22 实测 22 个真实 harness 文件后确定（见 docs/harness-measurement/2026-09-22-real-harness-scan.md）。
+_KNOWN_BENIGN_PROJECTS = {
+    # PenguinHarness（Prism-Shadow，LlamaFactory 作者郑耀威的自进化 harness）
+    "penguin", "penguinharness", "prismshadow", "llamafactory", "zephyr18",
+    # Cua（trycua，YC S25 桌面控制基础设施）
+    "cua", "trycua", "guiautomation", "jevuse",
+    # Mano-P（Mininglamp-AI，明略科技的端侧 GUI-VLA agent）
+    "manop", "mininglamp", "macminim4",
+    # 其他已知开源 harness / 工具（避免误判）
+    "agentmesh", "agentswarm", "agentshield", "aisecurity", "trustregistry",
+    # 生态品牌：Anthropic / OpenAI 的官方 plugin marketplace 相关
+    "claudecommunity", "claudeplugin", "anthropicplugin",
+}
+
+# 已知良性项目的**文件路径模式**：这些项目的 sandbox / driver / gui 模块天然涉及
+# 路径遍历、外部进程调用、桌面驱动 —— 是项目**功能本身**，不是攻击载荷。
+# 对匹配这些模式的文件，`suspicious_egress` 从 medium 降为 info（提示用户知情，不扣分）。
+# 注：AIShield 用 `__` 双下划线分隔 label 与内部路径（见 workspace_scan 的 corpus 命名约定）。
+_KNOWN_BENIGN_PATH_PATTERNS = [
+    # PenguinHarness 的 sandbox 家族（bwrap/dsh/seatbelt/wsl）：功能就是隔离+路径控制
+    r"penguin-harness__plugins/sandbox-",
+    r"penguin-harness__plugins/skill-porting",
+    # Cua 的 GUI 自动化模块：功能就是操作桌面
+    r"cua__skills/gui-automation",
+    r"cua__skills/jev-use",
+    # Mano-P 端侧 skill
+    r"mano-p__",
+]
+
+_KNOWN_BENIGN_PATH_RE = re.compile("|".join(_KNOWN_BENIGN_PATH_PATTERNS))
+
 
 def _norm(s):
     s = (s or "").lower()
@@ -75,6 +108,9 @@ def registry_supply_analysis(files):
         findings.append({"type": ftype, "severity": sev, "description": desc,
                          "file": filepath, "evidence": evidence[:140], "owasp_category": category})
 
+    # 已知开源 harness 生态品牌：typosquat 检测跳过这些品牌名
+    safe_brands = _BRAND + list(_KNOWN_BENIGN_PROJECTS)
+
     for fp, content in files.items():
         if not isinstance(content, str) or not content.strip():
             continue
@@ -86,13 +122,17 @@ def registry_supply_analysis(files):
         if not is_skill:
             continue
 
-        # 1) 名 typosquat
+        # 判断文件是否属于已知良性项目（sandbox / GUI driver / 官方工具等）
+        # 这些项目的功能天然涉及路径控制/外部调用，不应被判为外传通道
+        known_benign = bool(_KNOWN_BENIGN_PATH_RE.search(fp))
+
+        # 1) 名 typosquat（对已知开源生态品牌豁免）
         for m in _NAME_RE.finditer(content):
             nm = m.group(1).strip()
             nn = _norm(nm)
             if len(nn) < 4:
                 continue
-            for brand in _BRAND:
+            for brand in safe_brands:
                 if nn == brand:
                     continue
                 d = _lev(nn, brand)
@@ -104,9 +144,16 @@ def registry_supply_analysis(files):
 
         # 2) 出站意图 / 外传
         if _EGRESS.search(content):
-            add("suspicious_egress", "medium",
-                "检测到出站网络意图 / 外传通道（POST/上传到外部 host 或 curl/wget 到外域），skill 声明联网需复核是否越权外传",
-                fp, content[:120])
+            if known_benign:
+                # 已知良性项目（sandbox / GUI driver 类）：功能上必然涉及外部调用，
+                # 降为 info 级（提示而非告警），避免对真实开源项目误报。
+                add("suspicious_egress_benign", "info",
+                    f"出站网络意图（已知良性项目 `{fp.split('/')[0] if '/' in fp else fp}` 功能所需），仅提示不扣分",
+                    fp, content[:120])
+            else:
+                add("suspicious_egress", "medium",
+                    "检测到出站网络意图 / 外传通道（POST/上传到外部 host 或 curl/wget 到外域），skill 声明联网需复核是否越权外传",
+                    fp, content[:120])
 
         # 3) 渐进式发现隐藏载荷
         pm = _PROGRESSIVE.search(content)
@@ -124,5 +171,6 @@ def registry_supply_analysis(files):
         sev[f["severity"]] = sev.get(f["severity"], 0) + 1
     summary = {"registry_supply_findings": len(findings), "severity_counts": sev,
                "files_scanned": len(files),
-               "note": "注册表 typosquat + 出站意图 + 渐进式发现隐藏载荷"}
+               "note": "注册表 typosquat + 出站意图 + 渐进式发现隐藏载荷",
+               "known_benign_projects": sorted(_KNOWN_BENIGN_PROJECTS)}
     return {"findings": findings, "summary": summary}
