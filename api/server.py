@@ -58,6 +58,13 @@ USAGE_FILE = os.path.join(DATA_DIR, "usage.json")
 WEBHOOK_PROCESSED_FILE = os.path.join(DATA_DIR, "webhook_processed.json")  # 幂等性：已处理的webhook checkout_id
 CREDIT_TXN_FILE = os.path.join(DATA_DIR, "credit_transactions.json")  # 积分变动流水
 
+# Arena agent rate limiter (per-IP, 60 req/hour)
+try:
+    from api.arena_core import RateLimiter as _ArenaRateLimiter
+    _ARENA_LIMITER = _ArenaRateLimiter(max_per_hour=60)
+except Exception:
+    _ARENA_LIMITER = None
+
 TZ = timezone(timedelta(hours=8))
 
 _lock = threading.Lock()
@@ -1004,6 +1011,23 @@ class AIShieldHandler(BaseHTTPRequestHandler):
             _record_usage("agent-status", self.client_address[0])
             return
 
+        # ── Arena Agent: 健康检查（NetMind Arena 集成）──
+        if path == "/api/v1/arena/health":
+            try:
+                from api.arena_core import SCANNER_VERSION, SCANNER_AVAILABLE, _get_rule_count
+                self._send_json({
+                    "ok": True,
+                    "version": SCANNER_VERSION,
+                    "scanner_available": SCANNER_AVAILABLE,
+                    "mcp_rules": _get_rule_count("mcp") if _get_rule_count else None,
+                    "skill_rules": _get_rule_count("skill") if _get_rule_count else None,
+                    "timestamp": time.time(),
+                })
+            except Exception as e:
+                self._send_json({"ok": False, "error": str(e)}, 500)
+            _record_usage("arena-health", self.client_address[0])
+            return
+
         # API根节点 — JSON端点列表
         if path == "/api/v1":
             self._send_json({
@@ -1022,6 +1046,8 @@ class AIShieldHandler(BaseHTTPRequestHandler):
                     "POST /api/v1/rug-pull — Rug pull detection",
                     "POST /api/v1/handshake — MCP handshake verification",
                     "POST /api/v1/mcp — MCP StreamableHTTP (JSON-RPC 2.0, 8 tools)",
+                    "GET  /api/v1/arena/health — Arena agent health check",
+                    "POST /api/v1/arena/scan — Arena agent scan (NetMind Arena integration)",
                     "GET  /openapi.json — OpenAPI 3.0.3 spec (Agent auto-discovery)",
                     "GET  /api/v1/health — Health check",
                     "GET  /api/v1/stats — Usage statistics",
@@ -1765,6 +1791,41 @@ class AIShieldHandler(BaseHTTPRequestHandler):
             self._handle_handshake(data)
         elif path == "/api/v1/mcp":
             self._handle_mcp(data)
+        elif path == "/api/v1/arena/scan":
+            # ── Arena Agent: 扫描（NetMind Arena 集成）──
+            try:
+                import api.arena_core as _arena_core
+                if isinstance(data, bytes):
+                    data_bytes = data
+                else:
+                    data_bytes = json.dumps(data, separators=(",", ":")).encode("utf-8")
+                if len(data_bytes) > _arena_core.PAYLOAD_LIMIT_BYTES:
+                    self._send_json({
+                        "error": f"Payload too large (limit {_arena_core.PAYLOAD_LIMIT_BYTES} bytes)",
+                    }, 413)
+                    _record_usage("arena-scan", self.client_address[0], success=False)
+                    return
+                if _ARENA_LIMITER and not _ARENA_LIMITER.allow(self.client_address[0]):
+                    self._send_json({"error": "Rate limit exceeded (60 req/hour per IP)"}, 429)
+                    _record_usage("arena-scan", self.client_address[0], success=False)
+                    return
+                try:
+                    envelope = json.loads(data_bytes) if isinstance(data_bytes, (bytes, bytearray)) else data
+                except json.JSONDecodeError as exc:
+                    self._send_json({"error": f"Invalid JSON: {exc}"}, 400)
+                    _record_usage("arena-scan", self.client_address[0], success=False)
+                    return
+                if isinstance(envelope, dict) and ("config" in envelope or "payload" in envelope):
+                    payload = _arena_core.arena_envelope_to_payload(envelope)
+                else:
+                    payload = envelope if isinstance(envelope, dict) else {"config": envelope}
+                report = _arena_core.run_scan(payload)
+                self._send_json(_arena_core.report_to_dict(report))
+                _record_usage("arena-scan", self.client_address[0])
+            except Exception as e:
+                self._send_json({"error": str(e)}, 500)
+                _record_usage("arena-scan", self.client_address[0], success=False)
+            return
         elif path == "/api/v1/monitor/add":
             # ── 监控路由：添加工具到监控列表 ──
             source_url = data.get("source_url", "")
