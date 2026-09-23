@@ -1,5 +1,55 @@
 {
-  "_comment": "Copy-paste ready values for arena42.ai registration form. Fill each field with the corresponding value.",
+  "_comment": "arena42.ai (NetMind Agent Arena) integration values. NOTE: registration is NOT a web form — it is an API/skill-driven flow. See registration_result + _instructions below.",
+  "registration_result": {
+    "_status": "REGISTERED 2026-09-23T02:29:04Z (HTTP 201)",
+    "agent_id": "agent_Mt-2YPE4Kv",
+    "agent_name": "AIShield",
+    "agent_status": "active",
+    "agent_profile": "https://arena42.ai/agents/agent_Mt-2YPE4Kv",
+    "initial_credits": 200,
+    "verification_code": "ARENA-92F41430",
+    "referral_code": "REF-O933BZ",
+    "claim_token_page": "https://arena42.ai/claim/arena_claim_75fc7dad36a9b2f9555453bea1e85d60",
+    "start_credits_awarded": 200,
+    "owner_email": "61960005@qq.com",
+    "owner_email_state": "verification email sent 2026-09-23T02:29:37Z — NOT yet bound until the link is clicked (10 min window). Re-send limit: 3/hour.",
+    "credentials_location": "~/.config/arena/credentials.json (OUTSIDE the repo; contains api_key — never commit)",
+    "challenge_token_location": "~/.config/arena/challenge_token.json (anti-sybil JWT, valid ~8h)",
+    "anti_sybil": "answered chl_fkUE7nMSrq with 'A' (transitivity contrapositive) -> JWT issued",
+    "client": "scripts/arena/arena_client.py (zero-dependency REST client, by design)",
+    "cli": "@netmind/arena-cli@0.28.0 installed at C:/Users/xing/.workbuddy/binaries/node/workspace"
+  },
+  "competitions_joined": [
+    {
+      "id": "5cf5f3c7-8220-45bd-94fa-49d390fcc715",
+      "name": "Weekly Credit League - Week 39",
+      "type": "weekly-arena",
+      "entry_fee_CRE": 0,
+      "prize_pool_CRE": 950,
+      "rewards": {"1": 300, "2": 200, "3": 100, "4-10": 50},
+      "ends": "2026-09-27T23:59:59Z",
+      "note": "Flagship. Scored across all games played this week. cryptoPrizePool=0 USDC (credits only)."
+    },
+    {
+      "id": "57b9c596-8500-4625-809b-d5916da1f2cf",
+      "name": "Bounty: Classify 5 animals from images using AI",
+      "type": "bounty",
+      "entry_fee_CRE": 0,
+      "prize_pool_CRE": 100,
+      "deadline": "2026-09-25T02:03:51Z",
+      "max_submissions": 1,
+      "task": "Classify exactly 5 animal species from provided images. Submit a JSON array of 5 objects with image_id + predicted_animal (English common name, first letter capitalised). >90% accuracy required on true labels. No extra text.",
+      "note": "Needs a vision LLM. SenseNova 6.8 Flash-Lite (already in models.json) supports image input."
+    },
+    {"id": "2172da02-5311-4d4a-a75f-4a17bca90dfb", "name": "Echo — 2026-09-23", "type": "echo", "entry_fee_CRE": 0},
+    {"id": "c1bc1813-9c5f-4fa2-bffe-c807e876db90", "name": "Point of No Return — 2026-09-23", "type": "point-of-no-return", "entry_fee_CRE": 0},
+    {"id": "a3ef1151-702b-4930-b09b-62b3ac27d8e1", "name": "Machine Room — 2026-09-23", "type": "machine-room", "entry_fee_CRE": 0},
+    {"id": "20ff987a-ed1f-4902-8575-fb49f95cd4c9", "name": "Fog Maze — 2026-09-22", "type": "fog-maze", "entry_fee_CRE": 0}
+  ],
+  "competitions_rejected": [
+    {"id": "d3f2c150-8fca-42bc-b0e5-36f3c7d2baf5", "name": "Anthropic Milano: Guess the Office Address", "reason": "400 — already past the participation phase"},
+    {"id": "714c71cc-dac3-456c-985d-7dbc738392e0", "name": "Geo Guess: Where on Earth?", "reason": "400 — crypto/ticket competition requires a bound wallet (PATCH /api/v1/agents/me/wallet)"}
+  ],
   "registration": {
     "agent_name": "AIShield",
     "agent_short_name": "aishield",
@@ -53,16 +103,20 @@
     }
   },
   "_instructions": {
-    "step_1": "Open https://arena42.ai and find the 'Register Agent' or 'Submit Agent' button",
-    "step_2": "Fill each field using the corresponding value above. Leave optional fields empty if unsure.",
-    "step_3": "Submit and note the agent ID or URL returned.",
-    "step_4": "Verify: curl https://arena42.ai/<your-agent-path>/health should return 200 within 24h.",
-    "step_5": "Test your agent: send a challenge payload and verify verdict comes back as expected.",
+    "_reality_check": "There is NO web registration form. Per https://arena42.ai/skill.md the flow is API/CLI driven. The steps below are what was ACTUALLY executed.",
+    "step_1_DONE": "POST https://api.arena42.ai/api/v1/agents/register {\"name\":\"AIShield\",\"description\":\"...\"} -> 201, api_key + agent id returned.",
+    "step_2_DONE": "Credentials written to ~/.config/arena/credentials.json (api_key, agent_id, agent_name).",
+    "step_3_DONE": "POST /api/v1/agents/me/setup-owner-email {\"email\":\"61960005@qq.com\"} -> 401 CHALLENGE_REQUIRED.",
+    "step_4_DONE": "POST /api/v1/challenge/answer {challenge_id, answer:'A'} -> challenge_token JWT.",
+    "step_5_DONE": "Retried setup-owner-email with X-Challenge-Token -> 200, verification email sent.",
+    "step_6_USER": "Owner clicks the verification link in the 61960005@qq.com inbox within 10 minutes. Until then the agent is NOT bound: profile shows owner_email=null and `arena product whoami` returns 409.",
+    "step_7_PENDING": "After binding: `arena product submit-link --name AIShield --url https://aishield.tools --kind tool` to list AIShield in the Product Arena (Arena sends visitors + collects human reviews).",
+    "step_8_PENDING": "Play the joined competitions (heartbeat every 2h: `arena heartbeat run --json`).",
     "troubleshooting": {
-      "if_form_asks_for_webhook_url": "Use https://aishield.tools/api/v1/arena/scan as the callback URL.",
-      "if_form_asks_for_api_key": "The endpoint is public, no API key required. Send 'none' or leave empty.",
-      "if_form_asks_for_signature_secret": "Skip or use a placeholder — AIShield does not currently sign its responses.",
-      "if_form_rejects_endpoint": "The endpoint must be deployed first. Trigger deploy-server.yml on GitHub before re-submitting."
+      "if_email_link_expired": "Re-send via POST /api/v1/agents/me/setup-owner-email (max 3 sends/hour).",
+      "if_endpoint_rejected": "The endpoint must be deployed first. It now IS: /api/v1/arena/health returns 200 with mcp_rules=235, skill_rules=262.",
+      "if_form_asks_for_api_key": "The endpoint is public, no API key required.",
+      "cli_not_on_PATH": "Run via C:/Users/xing/.workbuddy/binaries/node/workspace/node_modules/@netmind/arena-cli/dist/index.js with ARENA_SKILL_VERSION=1.26.0."
     }
   }
 }
