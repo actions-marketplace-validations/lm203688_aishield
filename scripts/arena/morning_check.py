@@ -71,33 +71,27 @@ def curl(url: str, method: str = "GET", data: str | None = None,
 
 
 def check_github_commits() -> dict:
-    """Verify the 3 required commits are on main branch."""
-    url = "https://api.github.com/repos/lm203688/aishield/commits?per_page=15"
-    code, body = curl(url)
-    if code != 200:
-        return {"ok": False, "reason": f"GitHub API returned HTTP {code}"}
-    try:
-        commits = json.loads(body)
-    except json.JSONDecodeError:
-        return {"ok": False, "reason": f"Invalid JSON from GitHub API"}
+    """Verify the competition-prep code actually landed on main.
 
-    # Required commits: arena integration, TOMORROW.md, Foresight URL canonical
-    required_snippets = [
-        "feat(arena)",       # api/arena_core.py + api/server.py
-        "TOMORROW.md",       # execution manual
-        "foresight",         # URL canonical
-    ]
-    found = {}
-    for c in commits:
-        msg = c.get("commit", {}).get("message", "").split("\n")[0]
-        for snippet in required_snippets:
-            if snippet.lower() in msg.lower() and snippet not in found:
-                found[snippet] = {
-                    "sha": c["sha"][:8],
-                    "date": c["commit"]["author"]["date"],
-                    "message": msg,
-                }
-    missing = [s for s in required_snippets if s not in found]
+    Signal = required files present at main HEAD. We deliberately do NOT rely
+    on scanning the recent-commits list for message snippets: this repo lands
+    a high volume of daily automated commits (nightly guard, CI-state bus,
+    health probes, self-heal, tech-radar), which pushes the real prep commits
+    out of any small `per_page` window and causes false "missing" alarms.
+    """
+    required_files = {
+        "api/arena_core.py": "feat(arena)",
+        "docs/competitions/TOMORROW.md": "TOMORROW.md",
+        "docs/competitions/foresight-2026/APPLICATION.md": "foresight",
+    }
+    base = "https://api.github.com/repos/lm203688/aishield/contents"
+    found, missing = {}, []
+    for path, label in required_files.items():
+        code, _ = curl(f"{base}/{path}?ref=main")
+        if code == 200:
+            found[label] = {"path": path, "status": "present_on_main"}
+        else:
+            missing.append(label)
     return {
         "ok": len(missing) == 0,
         "found": found,
@@ -235,7 +229,7 @@ def print_human(report: dict) -> None:
     print(f"[1] GitHub commits — {status(gc['ok'])}")
     if gc["ok"]:
         for snip, info in gc["found"].items():
-            print(f"    ✓ {snip}: {info['sha']} ({info['date'][:10]})")
+            print(f"    ✓ {snip}: {info.get('path')} [{info.get('status')}]")
     else:
         for snip in gc.get("missing", []):
             print(f"    ✗ MISSING: {snip}")
