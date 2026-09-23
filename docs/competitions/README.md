@@ -12,18 +12,17 @@ Master index of all competitions, grants, and awards AIShield is targeting. All 
 
 | Priority | Competition | Type | Amount | Deadline | Win prob. | Status | Dir |
 |---|---|---|---:|---|---|---|---|
-| **P0** | [NetMind Agent Arena](netmind-arena/) | Agent arena | ~$200-300/yr USDC | Perpetual | 40-60% | Wrapper ready, awaiting registration | `netmind-arena/` |
+| **P0** | [Foresight AI for Science & Safety Nodes](foresight-2026/) | Grant | $30K–$100K (**lower end for RFP II**) | 2026-10-31 | 15-25% (remote-only) | Fully drafted — only the personal-info blanks + the Airtable form remain | `foresight-2026/` |
 | **P0** | [OWASP Red Teaming Solutions Landscape 2027](owasp-landscape-2027/) | Curated directory | — | 2027-03 (est) | 60-80% (inclusion) | Template + verification checklist ready | `owasp-landscape-2027/` |
+| **P1** | [NetMind Agent Arena](netmind-arena/) | Agent arena | **~$0 realistic cash** (measured — see note) | Perpetual | n/a | Registered; product listed (pending review) | `netmind-arena/` |
 
-**Combined expected value:** ~$200-300/yr direct cash + brand/procurement signal from OWASP inclusion.
+**Why Foresight was promoted to P0 (2026-09-23).** The standing filter is *"monetised **and** fully remote"*. Foresight satisfies both, and eligibility was re-verified on the live RFP page: *"We accept applications from individuals, teams, and organizations"* — **no country or nationality restriction** — and travel for field-building events is listed as **Foresight-paid**, not applicant-paid. Being remote-only lowers the odds (Foresight "strongly prioritises" in-person contributors) but does not disqualify anyone. One real caveat to price in: grants for the **AI Insurance & Open Governance** focus area are explicitly the *smaller* ones ("$30,000 to $100,000, with smaller amounts being awarded to the Human Empowerment and AI Insurance & Open Governance focus areas"). Submission is an Airtable form; review takes ~3 months; **open-sourcing the output is a hard requirement** (AIShield is MIT — satisfied).
+
+**Why NetMind dropped to P1 (2026-09-23).** The earlier "~$200-300/yr USDC" figure did not survive contact with the API. Measured live: `/agents/me/rewards` returns `{rewards:[], total:0}`, every cash-out verb (`withdraw`/`payout`/`redeem`/`exchange`/`earnings`) returns 404, and the only USDC anywhere on the platform is ~10 parimutuel pools of exactly `1.00000000` each — which additionally require a **bound wallet** we do not have. Realistic cash: **$0**. What NetMind genuinely provides is distribution (a listed product page) and a public, third-party-verifiable track record. Full evidence: `netmind-arena/REGISTRATION.json` → `credit_economy.roi_probe_2026-09-23`.
 
 ## On hold (requires user decision)
 
-| Priority | Competition | Type | Amount | Deadline | Win prob. | Status | Dir |
-|---|---|---|---:|---|---|---|---|
-| **P2** | [Foresight AI for Science & Safety Nodes](foresight-2026/) | Grant | $30K–$100K | 2026-10-31 | 15-25% (no SF/Berlin) | Drafted, awaiting user decision on travel | `foresight-2026/` |
-
-Foresight remains drafted in case the user decides to attend SF or Berlin. Without in-person attendance, the win probability drops from 40-60% to 15-25%, which materially changes the expected value calculation.
+*None.* Foresight was the only entry parked here; it is now P0. The remaining decision is a set of choices **inside** `foresight-2026/PERSONAL_FILL.md` (identity path, travel option, focus area, milestone scope, budget variant) — not whether to apply at all.
 
 ## Prep work (later deadlines)
 
@@ -48,6 +47,7 @@ Foresight remains drafted in case the user decides to attend SF or Berlin. Witho
 - MLSys / NeurIPS papers — engineering product, not research paper
 
 **Eligibility mismatch:**
+- CrowdStrike × AWS "AI Unlocked: Agents of Chaos" — **$100,000 prize pool, fully remote** (`play virtually from anywhere in the world`), three acts ending 2026-09-29. Rejected on eligibility, not on fit: the Official Rules state a participant "must not be a resident of any of the following countries: Afghanistan, Belarus, Brazil, Burma, ... **China**, Cuba, ... **Macau**, ..." and "Contest is void in ... **China**, ... **Macau**, ...". Verified 2026-09-23 at `crowdstrike.com/en-us/legal/ai-unlocked-agents-of-chaos-contest/`. This is a *separate* programme from the AgentWorks entry below and was newly found during the 2026-09-23 sweep — recorded here so it is not re-investigated.
 - CrowdStrike AgentWorks — requires CrowdStrike customer account
 - Google.org AI for Science — non-profit only
 - Humanity AI $10M — US-only non-profit
@@ -110,10 +110,16 @@ Assumed win probabilities for active opportunities:
 | GitLab AI Hackathon 2027 | $65K | 2-5% | $1.3-3.25K |
 | AIxCC 2026 (if attended) | $1M | Depends on ranking | $20-100K |
 
-**Without in-person travel:** ~$1.3-3.25K expected value over the next 12 months (mostly brand signal).
-**With SF + Berlin travel for Foresight:** ~$15-80K expected value (mostly Foresight grant).
+**Without in-person travel — corrected 2026-09-23.** The previous one-line summary ("~$1.3-3.25K") implicitly dropped the Foresight row while the table directly above it listed "Foresight (no attend) … $4.5-25K". Both cannot be true. Recomputing, and netting NetMind's USDC to the measured $0:
 
-The delta (~$15-80K) is the "in-person premium." If the user wants that upside, Foresight should be re-promoted to P0.
+| Competition | Prize pool | Win prob. | Expected value |
+|---|---:|---:|---:|
+| **Foresight (remote-only)** | $30-100K | 15-25% | **$4.5-25K** |
+| GitLab AI Hackathon 2027 | $65K | 2-5% | $1.3-3.25K |
+| NetMind Arena | $0 cash (measured) | — | $0 |
+| OWASP Landscape 2027 | $0 direct | 60-80% | $0 + brand/procurement signal |
+
+⇒ **~$6-28K expected value while staying home**, driven almost entirely by Foresight. So the real comparison is not "$1.3-3.25K vs $15-80K" — it is **"$6-28K remote" vs "~$15-80K with travel"**, i.e. the in-person premium is much smaller than the old summary implied. Since travel for field-building events is Foresight-paid, the true incremental cost of the travel option is mainly *time and visa logistics*, not cash.
 
 ---
 
@@ -128,7 +134,20 @@ A recurring automation scans for competition window changes every 30 days (25th 
 
 ### Monitoring log
 
-*Entries are appended here by the automated scan.*
+### 2026-09-23 manual sweep (not the automated scan)
+
+Full re-verification of this file against live sources, prompted by the user's question about which AI competitions award cash or compute without requiring attendance.
+
+**Corrections made:**
+
+1. **Foresight promoted P2 → P0.** Eligibility verified on the live RFP page: individuals welcome, **no nationality restriction stated**, travel is Foresight-**paid**, and open-sourcing the output is required (AIShield is MIT — satisfied). The "only worth it with travel" premise that parked this entry did not hold up.
+2. **Foresight's calls corrected.** The live RFP spans *I. Local compute / II. Coordination and accountability / III. AI-first science* — not the "Track 1/2/3" labels used previously. AIShield fits **Call II → AI insurance and open governance**. Caveat recorded: Foresight awards the **smaller** grants to that focus area.
+3. **NetMind's USDC figure struck.** `~$200-300/yr USDC` was never measured. Live probe (2026-09-23): `/agents/me/rewards` = `{rewards:[], total:0}`; every cash-out verb 404s; the only USDC on the platform is ~10 parimutuel pools of exactly `1.00000000`, each additionally requiring a bound wallet we do not have. Realistic cash: $0. Demoted P0 → P1.
+4. **Expected-value summary recomputed.** The old "~$1.3-3.25K without travel" contradicted the table directly above it (which listed Foresight no-attend at $4.5-25K). Correct remote figure: **~$6-28K**.
+5. **New opportunity found, rejected on eligibility:** CrowdStrike × AWS "AI Unlocked: Agents of Chaos" ($100K, fully remote) — Official Rules exclude residents of **China and Macau**. Filed under "Not pursuing" so it is not re-investigated.
+6. **Compute grants are not a fit for AIShield.** It is deliberately zero-dependency and CPU-only and needs no GPU; the major GPU-credit programmes (NVIDIA Inception, AWS Activate, Google for Startups) are also entity/VC-gated. Compute-hungry work belongs to the SwarmLabs line, not this one.
+
+**Only remaining blocker:** filling `foresight-2026/PERSONAL_FILL.md` and submitting the Airtable form before 2026-10-31.
 
 ---
 
@@ -180,7 +199,7 @@ scripts/arena/
 
 Revisit this README every 30 days (automated scan on the 25th). Key decision points:
 
-- **2026-10-15:** Is Foresight worth re-promoting to P0? (Need user decision on travel)
+- **2026-10-15:** Foresight submission checkpoint — is `PERSONAL_FILL.md` complete, and has the Airtable form been sent? (Hard deadline 2026-10-31, no extensions, ~3-month review)
 - **2026-11-01:** Has OWASP 2027 CFS been published? Start final submission drafting
 - **2027-01-31:** GitLab AI Hackathon 2027 opens — decide if P2 → P1
 - **2027-02-28:** Final OWASP submission due
