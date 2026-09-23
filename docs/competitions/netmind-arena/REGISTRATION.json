@@ -102,6 +102,31 @@
       "owasp_alignment": ["OWASP MCP Top 10", "OWASP Agentic AI Top 10 ASI01-10"]
     }
   },
+  "product_arena_listing": {
+    "_what": "Exact values for the Product Arena 'Submit a product' form (https://arena42.ai/products/submit). Arena links to the site and collects human reviews; it cannot run the product, so there is NO agent feedback report for link products.",
+    "form_fields": {
+      "PRODUCT NAME": "AIShield",
+      "ONE-LINE SUMMARY": "Agent-native security scanner for MCP servers and Agent Skills. Never executes what it scans.",
+      "PRODUCT URL": "https://aishield.tools",
+      "COVER IMAGE URL": "https://cdn.jsdelivr.net/gh/lm203688/aishield@main/docs/assets/aishield-cover.png",
+      "CATEGORY": "Tool"
+    },
+    "category_warning": "The form PRE-SELECTS 'Demo' (the CLI's --kind default is also 'demo'). It must be switched to 'Tool' — AIShield is a self-hosted external site, not an Arena-inlined demo.",
+    "cover_image": {
+      "local_path": "docs/assets/aishield-cover.png",
+      "generator": "scripts/arena/make_cover.py",
+      "size": "1200x630 PNG, 59754 bytes",
+      "why_jsdelivr": "aishield.tools serves no image at all (probed /card.png /og.png /og-image.png /cover.png /social.png /logo.png -> all 404). raw.githubusercontent.com is unreachable from this machine (curl 000), while jsDelivr returns 200 image/png and mirrors the exact bytes. Verified by downloading and re-opening the PNG.",
+      "counts_are_live": "make_cover.py reads mcp_rules/skill_rules from /api/v1/arena/health and cross-checks mcp_rules against /api/v1/health rules_count; it fails closed rather than printing a stale number. Re-run it after any rule-count change and re-push.",
+      "replaceable_without_resubmitting": "Per the CLI bundle, the cover of a LINK product can be changed by the author without re-submitting — so shipping without one, or swapping it later, is safe."
+    },
+    "preconditions_verified": {
+      "owner_email_bound": true,
+      "creator_handle": "aishield",
+      "domain_free": "GET /api/products showed 21 existing products (kinds: game|world only); no product claims aishield.tools, so the 'one product per domain' rule is satisfied."
+    },
+    "expected_state_after_submit": "A human reviewer opens the site before the listing reaches the catalog. Verify with GET /api/products and check for a slug containing 'aishield'."
+  },
   "_instructions": {
     "_reality_check": "There is NO web registration form. Per https://arena42.ai/skill.md the flow is API/CLI driven. The steps below are what was ACTUALLY executed.",
     "step_1_DONE": "POST https://api.arena42.ai/api/v1/agents/register {\"name\":\"AIShield\",\"description\":\"...\"} -> 201, api_key + agent id returned.",
@@ -110,9 +135,10 @@
     "step_4_DONE": "POST /api/v1/challenge/answer {challenge_id, answer:'A'} -> challenge_token JWT.",
     "step_5_DONE": "Retried setup-owner-email with X-Challenge-Token -> 200, verification email sent.",
     "step_6_DONE": "Owner clicked the verification link; owner_email is now bound (verified 2026-09-23T06:38:30Z). The agent is now visible to its human on arena42.ai.",
-    "step_7_BLOCKED_HUMAN_ONLY": "Product Arena publishing needs a CREATOR HANDLE first. GET /api/creators/me and POST /api/products/submit both return 409 NOT_A_CREATOR ('61960005@qq.com has no creator handle yet. Claim one at /products/submit'). POST /api/creators returns 403 HUMAN_ONLY ('Only signed-in people can be creators') — so claiming the handle is a browser + human login step that an API key cannot perform. After the handle exists, publish with: POST /api/products/submit {name, tagline, siteUrl, kind:'tool'} (auth: Bearer api_key).",
-    "step_7_CONTRACT": "Verified from the shipped CLI bundle (dist/index.js:2415): GET /api/creators/me -> {creator:{displayName,handle}} ; POST /api/products/submit body {name, tagline, siteUrl, kind, cover?} -> {product:{slug,status}}. Link products are reviewed by a human before they reach the catalog.",
-    "step_8_PENDING": "Play the joined competitions (heartbeat every 2h: `arena heartbeat run --json`).",
+    "step_7_DONE": "CREATOR HANDLE CLAIMED by the human at https://arena42.ai/products/submit — verified 2026-09-23T06:50Z via GET /api/creators/me -> 200 {handle:'aishield', displayName:'AIShield', siteUrl:'https://aishield.tools'}. Handle checks: GET /api/creators/{aishield,aishield-security,lm203688,swarmlabs} were all 404 (= free) before the claim. NOTE the 409 NOT_A_CREATOR / 403 HUMAN_ONLY path that preceded this: claiming a handle is a browser + human login step an API key cannot perform.",
+    "step_7_CONTRACT": "Verified from the shipped CLI bundle (dist/index.js:2415): GET /api/creators/me -> {creator:{displayName,handle}} ; POST /api/products/submit body {name, tagline, siteUrl, kind, cover?} -> {product:{slug,status}}. Link products are reviewed by a human before they reach the catalog. The bundle also states the agent MAY publish on behalf of its bound human, attributed to that creator.",
+    "step_8_IN_REVIEW": "Product listing submitted via the web form. Values are frozen in the product_arena_listing block below. Web form field names differ from the API field names: PRODUCT NAME / ONE-LINE SUMMARY / PRODUCT URL / COVER IMAGE URL / CATEGORY. CAUTION: the web form defaults CATEGORY to 'Demo' — it must be switched to 'Tool'.",
+    "step_9_PENDING": "Play the joined competitions (heartbeat every 2h: `arena heartbeat run --json`).",
     "troubleshooting": {
       "if_email_link_expired": "Re-send via POST /api/v1/agents/me/setup-owner-email (max 3 sends/hour).",
       "if_endpoint_rejected": "The endpoint must be deployed first. It now IS: /api/v1/arena/health returns 200 with mcp_rules=235, skill_rules=262.",
