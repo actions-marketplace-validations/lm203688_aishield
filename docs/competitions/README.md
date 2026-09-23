@@ -8,12 +8,51 @@ Master index of all competitions, grants, and awards AIShield is targeting. All 
 
 ---
 
+## GO / NO-GO verdict — Foresight (2026-09-23)
+
+**Trigger:** the user asked directly — *"获奖可能性大吗？不大就别浪费时间"*. Answered with first-party verification of the live RFP text, not estimates.
+
+**Verdict: NO-GO as a main line. P ≈ 1-3% (centre ~2%).** The blockers are **structural** — set by the programme, not by the quality of our materials. Better writing does not move them.
+
+| Factor | Evidence (verified 2026-09-23) | Sign |
+|---|---|:--:|
+| **In-person is the default; remote is the exception** | RFP: *"We prioritize projects that want to be active, **in-person** members of one of our hubs in San Francisco or Berlin."* FAQ: *"we **strongly prioritize** applicants who want to be active, in-person contributors… such as regularly working out of the Node or spending dedicated time at either Nodes for sprints."* Programme description: *"**funding-only applications are considered only in exceptional cases**."* | **−−** |
+| **An almost identical project is already funded** | Yue Zhao, USC FORTIS Lab, **2026 cohort**: *"Audit-to-Patch Pipelines for Secure LLM Agent Systems"* — *"detects and audits security risks in **LLM agent code and configuration**"*. We would be read as a weaker version of a funded project with an institutional backer. | **−−** |
+| **"Capability to execute"** | Criterion reads *"Strong teams with **proven expertise** in the field **will be prioritized**."* We are a solo applicant, no affiliation, no publications, GitHub **2 stars / 0 forks**. | **−−** |
+| **"AI-first work" is a weighted criterion** | AIShield's scan engine is deterministic static analysis; AI only generates radar rules. This is the weaker end of the criterion. | **−** |
+| **Our focus area is the explicitly under-funded one** | *"smaller amounts being awarded to the Human Empowerment and **AI Insurance & Open Governance** focus areas"* ⇒ price at **$30-50K**, not the $62K draft. | **−** |
+| **No prior relationship with Foresight** | The review's short-call stage structurally favours applicants already inside the network. | **−** |
+| Working, deployed, MIT-licensed artifact | 235 MCP + 262 Skill rules, live endpoint, 22 real harnesses scanned | **+** (table stakes, not differentiating) |
+
+**The arithmetic.** Foresight awards ≈**$3M/year**; the 2026 cohort is **33 grantees** ⇒ ≈33 awards/year. Against a globally-publicised open call that is a low-single-digit base rate *before* applying the remote-only penalty. Take **P = 2%**, grant **$40K** ⇒ **EV ≈ $800**.
+
+**The cost.** Cash $0; your time ≈1-2 h (the form is short). But it also costs **one named recommender** (a real social cost, and a required field) and your name on Foresight's **public grantee list**.
+
+**Therefore:**
+- **Do not invest engineering** — no narrative rewrite, no star-chasing, no distribution push. Those cannot fix the three big negatives.
+- **If you still want the lottery ticket:** submit *only what already exists*, cap effort at `PERSONAL_FILL.md` + the Airtable form, expect nothing. EV $800 for ~2 h is not insane; it is just not a plan.
+
+**Structural note, and the part that matters beyond Foresight.** For this applicant's exact position — **mainland-China individual, no legal entity, cannot attend in person** — the "global award with real cash" category is close to *systematically* closed, and not for lack of ability:
+
+| Programme | Why closed |
+|---|---|
+| CrowdStrike × AWS *Agents of Chaos* ($100K, fully remote) | Official Rules exclude residents of **China** and **Macau** |
+| AIxCC @ NeurIPS (~$1M pool) | In-person finals |
+| HK AI × Cybersecurity Challenge (HK$180K) | In-person HK finals |
+| 火山引擎 Skill 安全攻防 (¥200K) | In-person Beijing finals |
+| Foresight ($30-100K) | Remote = *"exceptional cases"* only |
+| OWASP Landscape 2027 | Pays nothing |
+
+⇒ Continuing to hunt this specific category in the AIShield lane has a **low ceiling**. Redirect competitive effort to where the constraints actually fit (the SwarmLabs line — compute and prize programmes that do not require attendance), rather than to more searching here.
+
+---
+
 ## Active applications
 
 | Priority | Competition | Type | Amount | Deadline | Win prob. | Status | Dir |
 |---|---|---|---:|---|---|---|---|
-| **P0** | [Foresight AI for Science & Safety Nodes](foresight-2026/) | Grant | $30K–$100K (**focus area 4 → lower end**) | 2026-10-31 (decisions Jan 2027) | 15-25% (remote-only) | Fully drafted + verified playbook — only the personal-info blanks + the Airtable form remain | `foresight-2026/` |
 | **P0** | [OWASP Red Teaming Solutions Landscape 2027](owasp-landscape-2027/) | Curated directory | — | 2027-03 (est) | 60-80% (inclusion) | Template + verification checklist ready | `owasp-landscape-2027/` |
+| **P2** | [Foresight AI for Science & Safety Nodes](foresight-2026/) | Grant | $30K–$100K (**focus area 4 → lower end**) | 2026-10-31 (decisions Jan 2027) | **≈2%** (NO-GO — see verdict above) | Materials complete; optional lottery-ticket submission only | `foresight-2026/` |
 | **P1** | [NetMind Agent Arena](netmind-arena/) | Agent arena | **~$0 realistic cash** (measured — see note) | Perpetual | n/a | Registered; product listed (pending review) | `netmind-arena/` |
 
 **Why Foresight was promoted to P0 (2026-09-23).** The standing filter is *"monetised **and** fully remote"*. Foresight satisfies both, and eligibility was re-verified on the live RFP page: *"We accept applications from individuals, teams, and organizations"* — **no country or nationality restriction** — and travel for field-building events is listed as **Foresight-paid**, not applicant-paid. Being remote-only lowers the odds (Foresight "strongly prioritises" in-person contributors) but does not disqualify anyone. One real caveat to price in: grants for the **AI Insurance & Open Governance** focus area are explicitly the *smaller* ones ("$30,000 to $100,000, with smaller amounts being awarded to the Human Empowerment and AI Insurance & Open Governance focus areas"). Submission is an Airtable form; review takes ~3 months; **open-sourcing the output is a hard requirement** (AIShield is MIT — satisfied).
@@ -22,7 +61,7 @@ Master index of all competitions, grants, and awards AIShield is targeting. All 
 
 ## On hold (requires user decision)
 
-*None.* Foresight was the only entry parked here; it is now P0. The remaining decision is a set of choices **inside** `foresight-2026/PERSONAL_FILL.md` (identity path, travel option, focus area, milestone scope, budget variant) — not whether to apply at all.
+*None.* Foresight was the only entry parked here; it was promoted to P0 on 2026-09-23 and **demoted to P2 the same day** after the GO/NO-GO verdict above. No entry now blocks on a user decision.
 
 ## Prep work (later deadlines)
 
@@ -114,12 +153,12 @@ Assumed win probabilities for active opportunities:
 
 | Competition | Prize pool | Win prob. | Expected value |
 |---|---:|---:|---:|
-| **Foresight (remote-only)** | $30-100K | 15-25% | **$4.5-25K** |
+| **Foresight (remote-only)** | $30-100K | **≈2%** (re-derived 2026-09-23 — see verdict) | **≈$800** |
 | GitLab AI Hackathon 2027 | $65K | 2-5% | $1.3-3.25K |
 | NetMind Arena | $0 cash (measured) | — | $0 |
 | OWASP Landscape 2027 | $0 direct | 60-80% | $0 + brand/procurement signal |
 
-⇒ **~$6-28K expected value while staying home**, driven almost entirely by Foresight. So the real comparison is not "$1.3-3.25K vs $15-80K" — it is **"$6-28K remote" vs "~$15-80K with travel"**, i.e. the in-person premium is much smaller than the old summary implied. Since travel for field-building events is Foresight-paid, the true incremental cost of the travel option is mainly *time and visa logistics*, not cash.
+⇒ **~$800 expected value while staying home**, not the ~$6-28K previously recorded. The earlier 15-25% figure was an un-derived estimate; it did not survive the in-person-is-the-default clause, the already-funded look-alike, or the 33-grant cohort arithmetic. **The remote path in this lane is not a plan — it is a lottery ticket.**
 
 ---
 
@@ -209,7 +248,7 @@ scripts/arena/
 
 Revisit this README every 30 days (automated scan on the 25th). Key decision points:
 
-- **2026-10-15:** Foresight submission checkpoint — is `PERSONAL_FILL.md` complete, and has the Airtable form been sent? (Hard deadline 2026-10-31, no extensions, ~3-month review)
+- **~~2026-10-15: Foresight submission checkpoint~~** — **cancelled 2026-09-23.** Foresight is NO-GO as a main line (P2). Only revisit if the user explicitly asks for the lottery-ticket submission; deadline 2026-10-31 still stands if so.
 - **2026-11-01:** Has OWASP 2027 CFS been published? Start final submission drafting
 - **2027-01-31:** GitLab AI Hackathon 2027 opens — decide if P2 → P1
 - **2027-02-28:** Final OWASP submission due
