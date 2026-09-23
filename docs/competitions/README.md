@@ -12,7 +12,7 @@ Master index of all competitions, grants, and awards AIShield is targeting. All 
 
 | Priority | Competition | Type | Amount | Deadline | Win prob. | Status | Dir |
 |---|---|---|---:|---|---|---|---|
-| **P0** | [Foresight AI for Science & Safety Nodes](foresight-2026/) | Grant | $30K–$100K (**lower end for RFP II**) | 2026-10-31 | 15-25% (remote-only) | Fully drafted — only the personal-info blanks + the Airtable form remain | `foresight-2026/` |
+| **P0** | [Foresight AI for Science & Safety Nodes](foresight-2026/) | Grant | $30K–$100K (**focus area 4 → lower end**) | 2026-10-31 (decisions Jan 2027) | 15-25% (remote-only) | Fully drafted + verified playbook — only the personal-info blanks + the Airtable form remain | `foresight-2026/` |
 | **P0** | [OWASP Red Teaming Solutions Landscape 2027](owasp-landscape-2027/) | Curated directory | — | 2027-03 (est) | 60-80% (inclusion) | Template + verification checklist ready | `owasp-landscape-2027/` |
 | **P1** | [NetMind Agent Arena](netmind-arena/) | Agent arena | **~$0 realistic cash** (measured — see note) | Perpetual | n/a | Registered; product listed (pending review) | `netmind-arena/` |
 
@@ -140,6 +140,16 @@ Full re-verification of this file against live sources, prompted by the user's q
 
 **Corrections made:**
 
+0. **2026-09-23 — full RFP mechanics verified, plus a competitor finding.** Added
+   [`foresight-2026/PLAYBOOK.md`](foresight-2026/PLAYBOOK.md): the submission is a **single short
+   Airtable form** (350-character zero-jargon pitch), not a PDF; decisions land **January 2027**;
+   correct home is **Call II → focus area 4**; and — the finding that matters — Foresight's **2026**
+   cohort already includes a project (Yue Zhao, USC FORTIS Lab, *Audit-to-Patch Pipelines for Secure
+   LLM Agent Systems*) that occupies almost exactly our current framing. Our application must lead with
+   the **independent attestation layer**, not the scanner. Also corrected four false claims in our own
+   materials (2 stars ≠ ~100; the 19 radar rules were double-counted; 1295 tests ≠ 1283; "Track 1"
+   is not a real label). **The 15-25% remote estimate above now carries an overlap discount and has not
+   been re-derived** — treat it as an upper bound until the pitch is reframed.
 1. **Foresight promoted P2 → P0.** Eligibility verified on the live RFP page: individuals welcome, **no nationality restriction stated**, travel is Foresight-**paid**, and open-sourcing the output is required (AIShield is MIT — satisfied). The "only worth it with travel" premise that parked this entry did not hold up.
 2. **Foresight's calls corrected.** The live RFP spans *I. Local compute / II. Coordination and accountability / III. AI-first science* — not the "Track 1/2/3" labels used previously. AIShield fits **Call II → AI insurance and open governance**. Caveat recorded: Foresight awards the **smaller** grants to that focus area.
 3. **NetMind's USDC figure struck.** `~$200-300/yr USDC` was never measured. Live probe (2026-09-23): `/agents/me/rewards` = `{rewards:[], total:0}`; every cash-out verb 404s; the only USDC on the platform is ~10 parimutuel pools of exactly `1.00000000`, each additionally requiring a bound wallet we do not have. Realistic cash: $0. Demoted P0 → P1.

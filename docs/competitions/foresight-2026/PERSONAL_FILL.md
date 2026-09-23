@@ -1,13 +1,24 @@
 # Foresight AI for Science & Safety Nodes — Personal Info Fill
 
+> 📘 **Read [`PLAYBOOK.md`](PLAYBOOK.md) first.** It holds the verified mechanics: the exact Airtable
+> form fields, the **350-character "zero jargon"** pitch limit, the **January 2027** decision date, and
+> the grantee comparison (including the 2026 project that already occupies our current framing).
+
 **Purpose**: Every placeholder in the main `APPLICATION.md` is captured here. Fill this out first, then copy-paste into `APPLICATION.md`.
 
 **Deadline**: 2026-10-31 23:59 PDT — **38 days from 2026-09-23**
-**Apply at (Airtable form)**: https://airtable.com/appyVXc5SMPAvIKpP/pagp7takV26cG6JY1/form
+**Apply at (Airtable form, no login)**: https://airtable.com/appyVXc5SMPAvIKpP/pagp7takV26cG6JY1/form
 **RFP page**: https://foresight.org/grants/ai-science-safety-nodes-rfp/
-**Grant size**: $30K–$100K.
+**Grant size**: $30K–$100K (our focus area gets the **smaller** end)
+**Decisions**: **January 2027**
 
 > ⚠️ **Price this in before committing effort:** Foresight states it awards *"smaller amounts to the Human Empowerment and AI Insurance & Open Governance focus areas, and higher amounts to the rest."* AIShield's natural home is **AI Insurance & Open Governance** — i.e. the **lower end** of the range.
+>
+> ⚠️ **Second thing to price in:** Foresight already funded a 2026 project — Yue Zhao (USC FORTIS Lab),
+> *Audit-to-Patch Pipelines for Secure LLM Agent Systems* — that *"detects and audits security risks in
+> LLM agent code and configuration"*. Our current pitch is nearly the same sentence. The application has
+> to lead with the **attestation / independent-assessment layer**, not the scanner. Details in
+> `PLAYBOOK.md §3` and `§5.2`.
 
 ---
 

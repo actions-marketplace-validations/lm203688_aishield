@@ -2,9 +2,15 @@
 
 **Applicant:** [Name — pending user confirmation]
 **Project:** AIShield — Local-First AI Tool Security Scanner
-**Track:** Track 1 — AI Insurance and Open Governance
-**Deadline:** 2026-10-31 23:59 PDT (39 days from drafting)
-**Submission URL:** https://foresight.org/grants/ai-science-safety-nodes-rfp/
+**Call:** Call II — Coordination and accountability
+**Focus area:** 4. AI Insurance & Open Governance
+**Deadline:** 2026-10-31 23:59 PDT (= 2026-11-01 14:59 CST; 38 days from 2026-09-23)
+**Decisions expected:** January 2027 (stated on the application form)
+**Submission URL (single short Airtable form, no login):** https://airtable.com/appyVXc5SMPAvIKpP/pagp7takV26cG6JY1/form
+
+> See [`PLAYBOOK.md`](PLAYBOOK.md) for the verified field-by-field form structure, character limits,
+> and the grantee comparison. The form's core pitch field is **350 characters, zero jargon** — this
+> document is supporting material, not the submission itself.
 
 ---
 
@@ -14,10 +20,10 @@ AI agent ecosystems (MCP servers, agent skills, GPTs, tool configs) are prolifer
 
 **AIShield** is a local-first, open-source scanner that catches:
 
-- 235 MCP configuration attacks (supply-chain install scripts, tool-shadowing, egress, plaintext credentials, sandbox escape)
+- 235 MCP configuration attacks (208 static + 8 generated + 19 radar-discovered, the radar entries already counted inside the 235) covering supply-chain install scripts, tool-shadowing, egress, plaintext credentials, sandbox escape
 - 262 Agent Skill attacks (prompt injection, memory poisoning, budget/payment surface, benchmark falsification, desktop-driver hijack)
 - Both aligned to OWASP MCP Top 10 and OWASP Agentic AI Top 10 (ASI01–ASI10)
-- 1283 automated tests, 22 real open-source harnesses scanned with zero critical false positives
+- 1295 automated tests, 22 real open-source harness files scanned with zero critical false positives
 
 **What this funding buys:** we turn AIShield from a defensive scanner into an **independent assessment infrastructure** — the layer that insurance underwriters, procurement teams, and community governance bodies call when they need to decide "can we deploy this AI agent?" independently of the lab that built it.
 
@@ -50,7 +56,7 @@ The lab that builds a tool has three structural conflicts of interest:
 2. **Methodology conflict** — the lab's ruleset is shaped by what the lab considers an attack, not by what a downstream consumer would consider an attack.
 3. **Disclosure conflict** — the lab controls which findings get public disclosure. A scanner inside the lab can quietly downgrade severity.
 
-Foresight's Track 1 calls this out explicitly: "Build ways for people **outside a lab** to assess risks." AIShield is designed from day one to be the outside-lab scanner.
+Foresight's Call II, focus area 4 (AI Insurance & Open Governance) calls this out explicitly: "Build ways for people **outside a lab** to assess risks." AIShield is designed from day one to be the outside-lab scanner.
 
 ### 2.3 What we already have
 
@@ -58,8 +64,8 @@ As of 2026-09-22:
 
 | Asset | State |
 |---|---|
-| Codebase (MIT, `lm203688/aishield`) | 235 MCP rules + 262 Skill rules + 19 radar-generated daily |
-| Test suite | 1283 tests, 100% pass, runs in <90s locally |
+| Codebase (MIT, `lm203688/aishield`) | 235 MCP rules (208 static + 8 generated + 19 radar) + 262 Skill rules |
+| Test suite | 1295 tests, 100% pass, runs in <90s locally |
 | Live API (`aishield.tools/api/v1`) | 24/7, CF-hosted, no auth required for public endpoints |
 | Real-harness scan corpus | 22 files from PenguinHarness, Cua, Mano-P — 0 critical findings, 0 false positives on benign targets |
 | Distribution | npm (`aishield-mcp-server`), Glama marketplace, GitHub Actions |
@@ -127,7 +133,7 @@ Forkable, critiquable, adoptable. The paper is the durable output — the code c
 
 ### 3.2 Alignment with Foresight's mandate
 
-Foresight Track 1 says, in their words:
+Foresight's Call II focus area 4 says, in their words:
 
 > "Build ways for people outside a lab to assess risks... independent incident reporting... independent technical assessment."
 
@@ -172,7 +178,7 @@ Six months from funding notification (assuming notification by 2027-01-31 based 
 Each milestone has:
 
 - A pull request merged to main
-- A test suite green across 1283+ tests
+- A test suite green across 1295+ tests
 - A public changelog entry
 - A blog post on `aishield.tools/blog` (existing 12-post archive)
 
@@ -223,7 +229,11 @@ If successful, six months after notification:
 - **Signed attestation API** consumed by at least 3 external governance bodies
 - **Incident feed** with 100+ timestamped entries, adoptable by any downstream consumer
 - **Methodology paper** cited or forked by at least one other scanner project
-- **Community adoption**: 500+ GitHub stars (currently ~100), 50+ npm installs per day (currently ~5/day)
+- **Community adoption**: a real, earned usage number. *Correction 2026-09-23: the earlier draft of
+  this line claimed "500+ GitHub stars (currently ~100)". The verified figures are **2 stars and 0
+  forks** — the claim was inflated by two orders of magnitude and has been removed. The honest target
+  for the grant period is to establish a **measurable install/scan count** (npm downloads, Glama
+  installs, CI runs) and report that, rather than repositorial popularity.*
 
 Not claimed, but a plausible upside: AIShield becomes the reference implementation for "independent AI tool assessment" that insurance underwriters can point to when a customer asks "who audited this agent?"
 

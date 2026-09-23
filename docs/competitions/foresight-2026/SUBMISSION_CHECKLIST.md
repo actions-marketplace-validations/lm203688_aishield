@@ -1,8 +1,26 @@
 # Foresight Submission Checklist
 
-**Deadline:** 2026-10-31 23:59 PDT (10-31 06:59 UTC, or 10-31 14:59 China Standard Time)
+**Deadline:** 2026-10-31 23:59 PDT (= 2026-11-01 06:59 UTC = **2026-11-01 14:59 Beijing time**)
+**Decisions expected:** January 2027 (stated verbatim on the application form)
 
-Submit at: https://foresight.org/grants/ai-science-safety-nodes-rfp/
+Submit at (single public Airtable form — **no login, no account needed**):
+https://airtable.com/appyVXc5SMPAvIKpP/pagp7takV26cG6JY1/form
+
+> **Read [`PLAYBOOK.md`](PLAYBOOK.md) first.** It contains the verified field-by-field form structure,
+> the character limits (**350 chars, zero jargon** for the core pitch), and the grantee comparison.
+>
+> **Corrigendum 2026-09-23** — the following claims in earlier versions of this checklist were
+> **unverified or wrong** and have been removed. Do not reinstate them:
+>
+> | Removed claim | Why |
+> |---|---|
+> | "Log in at foresight.org…" | It is a public Airtable form; there is no login |
+> | "Track 1 — AI Insurance and Open Governance" | No such label. Correct: **Call II, focus area 4** |
+> | "Foresight typically accepts up to 10MB per submission" | Invented. The form has *character* limits, not a file size limit |
+> | "Foresight processes applications in receipt order in a tie" | Invented. Not stated anywhere |
+> | "Foresight explicitly asks that applicants not run parallel applications to competing grants" | **Not in the RFP.** Do not withhold other applications on this basis |
+> | "If stars < 100, run a marketing push" | Stars are **2**, not ~100. See `APPLICATION.md §7` correction |
+> | "Foresight loves to see a letter-of-intent" | Unverified, and the form has **no attachment field** |
 
 ---
 
@@ -44,7 +62,10 @@ Submit at: https://foresight.org/grants/ai-science-safety-nodes-rfp/
   print('License:', d['license']['spdx_id'] if d.get('license') else 'MISSING')
   "
   ```
-  If stars < 100, consider running a small marketing push before submission to strengthen the "existing community" signal.
+  Actual figures (verified 2026-09-23): **2 stars, 0 forks.** There is no "existing community" signal
+  to strengthen, and inflating it is not an option. Either earn a real distribution number (npm
+  downloads, Glama installs) before submitting, or drop the community claim entirely and lead with the
+  technical artifact. **Do not write a star target into the application.**
 
 - [ ] **Prepare the supporting document set** (must all exist before submission):
   - `APPLICATION.md` (main)
@@ -103,24 +124,29 @@ Submit at: https://foresight.org/grants/ai-science-safety-nodes-rfp/
   - Any other link cited in the application
 
 - [ ] **File size check**
-  - Foresight typically accepts up to 10MB per submission. Convert large PDFs if needed.
+  - There is no stated file size limit. The binding constraints are the form's **character limits**
+    (350 chars for the core pitch, 500 for the RFP-fit answer). See `PLAYBOOK.md §2`.
 
 - [ ] **Backup**
   - Save a copy of the full submission packet (all 4–5 files) to a location outside this directory (e.g. your personal Drive, a private GitHub gist, or a USB)
-  - Note the exact submission timestamp — Foresight processes applications in receipt order in a tie
+  - Note the exact submission timestamp for your own records (Airtable confirmation). Foresight does
+    **not** state a receipt-order tie-break.
 
 ---
 
 ## Submission (Day 39, 2026-10-31)
 
-- [ ] **Log in at https://foresight.org/grants/ai-science-safety-nodes-rfp/**
+- [ ] **Open the Airtable form** (no login required):
+      https://airtable.com/appyVXc5SMPAvIKpP/pagp7takV26cG6JY1/form
+  - Org type: select **`Individual - World`** if applying without a legal entity
+  - Reference, region, and country fields are all required
   - Individual variant: use personal account (name + email + LinkedIn profile URL)
   - Corporate variant: use organisational account (registered entity name + contact)
 
 - [ ] **Fill in the form fields** (typical Foresight form):
   1. Applicant name + email + country of residence
   2. Project title: `AIShield — Local-First AI Tool Security Scanner as Independent Assessment Infrastructure`
-  3. Track: `Track 1 — AI Insurance and Open Governance`
+  3. Call/focus area: `Call II — Coordination and accountability` → `4. AI Insurance & Open Governance`
   4. Amount requested: `$35,000` (individual) or `$62,000` (corporate)
   5. Project duration: `6 months`
   6. Abstract: paste `APPLICATION.md §1` verbatim
@@ -167,7 +193,10 @@ If the Foresight application is not funded by 2027-01-31, the same content can b
 - **Catalyst Awards** — open-source security tools, 12-month cycles
 - **Open Philanthropy** — AI risk reduction, application cycles vary
 
-Each of these has different deadlines and evaluation criteria. Do not submit to them before Foresight's decision — Foresight explicitly asks that applicants not run parallel applications to competing grants at the same time.
+Each of these has different deadlines and evaluation criteria. **Note:** the RFP does *not* ask
+applicants to withhold parallel applications — an earlier version of this file claimed it did. This is
+a sequencing preference on our side (the Foresight application is the strongest version of this
+material), not a Foresight rule.
 
 ---
 
@@ -184,7 +213,11 @@ Each of these has different deadlines and evaluation criteria. Do not submit to 
 
 1. **Over-scoping.** Asking for $100K but only having $40K of concrete plan. Foresight rejects vague "we will do a lot of things" applications. Be specific.
 2. **Under-scoping.** Asking for $30K and delivering less than what $30K buys. Be honest about the price of what you're asking for.
-3. **Ignoring the track requirements.** Track 1 is "AI Insurance and Open Governance." If your project doesn't directly address governance infrastructure, it's Track 2 or 3.
+3. **Ignoring the focus-area requirements.** The relevant option is **Call II → focus area 4, "AI
+   Insurance & Open Governance."** If the project doesn't address independent assessment, incident
+   reporting, or governance infrastructure, it belongs under a different focus area — or in a
+   different funder's call. Also note Foresight funds this focus area at the **smaller** end of
+   $30K–$100K.
 4. **Missing the "independent" angle.** Foresight funds work that's independent of the AI labs. If your plan sounds like it could be outsourced to Anthropic or OpenAI, it's not what they're looking for.
 5. **Not verifying URLs.** Dead links in an application look unprofessional. Verify every one before submitting.
 
