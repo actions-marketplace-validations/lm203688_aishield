@@ -28,6 +28,7 @@ USAGE
   python scripts/arena/jev_player.py tick [--max-joins 3]
 """
 import argparse
+import datetime
 import json
 import os
 import re
@@ -41,6 +42,53 @@ sys.path.insert(0, os.path.join(ROOT, "scripts", "typesafe"))
 
 import arena_client as arena  # noqa: E402
 import jev_client as jev  # noqa: E402
+
+# A join only pays off if there is real time left on the clock.
+MIN_REMAINING_SECONDS = 900
+ALLOWED_STATUSES = ("live",)
+
+
+def _parse_ts(ts):
+    """Parse the API's ISO-8601 'Z' timestamps with stdlib only."""
+    if not ts:
+        return None
+    for fmt in ("%Y-%m-%dT%H:%M:%S.%f%z", "%Y-%m-%dT%H:%M:%S%z"):
+        try:
+            return datetime.datetime.strptime(ts.replace("Z", "+0000"), fmt)
+        except (ValueError, AttributeError):
+            continue
+    return None
+
+
+def join_gate(detail, now=None):
+    """Return a skip reason, or None when the competition is actually worth joining.
+
+    `joinable=true` answers "are you allowed in". It does NOT answer "is there time left
+    to play" - those are different questions and the list endpoint only handled the first.
+    A review of our own record (2026-09-23) showed 5 of the 7 competitions we had joined
+    were already over, or ended minutes after the join, so those joins bought nothing but
+    a participant row. Fail-closed: anything we cannot verify is a skip.
+    """
+    d = detail or {}
+    now = now or datetime.datetime.now(datetime.timezone.utc)
+    if d.get("status") not in ALLOWED_STATUSES:
+        return "status=%s" % d.get("status")
+    if d.get("currentPhase") == "ended":
+        return "currentPhase=ended"
+    if d.get("cancelReason") or d.get("deletedAt"):
+        return "cancelled (%s)" % (d.get("cancelReason") or "deleted")
+    if d.get("entryFee"):
+        return "entryFee=%s" % d.get("entryFee")  # zero-cost policy
+    if float(d.get("cryptoPrizePool") or 0) > 0:
+        return "cryptoPrizePool=%s (needs a bound wallet; out of scope)" % d.get("cryptoPrizePool")
+    end = _parse_ts(d.get("endTime"))
+    if end is None:
+        return "no parseable endTime"
+    remaining = (end - now).total_seconds()
+    if remaining < MIN_REMAINING_SECONDS:
+        return "only %.0f min left (< %d min)" % (remaining / 60.0, MIN_REMAINING_SECONDS // 60)
+    return None
+
 
 # Legal actions per game type, transcribed from `arena rules <type>`.
 # `ids` names the pattern used to harvest candidate arguments from the state.
@@ -329,14 +377,32 @@ def cmd_tick(args):
     code, d = arena.req("GET", "/api/competitions?joinable=true&compact=true")
     items = (d or {}).get("data") or []
     joined = 0
+    skipped = {"unsupported-type": 0, "entry-fee": 0, "detail-error": 0, "not-worth-joining": 0}
     for c in items:
         if joined >= args.max_joins:
             break
         if c.get("type") not in CATALOG:
+            skipped["unsupported-type"] += 1
             continue
         if c.get("entry_fee"):
-            continue  # zero-cost policy
+            skipped["entry-fee"] += 1
+            continue
         cid = c["id"]
+        # The list says "allowed in"; only the detail says "still time to play".
+        dcode, detail = arena.req("GET", "/api/competitions/%s" % cid, token=tok)
+        if dcode != 200:
+            skipped["detail-error"] += 1
+            print("%-18s %-34s SKIP detail HTTP %s" % (c.get("type"), str(c.get("name"))[:34], dcode))
+            continue
+        why = join_gate(detail)
+        if why:
+            skipped["not-worth-joining"] += 1
+            print("%-18s %-34s SKIP %s" % (c.get("type"), str(c.get("name"))[:34], why))
+            continue
+        if args.dry_run:
+            print("%-18s %-34s WOULD JOIN (dry run)" % (c.get("type"), str(c.get("name"))[:34]))
+            joined += 1
+            continue
         code, join = arena.req("POST", "/api/competitions/%s/participants" % cid,
                                {"agentId": arena.load_creds()["agent_id"],
                                 "agentName": arena.load_creds()["agent_name"]}, token=tok)
@@ -349,7 +415,8 @@ def cmd_tick(args):
             st = dict(st); st["type"] = c.get("type")
             play_one(cid, st, [])
         time.sleep(0.5)
-    print("tick done, acted in %d games" % joined)
+    tail = ", ".join("%s=%d" % kv for kv in skipped.items() if kv[1])
+    print("tick done: scanned %d, joined %d%s" % (len(items), joined, ", skipped " + tail if tail else ""))
     return 0
 
 
@@ -360,7 +427,10 @@ def main():
     sp = sub.add_parser("play"); sp.add_argument("competition_id")
     sp.add_argument("--max-turns", type=int, default=30); sp.add_argument("--interval", type=float, default=20.0)
     sp.set_defaults(fn=cmd_play)
-    sp = sub.add_parser("tick"); sp.add_argument("--max-joins", type=int, default=3); sp.set_defaults(fn=cmd_tick)
+    sp = sub.add_parser("tick"); sp.add_argument("--max-joins", type=int, default=3)
+    sp.add_argument("--dry-run", action="store_true",
+                    help="evaluate the join gate without joining (safe to run any time)")
+    sp.set_defaults(fn=cmd_tick)
     args = ap.parse_args()
     return args.fn(args)
 
