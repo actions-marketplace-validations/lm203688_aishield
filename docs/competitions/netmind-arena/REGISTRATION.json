@@ -12,7 +12,7 @@
     "claim_token_page": "https://arena42.ai/claim/arena_claim_75fc7dad36a9b2f9555453bea1e85d60",
     "start_credits_awarded": 200,
     "owner_email": "61960005@qq.com",
-    "owner_email_state": "verification email sent 2026-09-23T02:29:37Z — NOT yet bound until the link is clicked (10 min window). Re-send limit: 3/hour.",
+    "owner_email_state": "BOUND — verified live 2026-09-23T06:38:30Z; GET /api/v1/agents/me returns owner_email='61960005@qq.com' (was null before the link click). Re-send limit: 3/hour.",
     "credentials_location": "~/.config/arena/credentials.json (OUTSIDE the repo; contains api_key — never commit)",
     "challenge_token_location": "~/.config/arena/challenge_token.json (anti-sybil JWT, valid ~8h)",
     "anti_sybil": "answered chl_fkUE7nMSrq with 'A' (transitivity contrapositive) -> JWT issued",
@@ -39,7 +39,7 @@
       "deadline": "2026-09-25T02:03:51Z",
       "max_submissions": 1,
       "task": "Classify exactly 5 animal species from provided images. Submit a JSON array of 5 objects with image_id + predicted_animal (English common name, first letter capitalised). >90% accuracy required on true labels. No extra text.",
-      "note": "Needs a vision LLM. SenseNova 6.8 Flash-Lite (already in models.json) supports image input."
+      "note": "TEMPLATE BOUNTY — no images are actually shipped anywhere. gameConfig={sourceId:'auto-bounty', externalId:'bounty-2026-09-23'}. Probed and ruled out: GET /api/products (no assets), /api/competitions/{id}/{bounty,images,task,submission}, inbox (empty), competition.translations ({}), the web page (no <img> for img_001..005). The description demands 'provided images' that do not exist. Judging is manual with instructions 'select submissions that clearly and creatively complete the task'. Treat as a creative-writing task or skip; do NOT fabricate image_ids against non-existent inputs."
     },
     {"id": "2172da02-5311-4d4a-a75f-4a17bca90dfb", "name": "Echo — 2026-09-23", "type": "echo", "entry_fee_CRE": 0},
     {"id": "c1bc1813-9c5f-4fa2-bffe-c807e876db90", "name": "Point of No Return — 2026-09-23", "type": "point-of-no-return", "entry_fee_CRE": 0},
@@ -109,8 +109,9 @@
     "step_3_DONE": "POST /api/v1/agents/me/setup-owner-email {\"email\":\"61960005@qq.com\"} -> 401 CHALLENGE_REQUIRED.",
     "step_4_DONE": "POST /api/v1/challenge/answer {challenge_id, answer:'A'} -> challenge_token JWT.",
     "step_5_DONE": "Retried setup-owner-email with X-Challenge-Token -> 200, verification email sent.",
-    "step_6_USER": "Owner clicks the verification link in the 61960005@qq.com inbox within 10 minutes. Until then the agent is NOT bound: profile shows owner_email=null and `arena product whoami` returns 409.",
-    "step_7_PENDING": "After binding: `arena product submit-link --name AIShield --url https://aishield.tools --kind tool` to list AIShield in the Product Arena (Arena sends visitors + collects human reviews).",
+    "step_6_DONE": "Owner clicked the verification link; owner_email is now bound (verified 2026-09-23T06:38:30Z). The agent is now visible to its human on arena42.ai.",
+    "step_7_BLOCKED_HUMAN_ONLY": "Product Arena publishing needs a CREATOR HANDLE first. GET /api/creators/me and POST /api/products/submit both return 409 NOT_A_CREATOR ('61960005@qq.com has no creator handle yet. Claim one at /products/submit'). POST /api/creators returns 403 HUMAN_ONLY ('Only signed-in people can be creators') — so claiming the handle is a browser + human login step that an API key cannot perform. After the handle exists, publish with: POST /api/products/submit {name, tagline, siteUrl, kind:'tool'} (auth: Bearer api_key).",
+    "step_7_CONTRACT": "Verified from the shipped CLI bundle (dist/index.js:2415): GET /api/creators/me -> {creator:{displayName,handle}} ; POST /api/products/submit body {name, tagline, siteUrl, kind, cover?} -> {product:{slug,status}}. Link products are reviewed by a human before they reach the catalog.",
     "step_8_PENDING": "Play the joined competitions (heartbeat every 2h: `arena heartbeat run --json`).",
     "troubleshooting": {
       "if_email_link_expired": "Re-send via POST /api/v1/agents/me/setup-owner-email (max 3 sends/hour).",
