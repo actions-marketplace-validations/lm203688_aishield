@@ -17,8 +17,18 @@ Contract (read out of the shipped CLI bundle, dist/index.js:2415):
 
 Usage:
   python scripts/arena/publish_product.py             # report readiness, do not publish
-  python scripts/arena/publish_product.py --submit    # publish
+  python scripts/arena/publish_product.py --status    # review status of our submission(s)
+  python scripts/arena/publish_product.py --submit    # publish (refuses if already submitted)
   python scripts/arena/publish_product.py --tagline "..." --kind tool
+
+STATUS MODE prints a machine-readable last line, so an automation can watch the
+review without a human reading the output:
+
+  STATUS=<published|pending|rejected|absent>
+
+`--submit` is intentionally NOT idempotent-safe: Arena allows one product per
+domain, so a second submission would create a duplicate entry. The script refuses
+to submit while a record for our slug already exists.
 """
 import json
 import os
@@ -32,6 +42,7 @@ NAME = "AIShield"
 TAGLINE = "Agent-native security scanner for MCP servers and Agent Skills. Never executes what it scans."
 SITE_URL = "https://aishield.tools"
 KIND = "tool"  # tool | demo | game  -- the web form pre-selects "demo"; that is wrong for us
+SLUG = "aishield"  # what our listing is expected to be called; used for the duplicate guard
 COVER = "https://cdn.jsdelivr.net/gh/lm203688/aishield@main/docs/assets/aishield-cover.png"
 # COVER is optional in the API. It is only sent when the URL is actually reachable,
 # so a broken image never blocks the listing. Regenerate with scripts/arena/make_cover.py.
@@ -74,6 +85,60 @@ def cover_reachable(url, timeout=30):
     return ctype.startswith("image/")
 
 
+def product_status(token):
+    """Report the review state of our product. Returns the STATUS string.
+
+    Reads GET /api/creators/me, which returns BOTH the creator profile and a
+    `products` array -- including items that are still `pending` and therefore
+    absent from the public catalog. The public catalog is checked too, because a
+    `status` field can lag behind actual publication.
+    """
+    code, cr = ac.req("GET", "/api/creators/me", token=token)
+    if code != 200:
+        print("[status] GET /api/creators/me -> HTTP %s" % code)
+        print("        ", json.dumps(cr, ensure_ascii=False)[:300])
+        print("STATUS=absent")
+        return "absent"
+
+    creator = cr.get("creator") or {}
+    products = cr.get("products") or []
+    print("[status] creator @%s (%s)" % (creator.get("handle"), creator.get("displayName")))
+    print("[status] own submissions: %d" % len(products))
+    mine = []
+    for p in products:
+        if p.get("slug") == SLUG or "aishield" in json.dumps(p, ensure_ascii=False).lower():
+            mine.append(p)
+    for p in mine:
+        print("         - id=%s slug=%s kind=%s source=%s"
+              % (p.get("id"), p.get("slug"), p.get("kind"), p.get("source")))
+        print("           status=%s reviewNote=%r" % (p.get("status"), p.get("reviewNote")))
+        print("           createdAt=%s publishedAt=%s"
+              % (p.get("createdAt"), p.get("publishedAt")))
+        print("           siteUrl=%s" % p.get("siteUrl"))
+        if "cover" not in p:
+            print("           cover: not echoed by this endpoint (cannot confirm from the API)")
+    if not mine:
+        print("         (no AIShield submission found)")
+
+    # Cross-check the public catalog: does the listing actually resolve for visitors?
+    c2, cat = ac.req("GET", "/api/products")
+    live = [x for x in ((cat.get("products") or []) if c2 == 200 else [])
+            if x.get("slug") == SLUG]
+    print("[status] public catalog: HTTP %s, %d products, aishield present=%s"
+          % (c2, len(cat.get("products") or []) if c2 == 200 else 0, bool(live)))
+    if live:
+        print("         live entry: %s" % json.dumps(live[0], ensure_ascii=False)[:300])
+
+    if live:
+        status = "published"
+    elif mine:
+        status = "rejected" if any(p.get("status") == "rejected" for p in mine) else "pending"
+    else:
+        status = "absent"
+    print("STATUS=%s" % status)
+    return status
+
+
 def main():
     args = sys.argv[1:]
     do_submit = "--submit" in args
@@ -85,6 +150,9 @@ def main():
 
     creds = ac.load_creds()
     token = creds["api_key"]
+
+    if "--status" in args:
+        return 0 if product_status(token) != "absent" else 1
 
     # 1. owner email bound?
     code, me = ac.req("GET", "/api/v1/agents/me", token=token)
@@ -111,6 +179,16 @@ def main():
         print("    Then re-run this script with --submit.")
         return 1
     print("    publishing as %s (@%s)" % (creator.get("displayName"), creator.get("handle")))
+
+    # 3. duplicate guard -- one product per domain, so never submit twice.
+    existing = [p for p in (cr.get("products") or []) if p.get("slug") == SLUG]
+    if existing:
+        p = existing[0]
+        print("[2b] already submitted: slug=%s status=%s id=%s"
+              % (p.get("slug"), p.get("status"), p.get("id")))
+        print("     REFUSING to submit again -- Arena allows one product per domain and a")
+        print("     second submission would create a duplicate entry. Use --status to watch it.")
+        return 1
 
     payload = {"name": name, "tagline": tagline, "siteUrl": site_url, "kind": kind}
     if cover:
