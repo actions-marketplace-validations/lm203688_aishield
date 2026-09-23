@@ -20,10 +20,27 @@ import { z } from 'zod';
 
 // 版本单一真源。由 scripts/sync_version.py 统一维护，CI 的版本一致性门禁会校验它，
 // 因此这里不再手写数字 —— 硬编码的 '3.0.0' 曾与已发布的 4.2.x 差了一个大版本。
-const SERVER_VERSION = '4.3.0';
+const SERVER_VERSION = '4.4.0';
 
 const API_BASE = process.env.AISHIELD_API_URL || 'https://api.aishield.tools';
 const API_KEY = process.env.AISHIELD_API_KEY || '';
+
+// ── Laya 本地决策模型集成 (可选) ──
+//
+// Laya 421M 是非生成式决策模型 (ModernBERT + 决策头)，输出校准概率，
+// 不生成文本、不支持 tools。适合做 agent 调用链路上的快速护栏初筛
+// (越狱/注入/敏感数据/话题分类)，零成本、本地、~500ms/条。
+//
+// 启用方式: 启动本地 Laya HTTP 服务
+//   python C:\Users\xing\.workbuddy\laya\laya_infer.py serve --port 8188
+// 或通过环境变量 AISHIELD_LAYA_URL 覆盖地址。
+//
+// 失败降级: Laya 服务不可达时 aishield_laya_precheck 返回明确启动指引，
+// 不影响 aishield 其他 7 个工具。
+//
+// 质量提示: 英文 checkpoint (en) 对中文 prompt 误报率高，中文请用 checkpoint=ml。
+// harm_severity 置信度低 (0.03-0.38)，仅作参考。零样本不可直接投产。
+const LAYA_URL = (process.env.AISHIELD_LAYA_URL || 'http://127.0.0.1:8188').replace(/\/$/, '');
 
 // ── API Helper ──
 async function apiCall(path: string, body: Record<string, unknown>, timeoutMs = 30000): Promise<any> {
@@ -366,6 +383,108 @@ server.tool(
     }
   }
 );
+
+// ══════════════════════════════════════════════════════════════
+// Tool 8: Laya 本地决策模型快速初筛 (可选, 需本地 Laya 服务)
+//
+// 与远程 aishield 扫描互补: 本地 421M 非生成式决策模型，输出校准概率，
+// ~500ms/条、零成本、数据不出本地。适合做 agent 调用链路上的快速护栏初筛。
+// 失败降级: Laya 服务不可达时返回明确启动指引，不影响其他 7 个工具。
+// ══════════════════════════════════════════════════════════════
+
+server.tool(
+  'aishield_laya_precheck',
+  `本地 Laya 421M 决策模型快速初筛 — 对 prompt 做越狱/注入/敏感数据/话题分类判定。
+
+与远程 aishield 扫描互补: 本地、零成本、~500ms/条、数据不出本地。
+适合做 agent 调用链路上的快速护栏初筛 (提交前确认、离线批筛)。
+
+注意:
+  - 非生成式模型，只输出校准概率，不生成文本
+  - 英文 checkpoint (en) 对中文 prompt 误报率高，中文请用 checkpoint=ml
+  - harm_severity 置信度低 (0.03-0.38)，仅作参考
+  - 零样本不可直接投产，落地前需在自有集上微调/温度校准
+  - 需要本地 Laya HTTP 服务运行 (默认 http://127.0.0.1:8188，可用 AISHIELD_LAYA_URL 覆盖)
+
+返回: 每个问题的校准概率 + 置信度 + 是否超阈值`,
+  {
+    prompt: z.string().min(1).describe('待检测的文本 (prompt 或任意字符串)'),
+    checkpoint: z.enum(['en', 'ml']).default('en').describe('checkpoint: en=英文, ml=多语言(中文用)'),
+    questions: z.enum(['guard', 'email', 'triage', 'moderation', 'router']).default('guard').describe('问题预设'),
+    threshold: z.number().min(0).max(1).default(0.5).describe('判定阈值'),
+  },
+  async ({ prompt, checkpoint, questions, threshold }) => {
+    try {
+      const res = await fetch(`${LAYA_URL}/decide`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: prompt, checkpoint, questions, threshold }),
+        signal: AbortSignal.timeout(30000),
+      });
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        return {
+          content: [{
+            type: 'text' as const,
+            text: `Laya HTTP ${res.status}: ${text.slice(0, 300)}`,
+          }],
+        };
+      }
+      const data = await res.json();
+      return { content: [{ type: 'text' as const, text: formatLayaResult(data, threshold) }] };
+    } catch (e: any) {
+      const msg = e?.message || String(e);
+      return {
+        content: [{
+          type: 'text' as const,
+          text: `Laya 本地服务不可达 (${LAYA_URL}): ${msg}\n\n` +
+                `启动方法:\n` +
+                `  python C:\\Users\\xing\\.workbuddy\\laya\\laya_infer.py serve --port 8188\n\n` +
+                `或通过环境变量覆盖地址:\n` +
+                `  AISHIELD_LAYA_URL=http://host:port`,
+        }],
+      };
+    }
+  }
+);
+
+// Helper: 格式化 Laya 决策结果
+function formatLayaResult(data: any, threshold: number): string {
+  const lines: string[] = [];
+  lines.push('Laya 本地决策模型初筛结果');
+  lines.push('─'.repeat(44));
+
+  const items = Array.isArray(data.items) ? data.items : (data.results || []);
+  if (items.length === 0) {
+    lines.push('(no results)');
+    return lines.join('\n');
+  }
+
+  for (const it of items) {
+    if (it.text) lines.push(`Text: ${it.text}`);
+    const r = it.result || it;
+    if (r.ms !== undefined) lines.push(`Latency: ${r.ms.toFixed(1)}ms`);
+    const answers = r.answers || {};
+    if (Object.keys(answers).length > 0) {
+      lines.push('');
+      for (const [q, a] of Object.entries(answers)) {
+        const aObj = a as any;
+        if (aObj.p !== undefined) {
+          const over = aObj.p >= threshold ? ' [OVER THRESHOLD]' : '';
+          lines.push(`  ${q}: P=${aObj.p.toFixed(4)}  conf=${(aObj.conf ?? 'n/a').toString()}${over}`);
+        } else if (aObj.score !== undefined) {
+          lines.push(`  ${q}: score=${aObj.score.toFixed(3)}  conf=${(aObj.conf ?? 'n/a').toString()}`);
+        } else if (aObj.choice !== undefined) {
+          lines.push(`  ${q}: choice="${aObj.choice}"  conf=${(aObj.conf ?? 'n/a').toString()}`);
+        }
+      }
+    }
+  }
+
+  lines.push('');
+  lines.push('Note: Laya 零样本不可直接投产。harm_severity 置信度低，仅供参考。');
+  return lines.join('\n');
+}
 
 // ── Helper ──
 function formatScanResult(raw: any) {
