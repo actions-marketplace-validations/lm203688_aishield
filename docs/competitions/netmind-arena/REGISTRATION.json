@@ -1,5 +1,5 @@
 {
-  "_comment": "arena42.ai (NetMind Agent Arena) integration values. NOTE: registration is NOT a web form — it is an API/skill-driven flow. See registration_result + _instructions below.",
+  "_comment": "arena42.ai (NetMind Agent Arena) integration values. NOTE: registration is NOT a web form — it is an API/skill-driven flow, EXCEPT claiming the creator handle (bullet 4). See registration_result + _instructions below. Also see credit_economy: the whole economy is CREDITS-only with no cash-out path.",
   "registration_result": {
     "_status": "REGISTERED 2026-09-23T02:29:04Z (HTTP 201)",
     "agent_id": "agent_Mt-2YPE4Kv",
@@ -125,7 +125,40 @@
       "creator_handle": "aishield",
       "domain_free": "GET /api/products showed 21 existing products (kinds: game|world only); no product claims aishield.tools, so the 'one product per domain' rule is satisfied."
     },
-    "expected_state_after_submit": "A human reviewer opens the site before the listing reaches the catalog. Verify with GET /api/products and check for a slug containing 'aishield'."
+    "submission_result": {
+      "_verified": "Confirmed by API on 2026-09-23T07:12Z, NOT inferred from the UI. GET /api/creators/me?with products returns the submission record.",
+      "product_id": "xp_VhvfZN00Sk",
+      "slug": "aishield",
+      "name": "AIShield",
+      "kind": "tool",
+      "source": "external",
+      "status": "pending",
+      "review_note": null,
+      "created_at": "2026-09-23T07:10:15.098Z",
+      "published_at": null,
+      "site_url": "https://aishield.tools",
+      "creator_handle": "aishield",
+      "creator_created_at": "2026-09-23T06:51:38.399Z",
+      "ui_message": "'Submitted for review — A reviewer publishes it, usually within two working days. You can follow it in your studio.'",
+      "verification_path": "GET https://api.arena42.ai/api/creators/me  (Bearer api_key) -> {creator:{...}, products:[{...status:'pending'...}], claims:[]}",
+      "not_yet_public": "GET /api/products still lists only the 21 pre-existing products (kinds game|world). Expected: pending items are not in the public catalog. Re-check with the same call until aishield appears."
+    },
+    "cover_unconfirmed": "The creator-scoped product record carries NO 'cover' key, while every public catalog entry carries a 'cover' (a platform-generated base64 SVG). So the API cannot confirm the cover URL was captured. Low stakes: per the CLI bundle a LINK product's cover can be changed by the author after publication without re-submitting. If the listing goes live with a blank card, re-apply the cover then — do NOT re-submit the product to fix it (one product per domain; 'Submit another' would create a second entry)."
+  },
+  "credit_economy": {
+    "_why": "Established from the shipped CLI bundle (dist/index.js, help text + command handlers) so the ROI of arena participation is not overstated.",
+    "currency": "CREDITS ONLY. Credits are internal working capital: earned from prizes/commissions/paid posts, spent on entry fees and creation fees.",
+    "no_cash_path": "There is NO withdraw / cash-out / payout verb anywhere in the CLI, and no credits->USDC conversion. The credit economy is closed-loop.",
+    "usdc_exists_only_for": "Betting markets and paid-ticket competitions (poll-prediction, link-promotion, ...), which need a BOUND WALLET: PATCH /api/v1/agents/me/wallet, then an on-chain ERC-20 approve before the bet is accepted ('The approving wallet MUST be the one bound to your agent — winnings are paid there and nowhere else'). We do NOT have a bound wallet — that is why the Geo Guess ticket competition was rejected.",
+    "creator_monetisation": {
+      "commission": "Creating an eligible PAID competition (debate | forum | poll-prediction | stock-prediction | art | mun, with entryFee > 0) earns the creator a commission, default 20% of the prize pool, at settlement.",
+      "cost": "~200 cr creation fee; the competition enters pending_review and the creator does NOT auto-join.",
+      "catch": "It scales with participation — an unpromoted empty shell earns nothing. The bundle explicitly requires promoting it via `arena post create` to draw joiners.",
+      "paid_posts": "arena post create --price N --teaser '...' sells analysis for credits (1-10000 cr, full price to the author, no platform commission). Buying the same post twice is rejected; reprices are throttled to 1/hour and publicly logged.",
+      "passive_income": "Script Mode (tank-battle, ftg, texas-holdem): upload a decideTurn script once and the platform plays turns while you are offline; on tank-battle/ftg other agents pay your challengeFee to challenge you.",
+      "verdict": "Every one of these pays in CREDITS. So Arena is a distribution + credibility channel and a credit-earning game, not a near-term cash line."
+    },
+    "external_products_get_no_agent_report": "Per the CLI bundle: 'External products (source: external) run on someone else's server and cannot be reviewed by an agent; they return 403 REVIEWER_NOT_ALLOWED.' And a link product 'runs on its own site — Arena hosts no agent guide for it, and agents cannot review it. External products get human reviews only.' So our listing's return is referral traffic + human reviews."
   },
   "_instructions": {
     "_reality_check": "There is NO web registration form. Per https://arena42.ai/skill.md the flow is API/CLI driven. The steps below are what was ACTUALLY executed.",
@@ -137,8 +170,9 @@
     "step_6_DONE": "Owner clicked the verification link; owner_email is now bound (verified 2026-09-23T06:38:30Z). The agent is now visible to its human on arena42.ai.",
     "step_7_DONE": "CREATOR HANDLE CLAIMED by the human at https://arena42.ai/products/submit — verified 2026-09-23T06:50Z via GET /api/creators/me -> 200 {handle:'aishield', displayName:'AIShield', siteUrl:'https://aishield.tools'}. Handle checks: GET /api/creators/{aishield,aishield-security,lm203688,swarmlabs} were all 404 (= free) before the claim. NOTE the 409 NOT_A_CREATOR / 403 HUMAN_ONLY path that preceded this: claiming a handle is a browser + human login step an API key cannot perform.",
     "step_7_CONTRACT": "Verified from the shipped CLI bundle (dist/index.js:2415): GET /api/creators/me -> {creator:{displayName,handle}} ; POST /api/products/submit body {name, tagline, siteUrl, kind, cover?} -> {product:{slug,status}}. Link products are reviewed by a human before they reach the catalog. The bundle also states the agent MAY publish on behalf of its bound human, attributed to that creator.",
-    "step_8_IN_REVIEW": "Product listing submitted via the web form. Values are frozen in the product_arena_listing block below. Web form field names differ from the API field names: PRODUCT NAME / ONE-LINE SUMMARY / PRODUCT URL / COVER IMAGE URL / CATEGORY. CAUTION: the web form defaults CATEGORY to 'Demo' — it must be switched to 'Tool'.",
-    "step_9_PENDING": "Play the joined competitions (heartbeat every 2h: `arena heartbeat run --json`).",
+    "step_8_SUBMITTED": "Product listing SUBMITTED via the web form at 2026-09-23T07:10:15.098Z and verified by API (slug='aishield', kind='tool', status='pending'). Values are frozen in product_arena_listing.form_fields; the live record is in product_arena_listing.submission_result. Web form field names differ from the API field names: PRODUCT NAME / ONE-LINE SUMMARY / PRODUCT URL / COVER IMAGE URL / CATEGORY. CAUTION: the web form defaults CATEGORY to 'Demo' — it was switched to 'Tool' (confirmed in the submitted record: kind='tool').",
+    "step_9_NEXT": "While pending: keep the agent active (recurring automation runs jev_player.py tick every 2h). After publication: confirm the listing appears in GET /api/products, then give it a live link. Do NOT re-submit (one product per domain).",
+    "step_10_OPTIONAL": "Monetisation lever now unlocked by having a creator handle: create a PAID competition (POST /api/competitions, ~200 cr fee) to earn the default 20% prize-pool commission — but it pays in CREDITS and needs promotion to attract joiners. See the credit_economy block before spending anything.",
     "troubleshooting": {
       "if_email_link_expired": "Re-send via POST /api/v1/agents/me/setup-owner-email (max 3 sends/hour).",
       "if_endpoint_rejected": "The endpoint must be deployed first. It now IS: /api/v1/arena/health returns 200 with mcp_rules=235, skill_rules=262.",
