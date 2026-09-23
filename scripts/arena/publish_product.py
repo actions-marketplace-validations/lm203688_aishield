@@ -22,15 +22,19 @@ Usage:
 """
 import json
 import os
+import subprocess
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import arena_client as ac  # noqa: E402
 
 NAME = "AIShield"
-TAGLINE = "Security scanner for MCP servers and Agent Skills -- never executes what it scans."
+TAGLINE = "Agent-native security scanner for MCP servers and Agent Skills. Never executes what it scans."
 SITE_URL = "https://aishield.tools"
-KIND = "tool"  # tool | demo | game
+KIND = "tool"  # tool | demo | game  -- the web form pre-selects "demo"; that is wrong for us
+COVER = "https://cdn.jsdelivr.net/gh/lm203688/aishield@main/docs/assets/aishield-cover.png"
+# COVER is optional in the API. It is only sent when the URL is actually reachable,
+# so a broken image never blocks the listing. Regenerate with scripts/arena/make_cover.py.
 
 
 def opt(args, name, default):
@@ -41,6 +45,35 @@ def opt(args, name, default):
     return default
 
 
+def cover_reachable(url, timeout=30):
+    """Check a cover URL. Returns True / False / None.
+
+    True  -- HTTP 200 and an image/* content type: safe to publish.
+    False -- a REAL negative verdict (HTTP error, or not an image).
+    None  -- INCONCLUSIVE: the request never completed at the transport layer.
+
+    The three-way result matters. This machine sits behind a TLS-intercepting
+    proxy: `curl --ssl-no-revoke --tlsv1.3` reaches jsDelivr, but python-urllib's
+    handshake times out (verified: URLError handshake timeout, while curl returned
+    200 image/png for the same URL). Treating that timeout as "cover is broken"
+    would silently drop a perfectly good image -- i.e. the check would be measuring
+    this laptop, not the URL.
+    """
+    cmd = ["curl", "-sSL", "--ssl-no-revoke", "--tlsv1.3",
+           "-o", os.devnull, "-w", "%{http_code} %{content_type}", url]
+    try:
+        p = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+    except Exception:  # noqa: BLE001
+        return None
+    parts = (p.stdout or "").strip().split()
+    if len(parts) != 2 or not parts[0].isdigit() or parts[0] == "000":
+        return None                      # transport-level, not a verdict
+    code, ctype = int(parts[0]), parts[1]
+    if code != 200:
+        return False
+    return ctype.startswith("image/")
+
+
 def main():
     args = sys.argv[1:]
     do_submit = "--submit" in args
@@ -48,6 +81,7 @@ def main():
     tagline = opt(args, "--tagline", TAGLINE)
     site_url = opt(args, "--url", SITE_URL)
     kind = opt(args, "--kind", KIND)
+    cover = opt(args, "--cover", COVER)
 
     creds = ac.load_creds()
     token = creds["api_key"]
@@ -79,6 +113,21 @@ def main():
     print("    publishing as %s (@%s)" % (creator.get("displayName"), creator.get("handle")))
 
     payload = {"name": name, "tagline": tagline, "siteUrl": site_url, "kind": kind}
+    if cover:
+        # The cover is optional; the listing is not. Never let it block publication.
+        verdict = cover_reachable(cover)
+        if verdict is True:
+            payload["cover"] = cover
+            print("[3a] cover verified: HTTP 200 image/*")
+        elif verdict is False:
+            print("[3a] WARN cover returned a real negative verdict -- omitting it.")
+            print("     ", cover)
+        else:
+            # Inconclusive on this machine (TLS-intercepting proxy): keep the cover,
+            # but say so instead of pretending it was verified.
+            payload["cover"] = cover
+            print("[3a] WARN cover reachability INCONCLUSIVE from here (transport error).")
+            print("      Including it anyway; verify in a browser:", cover)
     print("[3] payload =", json.dumps(payload, ensure_ascii=False))
     if not do_submit:
         print("    DRY RUN -- re-run with --submit to publish.")
