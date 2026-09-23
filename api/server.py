@@ -580,7 +580,7 @@ class AIShieldHandler(BaseHTTPRequestHandler):
             else:
                 # Fallback: inline server card for deployments without the static file
                 json_data = json.dumps({
-                    "serverInfo": {"name": "AIShield", "version": "4.3.0",
+                    "serverInfo": {"name": "AIShield", "version": "4.4.0",
                         "description": "AI Agent Security Shield — OWASP MCP Top 10 aligned security scanning. 235 rules covering prompt injection, zero-width characters, Rug Pull, permission audit, and dependency monitoring."},
                     "url": "https://aishield.tools/mcp",
                     "provider": {"name": "AIShield", "url": "https://github.com/lm203688/aishield"},
