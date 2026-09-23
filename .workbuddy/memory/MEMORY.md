@@ -31,6 +31,17 @@ Agent 原生 AI 工具安全扫描器（MCP/skill/GPTs/prompt），对齐 OWASP 
 
 ## 架构方向：promote 门控 → verifier-based（2026-09-21 立项，未落地）
 静态规则表 → 候选经独立 verifier 跑真实环境、通过才沉淀（Mano-P 2.0 实证 verifier 优于规则表）。
+**2026-09-23 反证补充**：拿 System One 决策模型（TypeSafe Jev）当 verifier 试过一次，结论是
+**一个定型 head 只能裁决一个同构问题，不能统一裁决异质规则族**（实测 6/6 漏判全是"非指令"类
+告警：凭证泄露/护栏自改，被拿 `live_instruction` 当通用闸门误杀）。做 verifier 必须**按规则族配问题**。
+详见 `docs/harness-measurement/2026-09-23-typesafe-jev-citation-adjudication.md`。
+
+## 外部服务：TypeSafe Jev（System One 决策模型，2026-09-23 起 2 天免费）
+`POST https://api.typesafe.ai/v1/systemone`，`Bearer` 密钥存 `~/.config/typesafe/credentials.json`（仓外）。
+`choice`≤255 选项 / `score`**≤10 等级（11 直接 400）** / `noul`=P(true)。$42/十亿输入 token，输出免费。
+**两个硬坑**：① curl 打不通该域，必须用 Python urllib；② 请求体含**反引号包裹的 `curl`/`wget` + URL**
+会被边缘 **Cloudflare 403**（HTML 质询页，非 JSON 错），100% 可复现——即最典型的 agent 供应链攻击
+载荷发不进去。客户端 `scripts/typesafe/jev_client.py` 已内置等级守卫与失败分类。
 
 ## 竞争者对位（Agent Infra）
 - **OpenSquilla**：开源 harness，最强对位。
