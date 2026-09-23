@@ -148,6 +148,36 @@
   "credit_economy": {
     "_why": "Established from the shipped CLI bundle (dist/index.js, help text + command handlers) so the ROI of arena participation is not overstated.",
     "currency": "CREDITS ONLY. Credits are internal working capital: earned from prizes/commissions/paid posts, spent on entry fees and creation fees.",
+    "roi_probe_2026-09-23": {
+      "_how": "Live first-party probe against api.arena42.ai (Python urllib; curl returns 000 from this machine). Written down so the two optional levers are never re-litigated from memory.",
+      "no_cash_path_confirmed_by_probe": {
+        "404_on": ["/agents/me/withdraw", "/agents/me/payout", "/withdrawals", "/payouts", "/redeem", "/exchange", "/agents/me/earnings", "/wallet", "/credits"],
+        "200_on": ["/agents/me/credits -> {credits:200}", "/agents/me/transactions -> 1 row (welcome_bonus 200)", "/agents/me/rewards -> {rewards:[], total:0}"],
+        "reading": "Credits can be spent, never withdrawn. The only USDC that ever leaves the platform is a crypto-prize payout to a bound wallet."
+      },
+      "twitter_verification": {
+        "mechanism": "NOT OAuth and NOT an account binding. The HUMAN owner posts one tweet containing the agent's verification_code, then the agent POSTs the tweet URL to /api/v1/agents/me/verify. No X credentials are ever handed to the agent.",
+        "our_code": "ARENA-92F41430",
+        "our_state": "GET /api/v1/agents/me/verification -> {status:'none', twitter_handle:null}",
+        "reward": "+800 CR one-time, plus eligibility for twitter-promotion competitions, plus it UNBLOCKS deferred referral bonuses (skill.md: 'Bonuses are deferred until the referred agent completes Twitter verification').",
+        "adoption_signal": "All top leaderboard agents checked carry is_verified:false -> verification is rare in this ecosystem, so the 800 CR carries little signalling weight either.",
+        "blocker": "Owner has no X account. Registering one needs a phone number and an unfiltered route to x.com (both unavailable in mainland China), so the cost of the 800 CR exceeds its value. An agent cannot legitimately register an X account on a human's behalf: the account would be owned/held by the wrong party and it breaches X's one-account-per-person rule."
+      },
+      "wallet_binding": {
+        "mechanism": "PATCH /api/v1/agents/me/wallet {wallet_address} -> GET .../wallet/challenge (nonce, 15 min) -> POST .../wallet/verify with EITHER an EIP-191 signature OR a FluxA custodial 'vc' credential. FluxA is the official no-private-key route (npm i -g @fluxa-pay/fluxa-wallet).",
+        "our_state": "GET /api/v1/agents/me/wallet -> {wallet_address:null, wallet_verified:false}",
+        "what_it_unlocks": "Ticket competitions (ticket_price + ticket_chain, e.g. 1 USDC on Base) and USDC betting markets. A bound wallet is also the ONLY payout destination ('winnings are paid there and nowhere else'), i.e. binding is irreversible-in-effect.",
+        "actual_prize_size": "Of 80 joinable competitions, only ~10 carry any crypto pool at all, and every one of them is exactly 1.00000000 USDC, all in coin/stock price-prediction or image-guess types. These are zero-sum parimutuel bets on random-walk outcomes: expected value is at best 0, negative after any rake.",
+        "cost_to_participate": "Bind wallet + acquire USDC + hold Base ETH for gas + sign a challenge, all from an unfiltered route that mainland China does not have.",
+        "verdict_on_binding": "Binding a wallet to chase 1 USDC pools is not worth it, and an agent MUST NOT generate-and-hold a private key for its human. Skip."
+      },
+      "zero_cost_levers_that_do_work": {
+        "manual_article_posts": "POST /api/v1/agents/me/posts (manual_article) is FREE and fans out to followers' inbox on the 'follow' channel. This is arena's only zero-cost distribution lever and the one real reason to keep the agent active.",
+        "free_competitions": "The flagship Weekly Credit League (Week 39) has entry_fee 0 and a 950-CR pool, as do ~10 other joinable games. They cost nothing and produce a public match record.",
+        "strategic_value": "The durable return is distribution + a verifiable public track record of the scanner running inside a third-party agent ecosystem (useful evidence for competition submissions). It is NOT credits, and certainly not USDC."
+      },
+      "bottom_line": "Both optional levers (bind X, bind wallet) are skipped as negative-ROI. Everything already achieved - agent registered, owner email bound, creator handle claimed, product submitted for review - required neither."
+    },
     "no_cash_path": "There is NO withdraw / cash-out / payout verb anywhere in the CLI, and no credits->USDC conversion. The credit economy is closed-loop.",
     "usdc_exists_only_for": "Betting markets and paid-ticket competitions (poll-prediction, link-promotion, ...), which need a BOUND WALLET: PATCH /api/v1/agents/me/wallet, then an on-chain ERC-20 approve before the bet is accepted ('The approving wallet MUST be the one bound to your agent — winnings are paid there and nowhere else'). We do NOT have a bound wallet — that is why the Geo Guess ticket competition was rejected.",
     "creator_monetisation": {
