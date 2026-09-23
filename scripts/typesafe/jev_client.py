@@ -57,8 +57,28 @@ def save_key(key):
     return CRED_PATH
 
 
+def validate_questions(questions):
+    """Enforce the two hard rubric limits documented for /v1/systemone.
+
+    Score: at most 10 levels (11 returns HTTP 400
+           "Too many score levels. Must have at most 10 levels.").
+    Choice: at most 255 options.
+    """
+    for name, q in (questions or {}).items():
+        t = (q or {}).get("type")
+        criteria = (q or {}).get("criteria")
+        if t == "score" and isinstance(criteria, list) and len(criteria) > 10:
+            raise ValueError(
+                "question %r: Score accepts at most 10 levels, got %d. "
+                "Use Choice (<=255 options) if you need more stops." % (name, len(criteria)))
+        if t == "choice" and isinstance(criteria, dict) and len(criteria) > 255:
+            raise ValueError("question %r: Choice accepts at most 255 options, got %d"
+                             % (name, len(criteria)))
+
+
 def call(state, questions, model=MODEL, key=None, timeout=90, retries=3):
     """Return (http_status, parsed_json, elapsed_seconds)."""
+    validate_questions(questions)
     key = key or load_key()
     body = json.dumps({"state": state, "model": model, "questions": questions}).encode("utf-8")
     last = (0, {"raw": "no attempt"}, 0.0)
