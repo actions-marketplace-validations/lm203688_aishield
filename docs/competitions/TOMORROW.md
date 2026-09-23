@@ -40,13 +40,21 @@ python scripts/arena/morning_check.py
 预期输出（部署前）：
 ```
 [1] GitHub commits — ✓
+    ✓ feat(arena): api/arena_core.py [present_on_main]
+    ✓ TOMORROW.md: docs/competitions/TOMORROW.md [present_on_main]
+    ✓ foresight: docs/competitions/foresight-2026/APPLICATION.md [present_on_main]
 [2] Live API — ✓
+    version=4.3.0  rules=235
 [3] Arena endpoint — ⏳ not_deployed  ← 需要第 1 步部署
 [4] External URLs
     ✓ arena42_ai: HTTP 200
     ✓ foresight: HTTP 200
     ✗ platform_claude: HTTP 307       ← 大陆网络限制，需海外出口
 ```
+
+> 注：上面 `[1]` 的校验方式已改为「按文件是否存在于 main 顶端」判断（2026-09-23
+> 修正）—— 本仓库每日自动提交量大，旧的「扫最近 15 条 commit 消息」会把真实
+> 提交挤出窗口、误报 MISSING。已推 `276f52fe`。
 
 **如果一键跑不通**，手动检查：
 
