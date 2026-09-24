@@ -78,7 +78,7 @@ POST https://aishield.tools/api/v1/personal-agents/tickets/consume
 
 **OpenAPI 3.1**：见附件 `openapi.yaml`
 
-**MCP 备选**：本 connector 同时作为 MCP 工具发布（8 个 `aishield_personal_*` 工具，npm `aishield-mcp-server` v4.8.0）—— 未来 Meta 若支持 MCP，零迁移接入。
+**MCP 备选**：本 connector 同时作为 MCP 工具发布（8 个 `aishield_personal_*` 工具，npm `aishield-mcp-server` v4.8.1）—— 未来 Meta 若支持 MCP，零迁移接入。
 
 ### Step 3: Security & compliance statement
 
@@ -121,7 +121,7 @@ POST https://aishield.tools/api/v1/personal-agents/tickets/consume
 ## 若 Meta 拒绝或不通过
 
 **降级方案 A：MCP 通道**
-- 发布 `aishield-mcp-server@4.8.0` 到 npm（已就绪）
+- 发布 `aishield-mcp-server@4.8.1` 到 npm（已就绪）
 - Muse 一旦支持 MCP 即零迁移接入（Meta 尚未宣布 MCP 支持，但生态必然跟进）
 
 **降级方案 B：Web Bot Auth 侧边车**

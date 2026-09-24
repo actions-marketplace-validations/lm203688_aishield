@@ -212,11 +212,24 @@ def create_personal_did(user_id, display_name=None, email=None):
 
 
 def register_agent_instance(user_id, agent_name, provider, capabilities=None,
-                            platform_hint=None):
-    """在用户 DID 下登记一个 agent 实例（如 Alice 的 Muse for iPhone）。"""
+                            platform_hint=None, platform=None, platform_tier=None):
+    """在用户 DID 下登记一个 agent 实例（如 Alice 的 Muse for iPhone）。
+
+    platform (v4.8.1+): 结构化平台标识，与 eco.platform_registry 对齐。
+        可以是：
+          - str 形式（platform_id），如 "meta-muse" / "xai-grok-bot" / "bytedance-coze"
+          - dict 形式，至少含 {"id": ..., "capabilities_needed": [...]}
+        注册时会对 platform_id 做存在性检查（软失败：未知平台仍允许登记，
+        但在返回值上标注 platform_known=False，便于上游告警）。
+    platform_tier: 可选，标注该实例在此平台上的订阅等级（如 "free" /
+        "super_grok_heavy" / "plus"），用于治理时的差异化策略。
+    platform_hint: 保留旧字段做向后兼容，新代码应使用 platform。
+    """
     user_id = _norm_user(user_id)
     if not agent_name or not provider:
         raise ValueError("agent_name 与 provider 均必填")
+    # 结构化平台字段
+    platform_rec = _resolve_platform_ref(platform, platform_hint)
     with _lock:
         data = _load()
         if user_id not in data["users"]:
@@ -230,7 +243,9 @@ def register_agent_instance(user_id, agent_name, provider, capabilities=None,
             "parent_did": did,
             "agent_name": agent_name,
             "provider": provider,
-            "platform_hint": platform_hint,  # e.g. "muse-ios", "chatgpt-web"
+            "platform_hint": platform_hint,  # 向后兼容
+            "platform": platform_rec,        # v4.8.1+ 结构化
+            "platform_tier": platform_tier,
             "capabilities": capabilities or [],
             "status": "active",
             "created_at": _now_iso(),
@@ -238,6 +253,98 @@ def register_agent_instance(user_id, agent_name, provider, capabilities=None,
         data["agent_instances"].setdefault(user_id, {})[inst_id] = rec
         _save(data)
         return dict(rec)
+
+
+def _resolve_platform_ref(platform, platform_hint=None):
+    """把 platform 参数（str/dict/None）解析成统一 dict。
+
+    返回形如：
+        {"id": "meta-muse", "known": True, "vendor": "Meta",
+         "family": "consumer", "cny_accessible": "verified_blocked",
+         "access_paths": ["connector_official", "mcp"],
+         "capabilities_needed": [], "hint": "muse-ios"}
+    """
+    if not platform:
+        # 仅用 hint，不查表
+        return {"id": None, "known": False, "hint": platform_hint,
+                "vendor": None, "family": None,
+                "cny_accessible": None, "access_paths": []}
+    # dict 输入
+    if isinstance(platform, dict):
+        pid = (platform.get("id") or "").strip().lower() or None
+        rec = dict(platform)
+        rec["id"] = pid
+    elif isinstance(platform, str):
+        pid = platform.strip().lower() or None
+        rec = {"id": pid, "capabilities_needed": []}
+    else:
+        pid = None
+        rec = {"id": None, "capabilities_needed": []}
+
+    # 查表补齐
+    known = False
+    if pid:
+        try:
+            from eco import platform_registry as pr
+        except Exception:
+            pr = None
+        if pr is not None:
+            p = pr.get_platform(pid)
+            if p:
+                known = True
+                rec["name"] = p.get("name")
+                rec["vendor"] = p.get("vendor")
+                rec["family"] = p.get("family")
+                rec["cny_accessible"] = p.get("cny_accessible")
+                rec["access_paths"] = p.get("access_paths", [])
+                # 该平台内置治理能力（我们不必再补）
+                rec["platform_governance"] = p.get("governance", [])
+                # 该平台缺失、需要 AIShield 补的能力
+                rec["governance_gaps"] = p.get("gaps", [])
+            else:
+                known = False
+                rec["reason_unknown"] = "platform_id not in registry"
+    rec["known"] = known
+    rec["hint"] = platform_hint
+    return rec
+
+
+def get_platform_for_instance(user_id, instance_id):
+    """反查某 agent 实例注册时的平台元信息（含治理缺口）。"""
+    user_id = _norm_user(user_id)
+    with _lock:
+        data = _load()
+        inst = data["agent_instances"].get(user_id, {}).get(instance_id)
+        if not inst:
+            return {"found": False, "error": "instance 不存在"}
+        return {"found": True, "instance_id": instance_id,
+                "agent_name": inst.get("agent_name"),
+                "provider": inst.get("provider"),
+                "platform": inst.get("platform"),
+                "platform_tier": inst.get("platform_tier"),
+                "platform_hint": inst.get("platform_hint"),
+                "status": inst.get("status")}
+
+
+def list_instances_by_platform(user_id, platform_id=None,
+                                include_revoked=False):
+    """列出某用户的所有实例，可过滤 platform。"""
+    user_id = _norm_user(user_id)
+    with _lock:
+        data = _load()
+        insts = data["agent_instances"].get(user_id, {})
+    out = []
+    for iid, inst in insts.items():
+        if not include_revoked and inst.get("status") != "active":
+            continue
+        pid = ((inst.get("platform") or {}).get("id") or "")
+        if platform_id and pid != platform_id.lower():
+            continue
+        out.append({"instance_id": iid, "agent_name": inst.get("agent_name"),
+                    "provider": inst.get("provider"),
+                    "platform": inst.get("platform"),
+                    "status": inst.get("status")})
+    return out
 
 
 def revoke_agent_instance(user_id, instance_id, reason=""):

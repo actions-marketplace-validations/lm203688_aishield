@@ -154,6 +154,23 @@ HMAC-SHA256 chained audit + OCSF 1.1 event classes + STIX 2.1 observables + ATT&
 | `aishield_personal_dispute_file` | File a dispute against a recorded action ("I didn't authorize this"). |
 | `aishield_personal_connector_vet` | Independent second-opinion connector vetting (Meta review aside): dangerous scopes, piped-shell installs, plaintext tokens, quote-first, permission-description consistency. |
 
+### Platform Registry (v4.8.1, 2026-09-24)
+
+平台中立接入层：40+ 主流个人 Agent 平台的接入矩阵与治理缺口映射。
+帮助使用者在 Muse / Grok Bot / ChatGPT Agent / Coze / DeepSeek 等
+平台之间做选择，或让平台方（如 Muse 开发者）快速了解 AIShield 能补什么。
+
+`aishield_personal_instance_register` 从 v4.8.1 起接受 `platform` 结构化字段
+（如 `"meta-muse"` / `"xai-grok-bot"` / `"bytedance-coze"`），实例注册时自动
+附带平台治理缺口。
+
+| Tool | Description |
+|------|-------------|
+| `aishield_platform_catalog` | List the platform registry (40+ entries). Filter by `family` / `cny_accessible` / `access_path`. |
+| `aishield_platform_detail` | Get full details for one platform ID (governance covered / gaps / AIShield provisions). |
+| `aishield_platform_recommend` | Score-ranked recommendation given user_country, capabilities_needed, budget, developer_level. |
+| `aishield_platform_gap_matrix` | Cross-platform governance gap matrix — one dict per platform with covered/gaps/provision_map. |
+
 ### Ship Gate (10-state release lifecycle)
 
 | Tool | Description |

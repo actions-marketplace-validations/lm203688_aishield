@@ -1,6 +1,6 @@
 # 个人 Agent 治理层设计文档（Personal Agent Governance）
 
-**版本**：v4.8.0
+**版本**：v4.8.1
 **日期**：2026-09-24
 **触发事件**：Meta Muse 上线 13 天 250 万下载，2026-09-18 开放 Connector Platform（muse.ai/platform）
 
@@ -157,7 +157,7 @@ tests/
 
 ## 六、演进路线
 
-**Phase 1（v4.8.0，本文档）**：核心 + Muse 提交包 + 8 MCP 工具
+**Phase 1（v4.8.0）+ Phase 1.1（v4.8.1，本文档）**：核心 + Muse/Grok Bot/Coze 提交包 + 12 MCP 工具 + 平台注册表 40+
 **Phase 2（v4.9.0）**：
 - SDK：Python / TypeScript 客户端
 - Web 前端：个人 Agent 治理仪表盘

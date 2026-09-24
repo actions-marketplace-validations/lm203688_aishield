@@ -193,6 +193,8 @@ def main():
         # 2026-09-24 v4.8.0：个人 Agent 治理层（PAI DID + 预算守护 + 行动溯源 + Connector 独立审核）
         # 触发：Meta Muse 上线 13 天 250 万下载，2026-09-18 开放 connector platform
         'tests.test_personal_agent',
+        # 2026-09-24 v4.8.1：平台中立接入层（40+ 平台注册表 + 治理缺口矩阵 + 推荐引擎）
+        'tests.test_platform_registry',
         'tests.test_arena_join_gate',
     ]
 

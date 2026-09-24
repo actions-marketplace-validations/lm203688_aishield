@@ -19,7 +19,7 @@ const stdio_js_1 = require("@modelcontextprotocol/sdk/server/stdio.js");
 const zod_1 = require("zod");
 // 版本单一真源。由 scripts/sync_version.py 统一维护，CI 的版本一致性门禁会校验它，
 // 因此这里不再手写数字 —— 硬编码的 '3.0.0' 曾与已发布的 4.2.x 差了一个大版本。
-const SERVER_VERSION = '4.8.0';
+const SERVER_VERSION = '4.8.1';
 const API_BASE = process.env.AISHIELD_API_URL || 'https://api.aishield.tools';
 const API_KEY = process.env.AISHIELD_API_KEY || '';
 // ── Laya 本地决策模型集成 (可选) ──
@@ -1014,13 +1014,20 @@ DID 遵循 did:aishield:pa:<hash> 命名约定，服务端为每次身份创建�
 server.tool('aishield_personal_instance_register', `在个人 DID 下登记一个 Agent 实例（如 Alice 的 Muse on iOS）。
 
 每个实例独立追踪，可独立吊销。当用户想停用某个 Agent 时，吊销它对应的实例
-即可让后续所有 Capability Ticket 失效。`, {
+即可让后续所有 Capability Ticket 失效。
+
+v4.8.1+ 支持 platform 结构化字段（对齐 eco/platform_registry，40+ 平台）：
+  - 传入 platform="meta-muse" 会自动附带平台治理缺口
+  - 传入 platform 但未知时，platform_known=false，不影响实例创建
+  - platform_hint 保留旧字段做向后兼容`, {
     user_id: zod_1.z.string().describe('自然人标识'),
     agent_name: zod_1.z.string().describe('Agent 名称，如 Muse / ChatGPT-Agent'),
     provider: zod_1.z.string().describe('提供方，如 Meta / OpenAI / Anthropic / self-built'),
-    platform_hint: zod_1.z.string().optional().describe('如 muse-ios / chatgpt-web'),
+    platform: zod_1.z.union([zod_1.z.string(), zod_1.z.record(zod_1.z.any())]).optional().describe('平台标识，如 "meta-muse" / "xai-grok-bot" / "bytedance-coze"（可选）'),
+    platform_tier: zod_1.z.string().optional().describe('平台订阅等级，如 free / super_grok_heavy / plus'),
+    platform_hint: zod_1.z.string().optional().describe('向后兼容字段'),
     capabilities: zod_1.z.array(zod_1.z.string()).optional().describe('Agent 声明的能力'),
-}, ({ user_id, agent_name, provider, platform_hint, capabilities }) => callEco(`/api/v1/personal-agents/users/${encodeURIComponent(user_id)}/agent-instances`, { agent_name, provider, platform_hint, capabilities }));
+}, ({ user_id, agent_name, provider, platform, platform_tier, platform_hint, capabilities }) => callEco(`/api/v1/personal-agents/users/${encodeURIComponent(user_id)}/agent-instances`, { agent_name, provider, platform, platform_tier, platform_hint, capabilities }));
 server.tool('aishield_personal_ticket_create', `为用户下的某个 Agent 实例签发 Capability Ticket（授权票据）。
 
 Ticket 是"用户对某 Agent 的一次授权"，带 scope（金额上限 / 域名白名单 /
@@ -1093,6 +1100,67 @@ server.tool('aishield_personal_connector_vet', `对一个 Connector manifest 做
     user_id: zod_1.z.string().describe('发起审核的用户标识'),
     connector: zod_1.z.record(zod_1.z.any()).describe('Connector manifest：{name, publisher, url, capabilities, scopes, install_commands, signature, expires_at, requires_payments}'),
 }, ({ user_id, connector }) => callEco(`/api/v1/personal-agents/users/${encodeURIComponent(user_id)}/connectors/vet`, { connector }));
+// ══════════════════════════════════════════════════════════════
+// Platform Registry Tools (v4.8.1, 2026-09-24)
+// 平台中立接入层：40+ 主流个人 Agent 平台的接入矩阵
+// 帮助使用者选择接入平台、了解治理缺口、注册新平台
+// ══════════════════════════════════════════════════════════════
+server.tool('aishield_platform_catalog', `列出 AIShield 支持的个人 Agent 平台目录（40+ 平台，覆盖海外 + 大陆）。
+
+包含 Meta Muse / Grok Bot / ChatGPT Agent / OpenAI Operator / Claude /
+Gemini / 字节 Coze / 豆包 / 元宝 / 文心 / 通义 / Kimi / DeepSeek / GLM 等。
+
+支持按 family（consumer/developer/enterprise/infrastructure）、
+cny_accessible（reachable/verified_blocked/regional_only）、
+access_path（mcp/openai_compat/connector_official/native_sdk/browser_agent）过滤。`, {
+    family: zod_1.z.enum(['consumer', 'developer', 'enterprise', 'infrastructure']).optional()
+        .describe('平台家族过滤'),
+    cny_accessible: zod_1.z.enum(['reachable', 'verified_blocked', 'regional_only']).optional()
+        .describe('大陆可达性过滤（大陆用户重点看 reachable）'),
+    access_path: zod_1.z.enum(['mcp', 'openai_compat', 'connector_official', 'native_sdk', 'browser_agent']).optional()
+        .describe('按接入路径过滤（推荐 mcp）'),
+    include_gaps: zod_1.z.boolean().optional().describe('是否返回治理缺口详情（默认 false）'),
+}, ({ family, cny_accessible, access_path, include_gaps }) => {
+    const params = new URLSearchParams();
+    if (family)
+        params.set('family', family);
+    if (cny_accessible)
+        params.set('cny_accessible', cny_accessible);
+    if (access_path)
+        params.set('access_path', access_path);
+    if (include_gaps)
+        params.set('include_gaps', '1');
+    return callEcoGet(`/api/v1/platforms?${params.toString()}`);
+});
+server.tool('aishield_platform_recommend', `根据用户场景推荐接入平台（大陆优先，MCP 优先）。
+
+典型场景：
+  - 大陆用户 + 需要个人身份 → 推荐 bytedance-coze（唯一有 MCP 的国内平台）
+  - 海外用户 + 消费级 → 推荐 meta-muse / xai-grok-bot / openai-chatgpt-agent
+  - 开发者 + OpenAI 兼容 → 推荐 deepseek / moonshot-kimi / zhipu-glm 等
+
+返回 top 10 推荐，每个带 score + 推荐理由。`, {
+    user_country: zod_1.z.string().default('CN').describe('用户所在国家/地区，CN 时会过滤掉大陆不通的平台'),
+    capabilities_needed: zod_1.z.array(zod_1.z.string()).optional().describe('需要的治理能力，如 ["portable_personal_identity", "cumulative_budget_governance"]'),
+    budget: zod_1.z.enum(['free', 'paid']).optional().describe('预算偏好'),
+    developer_level: zod_1.z.enum(['beginner', 'intermediate', 'expert']).optional()
+        .describe('开发者水平（intermediate+ 时优先 developer family）'),
+    prefer_mcp: zod_1.z.boolean().optional().describe('优先 MCP 通道（默认 true）'),
+}, ({ user_country, capabilities_needed, budget, developer_level, prefer_mcp }) => callEco('/api/v1/platforms/recommend', {
+    user_country, capabilities_needed, budget, developer_level, prefer_mcp,
+}));
+server.tool('aishield_platform_detail', `查询单个平台的详细信息，包含内置治理能力、缺失的治理项、以及 AIShield 补齐映射。
+
+例：
+  - xai-grok-bot：xAI Grok Bot，SuperGrok 订阅，缺 portable_personal_identity 等
+  - bytedance-coze：字节 Coze，大陆可达，唯一有 MCP 支持
+  - meta-muse：Meta Muse，官方 connector 平台开放`, {
+    platform_id: zod_1.z.string().describe('平台 ID，如 meta-muse / xai-grok-bot / bytedance-coze'),
+}, ({ platform_id }) => callEcoGet(`/api/v1/platforms/${encodeURIComponent(platform_id)}`));
+server.tool('aishield_platform_gap_matrix', `返回平台治理缺口矩阵：每个平台内置了什么治理、缺什么、AIShield 用什么补。
+
+用于平台选型决策："我要选哪个平台，然后 AIShield 帮我补哪些缺口。"`
+    + ``, {}, () => callEcoGet('/api/v1/platforms/gap-matrix'));
 // ── Start ──
 async function main() {
     const transport = new stdio_js_1.StdioServerTransport();

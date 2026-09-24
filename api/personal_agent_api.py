@@ -118,6 +118,39 @@ def handle_get(path, query=""):
         except Exception as e:
             return _err(f"server error: {e}", 500)
 
+    # ── 平台注册表（v4.8.1+）──
+    if path.startswith("/api/v1/platforms"):
+        try:
+            from eco import platform_registry as pr
+        except Exception as e:
+            return _err(f"platform_registry 不可用: {e}", 500)
+
+        if path == "/api/v1/platforms":
+            plist = pr.list_platforms(
+                family=q.get("family"),
+                cny_accessible=q.get("cny_accessible"),
+                access_path=q.get("access_path"),
+                includes_gaps=q.get("include_gaps") == "1",
+            )
+            return _ok({"platforms": plist, "stats": pr.stats()})
+
+        if path == "/api/v1/platforms/stats":
+            return _ok(pr.stats())
+
+        if path == "/api/v1/platforms/gap-matrix":
+            return _ok({"matrix": pr.governance_gap_matrix()})
+
+        # /api/v1/platforms/{id}
+        parts = path.split("/")
+        if len(parts) == 5 and parts[1] == "api" and parts[2] == "v1" and parts[3] == "platforms":
+            pid = parts[4]
+            p = pr.get_platform(pid)
+            if not p:
+                return _err("platform 不存在", 404)
+            return _ok(p)
+
+        return _err("路径不匹配", 404)
+
     return _err("not found", 404)
 
 
@@ -156,6 +189,8 @@ def handle_post(path, data):
                     provider=data.get("provider"),
                     capabilities=data.get("capabilities"),
                     platform_hint=data.get("platform_hint"),
+                    platform=data.get("platform"),
+                    platform_tier=data.get("platform_tier"),
                 )
                 return _ok(inst, 201)
 
@@ -288,5 +323,38 @@ def handle_post(path, data):
             payload=data.get("payload") or {},
         )
         return _ok(r)
+
+    # ── 平台推荐 (v4.8.1+) ──
+    if path == "/api/v1/platforms/recommend":
+        try:
+            from eco import platform_registry as pr
+        except Exception as e:
+            return _err(f"platform_registry 不可用: {e}", 500)
+        recs = pr.recommend_platforms(
+            user_country=data.get("user_country", "CN"),
+            capabilities_needed=data.get("capabilities_needed"),
+            budget=data.get("budget", "free"),
+            developer_level=data.get("developer_level", "beginner"),
+            prefer_mcp=data.get("prefer_mcp", True),
+        )
+        return _ok({"recommendations": recs})
+
+    # ── 运行时注册平台 (v4.8.1+) ──
+    if path == "/api/v1/platforms/register":
+        try:
+            from eco import platform_registry as pr
+        except Exception as e:
+            return _err(f"platform_registry 不可用: {e}", 500)
+        pid = data.get("id") or data.get("platform_id")
+        if not pid:
+            return _err("id 必填", 400)
+        try:
+            r = pr.register_platform(pid, **{
+                k: v for k, v in data.items()
+                if k not in ("id", "platform_id")
+            })
+            return _ok(r, 201)
+        except ValueError as e:
+            return _err(str(e), 400)
 
     return _err("not found", 404)

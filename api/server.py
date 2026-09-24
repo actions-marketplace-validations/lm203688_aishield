@@ -423,8 +423,9 @@ class AIShieldHandler(BaseHTTPRequestHandler):
             _record_usage("ecosystem-api", self.client_address[0])
             return
 
-        # ── Personal Agent API (P2): 个人 Agent 治理层 ──
-        if path.startswith("/api/v1/personal-agents"):
+        # ── Personal Agent API (P2): 个人 Agent 治理层 + 平台注册表 ──
+        if (path.startswith("/api/v1/personal-agents")
+                or path.startswith("/api/v1/platforms")):
             try:
                 import personal_agent_api
                 payload, status = personal_agent_api.handle_get(path, parsed.query)
@@ -607,7 +608,7 @@ class AIShieldHandler(BaseHTTPRequestHandler):
             else:
                 # Fallback: inline server card for deployments without the static file
                 json_data = json.dumps({
-                    "serverInfo": {"name": "AIShield", "version": "4.8.0",
+                    "serverInfo": {"name": "AIShield", "version": "4.8.1",
                         "description": "AI Agent Security Shield — OWASP MCP Top 10 aligned security scanning. 235 rules covering prompt injection, zero-width characters, Rug Pull, permission audit, and dependency monitoring."},
                     "url": "https://aishield.tools/mcp",
                     "provider": {"name": "AIShield", "url": "https://github.com/lm203688/aishield"},
@@ -1346,8 +1347,9 @@ class AIShieldHandler(BaseHTTPRequestHandler):
             _record_usage("ecosystem-api", self.client_address[0])
             return
 
-        # ── Personal Agent API (P2): 个人 Agent 治理层 ──
-        if path.startswith("/api/v1/personal-agents"):
+        # ── Personal Agent API (P2): 个人 Agent 治理层 + 平台注册表 ──
+        if (path.startswith("/api/v1/personal-agents")
+                or path.startswith("/api/v1/platforms")):
             try:
                 body = self._read_body()
                 if body is None:
