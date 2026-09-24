@@ -187,6 +187,9 @@ def main():
         'tests.test_registry_supply_scan',
         # 2026-09-24 Agent 生态 5 支柱落地：specialist_registry / kyad_compat / ecosystem_api / ship_gate
         'tests.test_ecosystem_activation',
+        # 2026-09-24 R4-深化：Evidence Bundle 1.0 + Responsibility Chain v1.1 + ship_gate 10 态状态机
+        # 对标 GOAI 2026 Agent Infra 季军 CyberGuard（HMAC 链式审计 + OCSF/STIX/ATT&CK + 双轮独立复测）
+        'tests.test_evidence_bundle',
         'tests.test_arena_join_gate',
     ]
 

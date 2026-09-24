@@ -57,6 +57,21 @@ def _import_kyad():
     return kyad_compat
 
 
+def _import_evidence_bundle():
+    from eco import evidence_bundle
+    return evidence_bundle
+
+
+def _import_ship_gate():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        "ship_gate", os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                                  "scripts", "ship_gate.py"))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
 # ══════════════════════════════════════════════
 # 责任链：内存里的 chain 实例池（按 chain_id 隔离）
 # ══════════════════════════════════════════════
@@ -78,6 +93,29 @@ def _gen_chain_id() -> str:
     import hashlib
     import time
     return "chain-" + hashlib.sha256(f"{time.time_ns()}".encode()).hexdigest()[:12]
+
+
+# ══════════════════════════════════════════════
+# Evidence Bundle：内存里的 bundle 实例池（R4-深化）
+# ══════════════════════════════════════════════
+_bundles: dict = {}
+_bundles_lock = threading.RLock()
+
+
+def _get_bundle(run_id: str, hmac_secret: str | None = None):
+    eb = _import_evidence_bundle()
+    with _bundles_lock:
+        b = _bundles.get(run_id)
+        if b is None:
+            b = eb.EvidenceBundle(run_id=run_id, hmac_secret=hmac_secret)
+            _bundles[run_id] = b
+        return b
+
+
+def _gen_run_id() -> str:
+    import hashlib
+    import time
+    return "run-" + hashlib.sha256(f"{time.time_ns()}".encode()).hexdigest()[:12]
 
 
 # ══════════════════════════════════════════════
@@ -414,6 +452,35 @@ def handle_get(path: str, query: str = ""):
     if m:
         return _chain_view(m.group(1))
 
+    # ── Evidence Bundle（R4-深化）──
+    if path == "/api/v1/evidence/schemas":
+        eb = _import_evidence_bundle()
+        return {"schema": eb.SCHEMA_VERSION,
+                "ocsf_classes": eb.OCSF_CLASS_MAP,
+                "stix_observable_types": eb.STIX_OBSERVABLE_TYPES,
+                "attack_ttps": eb.ATTACK_TTP_MAP,
+                "states": eb.STATES,
+                "transitions": {k: sorted(v) for k, v in eb.TRANSITIONS.items()}}, 200
+
+    m = re.match(r"^/api/v1/evidence/([^/]+)/verify$", path)
+    if m:
+        run_id = m.group(1)
+        b = _get_bundle(run_id)
+        return {"run_id": run_id, "verification": b.verify()}, 200
+
+    m = re.match(r"^/api/v1/evidence/([^/]+)$", path)
+    if m:
+        run_id = m.group(1)
+        b = _get_bundle(run_id)
+        return b.export(), 200
+
+    # ── Ship Gate Lifecycle（R4-深化）──
+    if path == "/api/v1/ship-gate/states":
+        sg = _import_ship_gate()
+        return {"states": sg.STATE_DEFS,
+                "transitions": {k: sorted(v) for k, v in sg.STATE_TRANSITIONS.items()},
+                "schema": "ship-gate/1.0"}, 200
+
     # ── ERC-8004 查询 ──
     if path == "/api/v1/identity/wallets":
         return {"docs": "POST /api/v1/identity/erc8004/wrap to wrap wallet into DID"}, 200
@@ -554,6 +621,169 @@ def handle_post(path: str, data: dict):
     m = re.match(r"^/api/v1/chain/([^/]+)/append$", path)
     if m:
         return _chain_append(m.group(1), data)
+
+    # ── Evidence Bundle（R4-深化）──
+    if path == "/api/v1/evidence":
+        run_id = data.get("run_id") or _gen_run_id()
+        hmac_secret = data.get("hmac_secret")
+        title = data.get("title", "")
+        eb = _import_evidence_bundle()
+        b = eb.EvidenceBundle(run_id=run_id, hmac_secret=hmac_secret, title=title)
+        with _bundles_lock:
+            _bundles[run_id] = b
+        return {"run_id": run_id, "hmac": bool(b.hmac_key),
+                "created_at": b.created_at, "title": title}, 201
+
+    m = re.match(r"^/api/v1/evidence/([^/]+)/events$", path)
+    if m:
+        run_id = m.group(1)
+        b = _get_bundle(run_id)
+        try:
+            e = b.add_event(
+                event_type=data.get("event_type", "audit.record"),
+                agent_id=data.get("agent_id", "unknown"),
+                action=data.get("action", "record"),
+                payload=data.get("payload") or {},
+                activity_id=int(data.get("activity_id", 0)),
+                outcome=data.get("outcome", "successful"),
+                reason=data.get("reason", ""),
+                ttp=data.get("ttp"),
+            )
+            return {"event": e, "run_id": run_id, "verify": b.verify()}, 201
+        except ValueError as exc:
+            return {"error": str(exc), "run_id": run_id}, 400
+
+    m = re.match(r"^/api/v1/evidence/([^/]+)/proposals$", path)
+    if m:
+        run_id = m.group(1)
+        b = _get_bundle(run_id)
+        try:
+            prop = b.create_proposal(
+                agent_id=data.get("agent_id", "planner"),
+                action=data.get("action", ""),
+                target=data.get("target") or {},
+                parameters=data.get("parameters") or {},
+                rationale=data.get("rationale", ""),
+            )
+            return {"proposal": prop, "run_id": run_id, "verify": b.verify()}, 201
+        except ValueError as exc:
+            return {"error": str(exc), "run_id": run_id}, 400
+
+    m = re.match(r"^/api/v1/evidence/([^/]+)/proposals/([^/]+)/approve$", path)
+    if m:
+        run_id, prop_id = m.group(1), m.group(2)
+        b = _get_bundle(run_id)
+        try:
+            appr = b.approve_proposal(
+                proposal_id=prop_id,
+                approver_id=data.get("approver_id", "unknown"),
+                scope=data.get("scope", "task"),
+                expires_in=int(data.get("expires_in", 3600)),
+            )
+            return {"approval": appr, "run_id": run_id, "verify": b.verify()}, 201
+        except ValueError as exc:
+            return {"error": str(exc), "run_id": run_id}, 400
+
+    m = re.match(r"^/api/v1/evidence/([^/]+)/proposals/([^/]+)/reject$", path)
+    if m:
+        run_id, prop_id = m.group(1), m.group(2)
+        b = _get_bundle(run_id)
+        try:
+            rej = b.reject_proposal(proposal_id=prop_id,
+                                    approver_id=data.get("approver_id", "unknown"),
+                                    reason=data.get("reason", ""))
+            return {"rejection": rej, "run_id": run_id, "verify": b.verify()}, 201
+        except ValueError as exc:
+            return {"error": str(exc), "run_id": run_id}, 400
+
+    m = re.match(r"^/api/v1/evidence/([^/]+)/dispatch$", path)
+    if m:
+        run_id = m.group(1)
+        b = _get_bundle(run_id)
+        try:
+            result = b.dispatch(
+                approval_id=data.get("approval_id", ""),
+                executor_id=data.get("executor_id", "unknown"),
+                result=bool(data.get("result", True)),
+                detail=data.get("detail") or {},
+            )
+            return {"execution": result, "run_id": run_id, "verify": b.verify()}, 200
+        except ValueError as exc:
+            return {"error": str(exc), "run_id": run_id}, 400
+
+    m = re.match(r"^/api/v1/evidence/([^/]+)/observe$", path)
+    if m:
+        run_id = m.group(1)
+        b = _get_bundle(run_id)
+        try:
+            probe = b.observe(
+                approval_id=data.get("approval_id", ""),
+                observer_id=data.get("observer_id", "unknown"),
+                round_no=int(data.get("round_no", 1)),
+                passed=bool(data.get("passed", True)),
+                detail=data.get("detail") or {},
+                confidence=float(data.get("confidence", 1.0)),
+            )
+            return {"probe": probe, "run_id": run_id, "verify": b.verify()}, 200
+        except ValueError as exc:
+            return {"error": str(exc), "run_id": run_id}, 400
+
+    m = re.match(r"^/api/v1/evidence/([^/]+)/rollback$", path)
+    if m:
+        run_id = m.group(1)
+        b = _get_bundle(run_id)
+        try:
+            rb = b.rollback(
+                approval_id=data.get("approval_id", ""),
+                operator_id=data.get("operator_id", "unknown"),
+                reason=data.get("reason", ""),
+            )
+            return {"rollback": rb, "run_id": run_id, "verify": b.verify()}, 200
+        except ValueError as exc:
+            return {"error": str(exc), "run_id": run_id}, 400
+
+    m = re.match(r"^/api/v1/evidence/([^/]+)/archive$", path)
+    if m:
+        run_id = m.group(1)
+        b = _get_bundle(run_id)
+        manifest = b.archive(archiver_id=data.get("archiver_id", "system"))
+        return {"manifest": manifest, "run_id": run_id, "verify": b.verify()}, 200
+
+    # 离线验证 bundle payload（跨组织传递后校验）
+    if path == "/api/v1/evidence/verify-payload":
+        eb = _import_evidence_bundle()
+        payload = data.get("bundle") or data.get("payload") or {}
+        hmac_secret = data.get("hmac_secret")
+        result = eb.verify_bundle_payload(payload, hmac_secret=hmac_secret)
+        status = 200 if result.get("valid") else 422
+        return {"verification": result}, status
+
+    # ── Ship Gate Lifecycle（R4-深化）──
+    if path == "/api/v1/ship-gate/run":
+        sg = _import_ship_gate()
+        try:
+            from scanner.engine import scan as _scan
+            target = data.get("target")
+            findings = data.get("findings")
+            if findings is None:
+                if not target:
+                    return {"error": "target or findings required"}, 400
+                content = data.get("content", "")
+                result = {"target": target, "files_scanned": 1,
+                          "findings": _scan(content, target).get("findings", [])}
+            else:
+                result = {"target": target or "inline", "files_scanned": 1,
+                          "findings": findings}
+            sm = sg.StateMachine(
+                hmac_secret=data.get("hmac_secret"),
+                fail_on_warn=bool(data.get("fail_on_warn", False)),
+                auto_accept_challenge=not bool(data.get("no_auto_accept", False)),
+            )
+            sm_result = sm.run(result,
+                               full_lifecycle=bool(data.get("full_lifecycle", False)))
+            return {"state_machine": sm_result, "counts": sm_result["counts"]}, 200
+        except Exception as exc:
+            return {"error": str(exc)}, 500
 
     # ── Protocol Bridge ──
     if path == "/api/v1/protocol/normalize":
