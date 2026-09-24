@@ -190,6 +190,9 @@ def main():
         # 2026-09-24 R4-深化：Evidence Bundle 1.0 + Responsibility Chain v1.1 + ship_gate 10 态状态机
         # 对标 GOAI 2026 Agent Infra 季军 CyberGuard（HMAC 链式审计 + OCSF/STIX/ATT&CK + 双轮独立复测）
         'tests.test_evidence_bundle',
+        # 2026-09-24 v4.8.0：个人 Agent 治理层（PAI DID + 预算守护 + 行动溯源 + Connector 独立审核）
+        # 触发：Meta Muse 上线 13 天 250 万下载，2026-09-18 开放 connector platform
+        'tests.test_personal_agent',
         'tests.test_arena_join_gate',
     ]
 

@@ -20,7 +20,7 @@ import { z } from 'zod';
 
 // 版本单一真源。由 scripts/sync_version.py 统一维护，CI 的版本一致性门禁会校验它，
 // 因此这里不再手写数字 —— 硬编码的 '3.0.0' 曾与已发布的 4.2.x 差了一个大版本。
-const SERVER_VERSION = '4.7.1';
+const SERVER_VERSION = '4.8.0';
 
 const API_BASE = process.env.AISHIELD_API_URL || 'https://api.aishield.tools';
 const API_KEY = process.env.AISHIELD_API_KEY || '';
@@ -1324,6 +1324,169 @@ testing：即使脱离原组织环境也能通过 secret 一致重放完整验�
   },
   ({ bundle, hmac_secret }) =>
     callEco('/api/v1/evidence/verify-payload', { bundle, hmac_secret })
+);
+
+// ══════════════════════════════════════════════════════════════
+// Personal Agent Governance Tools (v4.8.0, 2026-09-24)
+// 面向个人 Agent（Meta Muse / ChatGPT-Agent / Claude-Agent / 自建 agent）
+// 提供消费级身份 + 预算守护 + 行动溯源 + Connector 独立审核。
+// 与 Enterprise 侧的 Agent Card / KYA / Evidence Bundle 分工。
+// ══════════════════════════════════════════════════════════════
+
+server.tool(
+  'aishield_personal_did_create',
+  `创建或查询个人 Agent 身份 (PAI DID)。
+
+一个自然人可以有多个个人 Agent 实例（Alice 的 Muse / Alice 的 ChatGPT-Agent）。
+DID 遵循 did:aishield:pa:<hash> 命名约定，服务端为每次身份创建分配唯一标识，
+后续可用于签署 Capability Ticket、追溯 Agent 行动、发起 Dispute。`,
+  {
+    user_id: z.string().describe('自然人标识（如 email 或平台用户 id）'),
+    display_name: z.string().optional().describe('显示名'),
+    email: z.string().optional().describe('email'),
+  },
+  ({ user_id, display_name, email }) =>
+    callEco('/api/v1/personal-agents/users', { user_id, display_name, email })
+);
+
+server.tool(
+  'aishield_personal_instance_register',
+  `在个人 DID 下登记一个 Agent 实例（如 Alice 的 Muse on iOS）。
+
+每个实例独立追踪，可独立吊销。当用户想停用某个 Agent 时，吊销它对应的实例
+即可让后续所有 Capability Ticket 失效。`,
+  {
+    user_id: z.string().describe('自然人标识'),
+    agent_name: z.string().describe('Agent 名称，如 Muse / ChatGPT-Agent'),
+    provider: z.string().describe('提供方，如 Meta / OpenAI / Anthropic / self-built'),
+    platform_hint: z.string().optional().describe('如 muse-ios / chatgpt-web'),
+    capabilities: z.array(z.string()).optional().describe('Agent 声明的能力'),
+  },
+  ({ user_id, agent_name, provider, platform_hint, capabilities }) =>
+    callEco(`/api/v1/personal-agents/users/${encodeURIComponent(user_id)}/agent-instances`,
+            { agent_name, provider, platform_hint, capabilities })
+);
+
+server.tool(
+  'aishield_personal_ticket_create',
+  `为用户下的某个 Agent 实例签发 Capability Ticket（授权票据）。
+
+Ticket 是"用户对某 Agent 的一次授权"，带 scope（金额上限 / 域名白名单 /
+类别白名单）+ TTL。Ticket 由服务端 HMAC 签名，可被任何 verifier 独立验证。
+建议所有个人 Agent 在执行敏感操作前先向用户申请一张 Ticket。`,
+  {
+    user_id: z.string().describe('自然人标识'),
+    instance_id: z.string().describe('Agent 实例 id'),
+    actions: z.array(z.string()).min(1).describe('授权的动作白名单，如 ["purchase"]'),
+    scope: z.record(z.any()).optional().describe(
+      '边界：{max_amount, to_domain, allowed_categories}'),
+    expires_in: z.number().int().positive().max(86400).default(3600)
+      .describe('TTL 秒数，最长 24h'),
+    reason: z.string().optional().describe('授权原因'),
+  },
+  ({ user_id, instance_id, actions, scope, expires_in, reason }) =>
+    callEco(`/api/v1/personal-agents/users/${encodeURIComponent(user_id)}/tickets`,
+            { instance_id, actions, scope, expires_in, reason })
+);
+
+server.tool(
+  'aishield_personal_budget_check',
+  `对个人 Agent 的敏感操作做预算 + 风险 pre-flight 检查。
+
+返回 verdict：
+  - allow   : 预算内 & 风险 < 40 → 直接放行
+  - confirm : 预算内 & 风险 40-70 → 用户二次确认（quote-first）
+  - block   : 预算内 & 风险 >= 70 → 建议阻止
+  - denied  : 预算超限（不可覆盖）
+
+风险因素：金额超历史 P90 / 目标域名高危 / 深夜 / 币种漂移 / 首次目标 /
+高危 action 类型。`,
+  {
+    user_id: z.string().describe('自然人标识'),
+    action: z.string().describe('动作类型，如 purchase / send_email / wire_transfer'),
+    amount: z.number().positive().describe('金额'),
+    currency: z.string().default('CNY').describe('币种 CNY / USD'),
+    target_url: z.string().optional().describe('目标 URL'),
+    category: z.string().optional().describe('类别，如 groceries / utilities'),
+  },
+  ({ user_id, action, amount, currency, target_url, category }) =>
+    callEco('/api/v1/personal-agents/budget/check',
+            { user_id, action, amount, currency, target_url, category })
+);
+
+server.tool(
+  'aishield_personal_budget_reserve',
+  `预留一笔个人预算（下单前先冻结）。
+
+下单前调用，冻结额度并返回 reservation_id。下单成功后调用
+aishield_personal_budget_commit 落账；下单失败调用 release。`,
+  {
+    user_id: z.string().describe('自然人标识'),
+    order_id: z.string().describe('订单 id（用于幂等）'),
+    amount: z.number().positive().describe('金额'),
+    currency: z.string().default('CNY').describe('币种'),
+    target: z.string().optional().describe('目标（域名或 URL）'),
+    note: z.string().optional().describe('备注'),
+  },
+  ({ user_id, order_id, amount, currency, target, note }) =>
+    callEco('/api/v1/personal-agents/budget/reserve',
+            { user_id, order_id, amount, currency, target, note })
+);
+
+server.tool(
+  'aishield_personal_action_record',
+  `将个人 Agent 的一次行动追加到用户的 HMAC 链。
+
+所有敏感操作（购买 / 发邮件 / 授权 connector）都应调用本工具留痕，
+形成不可篡改的行动 provenance 链。用户可在 90 天内离线验证链完整性，
+并对任一 action 发起 dispute。`,
+  {
+    user_id: z.string().describe('自然人标识'),
+    action: z.string().describe('动作类型'),
+    payload: z.record(z.any()).optional().describe('动作负载'),
+    instance_id: z.string().optional().describe('Agent 实例 id'),
+    ticket_id: z.string().optional().describe('使用的授权 Ticket'),
+    verdict: z.string().default('allow').describe('check 结果'),
+    actor_did: z.string().optional().describe('Agent 自签名 DID'),
+    note: z.string().optional().describe('备注'),
+  },
+  ({ user_id, action, payload, instance_id, ticket_id, verdict, actor_did, note }) =>
+    callEco(`/api/v1/personal-agents/users/${encodeURIComponent(user_id)}/actions`,
+            { action, payload, instance_id, ticket_id, verdict, actor_did, note })
+);
+
+server.tool(
+  'aishield_personal_dispute_file',
+  `用户对某条行动记录提出 dispute（"这个操作我不知情"）。
+
+dispute 会生成可追溯的 case，包含被质疑的 action hash + 用户 reason。
+可用于向 Agent 提供方或支付通道发起正式申诉，也可离线复核。`,
+  {
+    user_id: z.string().describe('自然人标识'),
+    seq: z.number().int().positive().describe('action 链上的 seq'),
+    reason: z.string().describe('争议原因'),
+    description: z.string().optional().describe('详细描述'),
+  },
+  ({ user_id, seq, reason, description }) =>
+    callEco(`/api/v1/personal-agents/users/${encodeURIComponent(user_id)}/disputes`,
+            { seq, reason, description })
+);
+
+server.tool(
+  'aishield_personal_connector_vet',
+  `对一个 Connector manifest 做独立安全评估（Meta 官方审核之外的第二意见）。
+
+返回 verdict（pass / pass_with_warnings / needs_review / reject）+ 0-100 分数
++ findings 明细。扫描范围：危险 scope、piped shell 供应链（curl 管道 sh）、
+明文 token、签名/过期声明、支付 quote-first、权限-描述一致性。`,
+  {
+    user_id: z.string().describe('发起审核的用户标识'),
+    connector: z.record(z.any()).describe(
+      'Connector manifest：{name, publisher, url, capabilities, scopes, install_commands, signature, expires_at, requires_payments}'),
+  },
+  ({ user_id, connector }) =>
+    callEco(`/api/v1/personal-agents/users/${encodeURIComponent(user_id)}/connectors/vet`,
+            { connector })
 );
 
 // ── Start ──

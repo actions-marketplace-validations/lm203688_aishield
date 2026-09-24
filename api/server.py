@@ -423,6 +423,17 @@ class AIShieldHandler(BaseHTTPRequestHandler):
             _record_usage("ecosystem-api", self.client_address[0])
             return
 
+        # ── Personal Agent API (P2): 个人 Agent 治理层 ──
+        if path.startswith("/api/v1/personal-agents"):
+            try:
+                import personal_agent_api
+                payload, status = personal_agent_api.handle_get(path, parsed.query)
+                self._send_json(payload, status)
+            except Exception as e:
+                self._send_json({"error": str(e)}, 500)
+            _record_usage("personal-agent-api", self.client_address[0])
+            return
+
         # Landing Page — Agent SEO
         if path == "/agent.html":
             html_path = os.path.join(BASE, "static", "agent.html")
@@ -596,7 +607,7 @@ class AIShieldHandler(BaseHTTPRequestHandler):
             else:
                 # Fallback: inline server card for deployments without the static file
                 json_data = json.dumps({
-                    "serverInfo": {"name": "AIShield", "version": "4.7.1",
+                    "serverInfo": {"name": "AIShield", "version": "4.8.0",
                         "description": "AI Agent Security Shield — OWASP MCP Top 10 aligned security scanning. 235 rules covering prompt injection, zero-width characters, Rug Pull, permission audit, and dependency monitoring."},
                     "url": "https://aishield.tools/mcp",
                     "provider": {"name": "AIShield", "url": "https://github.com/lm203688/aishield"},
@@ -1333,6 +1344,25 @@ class AIShieldHandler(BaseHTTPRequestHandler):
             except Exception as e:
                 self._send_json({"error": str(e)}, 500)
             _record_usage("ecosystem-api", self.client_address[0])
+            return
+
+        # ── Personal Agent API (P2): 个人 Agent 治理层 ──
+        if path.startswith("/api/v1/personal-agents"):
+            try:
+                body = self._read_body()
+                if body is None:
+                    return
+                data = json.loads(body) if body else {}
+            except json.JSONDecodeError:
+                self._send_json({"error": "Invalid JSON"}, 400)
+                return
+            try:
+                import personal_agent_api
+                payload, status = personal_agent_api.handle_post(path, data)
+                self._send_json(payload, status)
+            except Exception as e:
+                self._send_json({"error": str(e)}, 500)
+            _record_usage("personal-agent-api", self.client_address[0])
             return
 
         # ── SBOM / SARIF 导出 (P2) ──

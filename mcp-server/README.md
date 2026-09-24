@@ -136,6 +136,24 @@ HMAC-SHA256 chained audit + OCSF 1.1 event classes + STIX 2.1 observables + ATT&
 | `aishield_evidence_verify_payload` | Offline verify a bundle payload with its HMAC secret. |
 | `aishield_verify_evidence_bundle` | Alias of `aishield_evidence_verify_payload`. |
 
+### Personal Agent Governance (v4.8.0, 2026-09-24)
+
+面向个人 Agent（Meta Muse / ChatGPT-Agent / Claude-Agent / 自建 agent）的治理层。
+覆盖消费级身份、预算守护、行动溯源、Connector 独立审核 —— 补齐个人 Agent 相比
+企业 Agent 缺失的能力（Stripe Link 只处理单次卡号，无累计预算；每个平台
+都有一套封闭的 Agent 账号体系，缺跨平台可验证的身份）。
+
+| Tool | Description |
+|------|-------------|
+| `aishield_personal_did_create` | Create or fetch a Personal Agent Identity (PAI DID, `did:aishield:pa:*`). Idempotent. |
+| `aishield_personal_instance_register` | Register a personal agent instance (e.g. "Alice's Muse on iOS") under her PAI DID. Revoke per-instance independently. |
+| `aishield_personal_ticket_create` | Sign a capability ticket (action allowlist + scope + TTL) for one instance. Server HMAC-sealed, independently verifiable. |
+| `aishield_personal_budget_check` | Pre-flight budget + risk check. Returns `allow` / `confirm` (quote-first) / `block` / `denied` verdict. |
+| `aishield_personal_budget_reserve` | Reserve a personal budget before an order (freeze with 15 min TTL, idempotent by order_id). |
+| `aishield_personal_action_record` | Append an action record to the user's HMAC chain — immutable provenance. |
+| `aishield_personal_dispute_file` | File a dispute against a recorded action ("I didn't authorize this"). |
+| `aishield_personal_connector_vet` | Independent second-opinion connector vetting (Meta review aside): dangerous scopes, piped-shell installs, plaintext tokens, quote-first, permission-description consistency. |
+
 ### Ship Gate (10-state release lifecycle)
 
 | Tool | Description |
