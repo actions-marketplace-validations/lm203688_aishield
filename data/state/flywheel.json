@@ -2,10 +2,10 @@
   "domain": "flywheel",
   "current": {
     "total": 20,
-    "before": 19,
-    "grew": true,
+    "before": 20,
+    "grew": false,
     "_source": "data-scan-flywheel",
-    "_ts": "2026-09-23T08:35:26.213745+00:00"
+    "_ts": "2026-09-24T08:24:14.643996+00:00"
   },
   "history": [
     {
@@ -160,8 +160,17 @@
         "before": 19,
         "grew": true
       }
+    },
+    {
+      "ts": "2026-09-24T08:24:14.644011+00:00",
+      "source": "data-scan-flywheel",
+      "state": {
+        "total": 20,
+        "before": 20,
+        "grew": false
+      }
     }
   ],
-  "updated": "2026-09-23T08:35:26.213771+00:00",
+  "updated": "2026-09-24T08:24:14.644015+00:00",
   "desc": "数据飞轮批量扫描进度"
 }
