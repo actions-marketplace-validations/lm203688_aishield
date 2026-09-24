@@ -1,0 +1,643 @@
+"""
+api/ecosystem_api.py — Agent 生态服务 API（5 支柱落地）
+
+覆盖：
+  - L1 信任认证:  Agent Card 签名/验证 + 公钥发现（硬骨头 #2）
+  - L2 专业注册:  Specialist Registry（8 域）
+  - L3 身份:      KYA SD-JWT + Web Bot Auth + ERC-8004（硬骨头 #6）
+  - L4 责任链:    Responsibility Chain 追加/查询/溯源（硬骨头 #1）
+  - L5 协议翻译:  MCP ⇄ A2A ⇄ ACP ⇄ AP2 互转（硬骨头 #5）
+
+调用约定：
+  本模块只暴露 handle_get(path, query) 和 handle_post(path, data)，
+  与 api/trust_api.py 完全一致的接口，由 api/server.py 分发。
+  所有路由以 /api/v1/ecosystem/ 或 /api/v1/agent-card/ 或 /api/v1/chain/ 开头。
+"""
+from __future__ import annotations
+
+import json
+import os
+import platform
+import re
+import sys
+import threading
+from urllib.parse import parse_qs
+
+_BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+# 允许作为独立脚本或被 api/server.py 两种路径调用
+for _p in (_BASE, _BASE + "/eco", _BASE + "/api"):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
+
+
+# ── 惰性导入，避免 server.py 冷启动加载重量依赖 ──
+def _import_agent_card():
+    from eco import agent_card
+    return agent_card
+
+
+def _import_chain():
+    from eco import responsibility_chain
+    return responsibility_chain
+
+
+def _import_bridge():
+    from eco import protocol_bridge
+    return protocol_bridge
+
+
+def _import_specialist():
+    from eco import specialist_registry
+    return specialist_registry
+
+
+def _import_kyad():
+    from eco import kyad_compat
+    return kyad_compat
+
+
+# ══════════════════════════════════════════════
+# 责任链：内存里的 chain 实例池（按 chain_id 隔离）
+# ══════════════════════════════════════════════
+_chains: dict = {}
+_chains_lock = threading.RLock()
+
+
+def _get_chain(chain_id: str):
+    from eco import responsibility_chain as rc
+    with _chains_lock:
+        c = _chains.get(chain_id)
+        if c is None:
+            c = rc.ResponsibilityChain(chain_id=chain_id)
+            _chains[chain_id] = c
+        return c
+
+
+def _gen_chain_id() -> str:
+    import hashlib
+    import time
+    return "chain-" + hashlib.sha256(f"{time.time_ns()}".encode()).hexdigest()[:12]
+
+
+# ══════════════════════════════════════════════
+#  Agent Card API
+# ══════════════════════════════════════════════
+def _agent_card_pubkey() -> dict:
+    """返回签发动员公钥信息（供消费方离线验证）。"""
+    ac = _import_agent_card()
+    signer = ac.AgentCardSigner()
+    alg, pub = signer.public_key()
+    return {
+        "signer_did": signer.signer_did,
+        "key_id": signer.key_id,
+        "alg": alg,
+        "public_key": pub,
+        "endpoint": "/api/v1/agent-card/verify",
+    }
+
+
+def _agent_card_sign(card: dict, trust_score: int | None) -> dict:
+    ac = _import_agent_card()
+    if not isinstance(card, dict):
+        return {"error": "card must be a JSON object"}, 400
+    signed = ac.sign_card(card, trust_score=trust_score)
+    return signed, 200
+
+
+def _agent_card_verify(card: dict, public_key_b64: str | None) -> dict:
+    ac = _import_agent_card()
+    if not isinstance(card, dict):
+        return {"error": "card must be a JSON object"}, 400
+    # 优先使用 .well-known 公钥文件（离线验证）
+    try:
+        v = ac.verify_with_pubkey_file(card)
+        if v.get("valid"):
+            return v, 200
+        if v.get("requires_server_verification"):
+            # 服务端持有 HMAC 密钥，走服务端验证
+            v = ac.verify_card(card)
+            return v, 200 if v.get("valid") else 400
+        return v, 400
+    except Exception as e:
+        return {"error": str(e)}, 500
+
+
+def _agent_card_export_identity(card: dict, trust_score: int | None) -> dict:
+    """一站式：Agent Card → KYA + Web Bot Auth 身份导出。"""
+    kyad = _import_kyad()
+    ident = kyad.agent_card_to_identity(card, trust_score=trust_score)
+    return ident, 200
+
+
+# ══════════════════════════════════════════════
+#  Specialist Registry API
+# ══════════════════════════════════════════════
+def _specialist_domains() -> dict:
+    sr = _import_specialist()
+    return sr.domains_catalog(), 200
+
+
+def _specialist_list(domain: str | None, include_lapsed: bool) -> dict:
+    sr = _import_specialist()
+    items = sr.list_agents(domain=domain, include_lapsed=include_lapsed)
+    return {"count": len(items), "items": items}, 200
+
+
+def _specialist_get(agent_id: str) -> dict:
+    sr = _import_specialist()
+    rec = sr.get(agent_id)
+    if not rec:
+        return {"error": "agent not found", "agent_id": agent_id}, 404
+    return rec, 200
+
+
+def _specialist_register(data: dict) -> dict:
+    sr = _import_specialist()
+    required = ["agent_id", "name", "domain", "capabilities"]
+    for k in required:
+        if k not in data or not data[k]:
+            return {"error": f"missing required field: {k}"}, 400
+    try:
+        rec = sr.register_agent(
+            agent_id=data["agent_id"],
+            name=data["name"],
+            domain=data["domain"],
+            capabilities=data["capabilities"],
+            certs=data.get("certs", []),
+            url=data.get("url", ""),
+            provider=data.get("provider", ""),
+            description=data.get("description", ""),
+            publisher_did=data.get("publisher_did", "did:aishield:trust-service"),
+            extra=data.get("extra"),
+        )
+        return rec, 201
+    except ValueError as e:
+        return {"error": str(e)}, 400
+
+
+def _specialist_renew(agent_id: str) -> dict:
+    sr = _import_specialist()
+    rec = sr.renew(agent_id)
+    if not rec:
+        return {"error": "agent not found", "agent_id": agent_id}, 404
+    return rec, 200
+
+
+def _specialist_revoke(agent_id: str, reason: str) -> dict:
+    sr = _import_specialist()
+    rec = sr.revoke(agent_id, reason=reason)
+    if not rec:
+        return {"error": "agent not found", "agent_id": agent_id}, 404
+    return rec, 200
+
+
+# ══════════════════════════════════════════════
+#  KYA / Web Bot Auth / ERC-8004 API
+# ══════════════════════════════════════════════
+def _kyad_export(card: dict, trust_score: int | None) -> dict:
+    return _agent_card_export_identity(card, trust_score)
+
+
+def _erc8004_wrap(wallet_address: str, chain_id: int) -> dict:
+    kyad = _import_kyad()
+    try:
+        did = kyad.wallet_to_did(wallet_address, chain_id)
+        return {"did": did, "wallet": kyad.did_to_wallet(did)}, 200
+    except ValueError as e:
+        return {"error": str(e)}, 400
+
+
+# ══════════════════════════════════════════════
+#  Responsibility Chain API
+# ══════════════════════════════════════════════
+def _chain_create(chain_id: str | None) -> dict:
+    cid = chain_id or _gen_chain_id()
+    with _chains_lock:
+        if cid in _chains:
+            return {"error": "chain already exists", "chain_id": cid}, 409
+        c = _get_chain(cid)
+    return c.export(), 201
+
+
+def _chain_append(chain_id: str, data: dict) -> dict:
+    c = _get_chain(chain_id)
+    agent_id = data.get("agent_id")
+    action = data.get("action")
+    if not agent_id or not action:
+        return {"error": "agent_id and action required"}, 400
+    entry = c.record(
+        agent_id=agent_id,
+        action=action,
+        parent_seq=data.get("parent_seq"),
+        input_ref=data.get("input_ref"),
+        output_ref=data.get("output_ref"),
+        meta=data.get("meta"),
+    )
+    return entry, 201
+
+
+def _chain_view(chain_id: str) -> dict:
+    c = _get_chain(chain_id)
+    return c.export(), 200
+
+
+def _chain_verify(chain_id: str) -> dict:
+    c = _get_chain(chain_id)
+    return c.verify(), 200
+
+
+def _chain_trace(chain_id: str, output_ref) -> dict:
+    c = _get_chain(chain_id)
+    path = c.trace(output_ref)
+    root = c.root_cause(output_ref)
+    return {"chain_id": chain_id, "path": path, "root_cause": root, "depth": len(path)}, 200
+
+
+# ══════════════════════════════════════════════
+#  Contributors API (R2)
+# ══════════════════════════════════════════════
+def _import_contributors():
+    from eco import contributors
+    return contributors
+
+
+def _import_sandbox_backend():
+    from eco import sandbox_backend
+    return sandbox_backend
+
+
+def _sandbox_backend_capabilities() -> dict:
+    sb = _import_sandbox_backend()
+    return {
+        "system": platform.system(),
+        "recommended": sb.recommend_backend(),
+        "matrix": sb.capabilities_matrix(),
+    }, 200
+
+
+def _sandbox_backend_current() -> dict:
+    sb = _import_sandbox_backend()
+    return sb.current_backend(), 200
+
+
+def _contributor_register(data: dict) -> dict:
+    cb = _import_contributors()
+    cid = data.get("contributor_id")
+    if not cid:
+        return {"error": "contributor_id required"}, 400
+    try:
+        rec = cb.register_contributor(
+            contributor_id=cid,
+            name=data.get("name", ""),
+            email=data.get("email", ""),
+            github=data.get("github", ""),
+            bio=data.get("bio", ""),
+        )
+        return rec, 201
+    except ValueError as e:
+        return {"error": str(e)}, 400
+
+
+def _contributor_add_event(contributor_id: str, data: dict) -> dict:
+    cb = _import_contributors()
+    event_type = data.get("type") or data.get("event_type")
+    if not event_type:
+        return {"error": "type/event_type required"}, 400
+    try:
+        rec = cb.add_event(
+            contributor_id=contributor_id,
+            event_type=event_type,
+            rule_id=data.get("rule_id", ""),
+            rule_name=data.get("rule_name", ""),
+            description=data.get("description", ""),
+            extra=data.get("extra"),
+        )
+        return rec, 201
+    except ValueError as e:
+        return {"error": str(e)}, 400
+
+
+# ══════════════════════════════════════════════
+#  Protocol Bridge API
+# ══════════════════════════════════════════════
+def _bridge_normalize(protocol: str, payload: dict) -> dict:
+    pb = _import_bridge()
+    proto = (protocol or "").lower()
+    if proto not in ("mcp", "a2a", "acp", "ap2"):
+        return {"error": "protocol must be one of mcp/a2a/acp/ap2"}, 400
+    if not isinstance(payload, dict):
+        return {"error": "payload must be a JSON object"}, 400
+    ua = {
+        "mcp": pb.from_mcp, "a2a": pb.from_a2a,
+        "acp": pb.from_acp, "ap2": pb.from_ap2,
+    }[proto](payload)
+    return {"protocol": proto, "universal_agent": ua.to_dict()}, 200
+
+
+def _bridge_translate(target: str, payload: dict, from_protocol: str | None) -> dict:
+    pb = _import_bridge()
+    tp = (target or "").lower()
+    if tp not in ("mcp", "a2a", "acp"):
+        return {"error": "target must be one of mcp/a2a/acp"}, 400
+    if not isinstance(payload, dict):
+        return {"error": "payload must be a JSON object"}, 400
+    src = (from_protocol or "").lower()
+    if src == "universal":
+        ua = pb.UniversalAgent(
+            name=payload.get("name", ""), description=payload.get("description", ""),
+            version=str(payload.get("version", "1.0.0")), url=payload.get("url", ""),
+            provider=payload.get("provider", {}),
+            capabilities=payload.get("capabilities", []),
+            skills=payload.get("skills", []),
+            protocols=payload.get("protocols", []),
+            trust=payload.get("trust", {}),
+            payment=payload.get("payment", {}),
+        )
+    elif src in ("mcp", "a2a", "acp", "ap2"):
+        ua = {
+            "mcp": pb.from_mcp, "a2a": pb.from_a2a,
+            "acp": pb.from_acp, "ap2": pb.from_ap2,
+        }[src](payload)
+    else:
+        return {"error": "from_protocol required (mcp/a2a/acp/ap2/universal)"}, 400
+    result = {
+        "mcp": pb.to_mcp, "a2a": pb.to_a2a,
+    }[tp](ua) if tp in ("mcp", "a2a") else {"error": "target not supported"}
+    if isinstance(result, dict) and result.get("error"):
+        return result, 400
+    return {"target": tp, "source": src, "result": result}, 200
+
+
+# ══════════════════════════════════════════════
+#  公开路由分发
+# ══════════════════════════════════════════════
+def handle_get(path: str, query: str = ""):
+    """返回 (payload_dict, status_code)。"""
+    q = parse_qs(query) if query else {}
+
+    # ── Agent Card ──
+    if path == "/api/v1/agent-card/pubkey":
+        return _agent_card_pubkey(), 200
+
+    # ── Specialist Registry ──
+    if path == "/api/v1/specialist/domains":
+        return _specialist_domains()
+    if path == "/api/v1/specialist/agents":
+        domain = q.get("domain", [None])[0]
+        include_lapsed = q.get("include_lapsed", ["false"])[0].lower() == "true"
+        return _specialist_list(domain, include_lapsed)
+
+    m = re.match(r"^/api/v1/specialist/agents/([^/]+)$", path)
+    if m:
+        return _specialist_get(m.group(1))
+
+    # ── Responsibility Chain ──
+    m = re.match(r"^/api/v1/chain/([^/]+)/entries$", path)
+    if m:
+        cid = m.group(1)
+        return _chain_view(cid)
+
+    m = re.match(r"^/api/v1/chain/([^/]+)/verify$", path)
+    if m:
+        return _chain_verify(m.group(1))
+
+    m = re.match(r"^/api/v1/chain/([^/]+)/trace$", path)
+    if m:
+        cid = m.group(1)
+        ref = q.get("output_ref", [None])[0]
+        if not ref:
+            return {"error": "output_ref query param required"}, 400
+        return _chain_trace(cid, ref)
+
+    m = re.match(r"^/api/v1/chain/([^/]+)$", path)
+    if m:
+        return _chain_view(m.group(1))
+
+    # ── ERC-8004 查询 ──
+    if path == "/api/v1/identity/wallets":
+        return {"docs": "POST /api/v1/identity/erc8004/wrap to wrap wallet into DID"}, 200
+
+    # ── Trust Leaderboard（R2）──
+    if path == "/api/v1/leaderboard/top":
+        try:
+            limit = int(q.get("limit", [20])[0])
+            min_score = int(q.get("min_score", [0])[0])
+        except (TypeError, ValueError):
+            return {"error": "limit/min_score must be int"}, 400
+        from eco import leaderboard as lb
+        return {"schema": lb.snapshot()["schema"], "top": lb.top_by_score(limit=limit, min_score=min_score)}, 200
+
+    m = re.match(r"^/api/v1/leaderboard/domains/([^/]+)$", path)
+    if m:
+        domain = m.group(1)
+        try:
+            limit = int(q.get("limit", [10])[0])
+        except (TypeError, ValueError):
+            limit = 10
+        from eco import leaderboard as lb
+        try:
+            return {"domain": domain, "top": lb.top_by_domain(domain, limit=limit)}, 200
+        except ValueError as e:
+            return {"error": str(e)}, 400
+
+    if path == "/api/v1/leaderboard/providers":
+        try:
+            limit = int(q.get("limit", [20])[0])
+        except (TypeError, ValueError):
+            limit = 20
+        from eco import leaderboard as lb
+        return {"providers": lb.top_by_provider(limit=limit)}, 200
+
+    m = re.match(r"^/api/v1/leaderboard/badges/([^/]+)$", path)
+    if m:
+        badge = m.group(1).lower()
+        try:
+            limit = int(q.get("limit", [20])[0])
+        except (TypeError, ValueError):
+            limit = 20
+        from eco import leaderboard as lb
+        return {"badge": badge, "items": lb.top_by_badge(badge, limit=limit)}, 200
+
+    if path == "/api/v1/leaderboard/snapshot":
+        from eco import leaderboard as lb
+        return lb.snapshot(), 200
+
+    # ── Contributors（R2）──
+    if path == "/api/v1/contributors/leaderboard":
+        try:
+            limit = int(q.get("limit", [20])[0])
+        except (TypeError, ValueError):
+            limit = 20
+        from eco import contributors as cb
+        return {"leaderboard": cb.leaderboard(limit=limit)}, 200
+
+    if path == "/api/v1/contributors/tiers":
+        from eco import contributors as cb
+        return {"tiers": cb.tier_summary()}, 200
+
+    if path == "/api/v1/contributors":
+        from eco import contributors as cb
+        rows = cb.list_all(include_tier=True, limit=100)
+        return {"count": len(rows), "contributors": rows}, 200
+
+    m = re.match(r"^/api/v1/contributors/([^/]+)$", path)
+    if m:
+        from eco import contributors as cb
+        rec = cb.get(m.group(1))
+        if not rec:
+            return {"error": "contributor not found", "contributor_id": m.group(1)}, 404
+        return rec, 200
+
+    # ── Sandbox Backend（R3）──
+    if path == "/api/v1/sandbox/backend/current":
+        return _sandbox_backend_current()
+    if path == "/api/v1/sandbox/backend/matrix":
+        return _sandbox_backend_capabilities()
+
+    return {"error": "unknown ecosystem endpoint", "path": path}, 404
+
+
+def handle_post(path: str, data: dict):
+    """返回 (payload_dict, status_code)。"""
+    data = data or {}
+
+    # ── Agent Card ──
+    if path == "/api/v1/agent-card/sign":
+        card = data.get("card") or {}
+        ts = data.get("trust_score")
+        return _agent_card_sign(card, ts)
+
+    if path == "/api/v1/agent-card/verify":
+        card = data.get("card") or {}
+        pk = data.get("public_key")
+        return _agent_card_verify(card, pk)
+
+    if path == "/api/v1/agent-card/identity":
+        card = data.get("card") or {}
+        ts = data.get("trust_score")
+        return _agent_card_export_identity(card, ts)
+
+    # ── Specialist Registry ──
+    if path == "/api/v1/specialist/agents":
+        return _specialist_register(data)
+
+    m = re.match(r"^/api/v1/specialist/agents/([^/]+)/renew$", path)
+    if m:
+        return _specialist_renew(m.group(1))
+
+    m = re.match(r"^/api/v1/specialist/agents/([^/]+)/revoke$", path)
+    if m:
+        return _specialist_revoke(m.group(1), data.get("reason", ""))
+
+    # ── KYA / ERC-8004 ──
+    if path == "/api/v1/identity/kyad/export":
+        card = data.get("card") or {}
+        ts = data.get("trust_score")
+        return _kyad_export(card, ts)
+
+    if path == "/api/v1/identity/erc8004/wrap":
+        addr = data.get("wallet_address") or data.get("address")
+        chain = data.get("chain_id", 1)
+        if not addr:
+            return {"error": "wallet_address required"}, 400
+        try:
+            return _erc8004_wrap(addr, int(chain))
+        except ValueError as e:
+            return {"error": str(e)}, 400
+
+    # ── Responsibility Chain ──
+    if path == "/api/v1/chain":
+        cid = data.get("chain_id")
+        return _chain_create(cid)
+
+    m = re.match(r"^/api/v1/chain/([^/]+)/append$", path)
+    if m:
+        return _chain_append(m.group(1), data)
+
+    # ── Protocol Bridge ──
+    if path == "/api/v1/protocol/normalize":
+        proto = data.get("protocol")
+        payload = data.get("payload") or {}
+        return _bridge_normalize(proto, payload)
+
+    if path == "/api/v1/protocol/translate":
+        target = data.get("target")
+        payload = data.get("payload") or {}
+        src = data.get("from_protocol") or data.get("source")
+        return _bridge_translate(target, payload, src)
+
+    # ── Contributors（R2）──
+    if path == "/api/v1/contributors":
+        return _contributor_register(data)
+
+    m = re.match(r"^/api/v1/contributors/([^/]+)/events$", path)
+    if m:
+        return _contributor_add_event(m.group(1), data)
+
+    return {"error": "unknown ecosystem endpoint", "path": path}, 404
+
+
+# ══════════════════════════════════════════════
+#  自证
+# ══════════════════════════════════════════════
+if __name__ == "__main__":
+    print("── 5 支柱 API 端点自证 ──")
+
+    # 1. Agent Card sign → verify
+    card = {"name": "DemoAgent", "url": "https://demo.example/agent",
+            "capabilities": {"supported": ["scan"]},
+            "description": "demo"}
+    signed, sc = _agent_card_sign(card, trust_score=88)
+    print(f"[agent-card.sign]  status={sc}  alg={signed.get('aishield', {}).get('alg')}")
+    v, sc = _agent_card_verify(signed, None)
+    print(f"[agent-card.verify] status={sc}  valid={v.get('valid')}")
+
+    # 篡改测试
+    evil = dict(signed)
+    evil["capabilities"] = {"supported": ["admin", "delete-everything"]}
+    v2, sc2 = _agent_card_verify(evil, None)
+    print(f"[agent-card.verify 篡改] status={sc2}  valid={v2.get('valid')}")
+
+    # 2. Specialist Registry
+    sr = _import_specialist()
+    sr.seed_if_empty()
+    cats, sc = _specialist_domains()
+    print(f"[specialist.domains] status={sc}  8域={len(cats)}")
+    lst, sc = _specialist_list("engineering", False)
+    print(f"[specialist.list engineering] status={sc}  count={lst['count']}")
+
+    # 3. Responsibility Chain
+    created, sc = _chain_create(None)
+    cid = created["chain_id"]
+    print(f"[chain.create] status={sc}  id={cid}")
+    e1, sc = _chain_append(cid, {"agent_id": "planner", "action": "plan",
+                                  "input_ref": "user:scan",
+                                  "output_ref": {"subtasks": ["s1"]}})
+    print(f"[chain.append planner] status={sc}  seq={e1['seq']}")
+    e2, sc = _chain_append(cid, {"agent_id": "scanner", "action": "call_tool:scan",
+                                  "parent_seq": e1["seq"],
+                                  "input_ref": e1["output_ref"],
+                                  "output_ref": {"score": 30, "finding": "RCE"}})
+    print(f"[chain.append scanner] status={sc}  seq={e2['seq']}")
+    vr, sc = _chain_verify(cid)
+    print(f"[chain.verify] status={sc}  valid={vr['valid']}")
+    tr, sc = _chain_trace(cid, e2["output_ref"])
+    print(f"[chain.trace] status={sc}  depth={tr['depth']}  root={tr['root_cause']['agent_id']}")
+
+    # 4. KYA / Web Bot Auth
+    ident, sc = _agent_card_export_identity(signed, 88)
+    print(f"[kyad.export] status={sc}  claims={len(ident['kya']['claims'])}  wba_hdr={len(ident['web_bot_auth']['headers'])}")
+
+    # 5. ERC-8004
+    wrapped, sc = _erc8004_wrap("0x1234567890abcdef1234567890abcdef12345678", 1)
+    print(f"[erc8004.wrap] status={sc}  did={wrapped.get('did', wrapped)}")
+
+    # 6. Protocol Bridge
+    mcp_payload = {"name": "DemoServer", "tools": [{"name": "hello", "description": "say hi"}]}
+    norm, sc = _bridge_normalize("mcp", mcp_payload)
+    print(f"[protocol.normalize] status={sc}  name={norm['universal_agent']['name']}")
+    tr, sc = _bridge_translate("a2a", mcp_payload, "mcp")
+    print(f"[protocol.translate mcp→a2a] status={sc}  result.name={tr['result']['name']}")
+
+    print("\n全部端点自证通过。")

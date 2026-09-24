@@ -185,6 +185,9 @@ def main():
         'tests.test_rule_count_gate',
         # 2026-09-22 已知良性项目白名单：PenguinHarness/Cua/Mano-P 路径不降级误报
         'tests.test_registry_supply_scan',
+        # 2026-09-24 Agent 生态 5 支柱落地：specialist_registry / kyad_compat / ecosystem_api / ship_gate
+        'tests.test_ecosystem_activation',
+        'tests.test_arena_join_gate',
     ]
 
     loaded = 0

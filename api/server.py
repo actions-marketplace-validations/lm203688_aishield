@@ -38,6 +38,7 @@ from scanner.rules import OWASP_MCP_TOP10, get_rule_count, get_rule_breakdown
 from scanner.monitor import get_monitored_tools, add_monitor as add_tool_monitor, remove_monitor, check_version_change, check_all_monitored
 from scanner.api_scanner import APIScanOrchestrator
 from proxy import gateway as proxy_gateway
+from trust_api import generate_attestation, verify_attestation, list_attestations, revoke_attestation, create_attestation_from_scan
 
 # ── Eco Dispatcher ──
 try:
@@ -407,6 +408,21 @@ class AIShieldHandler(BaseHTTPRequestHandler):
             _record_usage("trust-api", self.client_address[0])
             return
 
+        # ── Ecosystem API (P1): Agent 生态 5 支柱 ──
+        if (path.startswith("/api/v1/ecosystem") or path.startswith("/api/v1/agent-card")
+                or path.startswith("/api/v1/specialist") or path.startswith("/api/v1/chain")
+                or path.startswith("/api/v1/identity") or path.startswith("/api/v1/protocol")
+                or path.startswith("/api/v1/leaderboard") or path.startswith("/api/v1/contributors")
+                or path.startswith("/api/v1/sandbox/backend")):
+            try:
+                import ecosystem_api
+                payload, status = ecosystem_api.handle_get(path, parsed.query)
+                self._send_json(payload, status)
+            except Exception as e:
+                self._send_json({"error": str(e)}, 500)
+            _record_usage("ecosystem-api", self.client_address[0])
+            return
+
         # Landing Page — Agent SEO
         if path == "/agent.html":
             html_path = os.path.join(BASE, "static", "agent.html")
@@ -580,7 +596,7 @@ class AIShieldHandler(BaseHTTPRequestHandler):
             else:
                 # Fallback: inline server card for deployments without the static file
                 json_data = json.dumps({
-                    "serverInfo": {"name": "AIShield", "version": "4.4.0",
+                    "serverInfo": {"name": "AIShield", "version": "4.6.0",
                         "description": "AI Agent Security Shield — OWASP MCP Top 10 aligned security scanning. 235 rules covering prompt injection, zero-width characters, Rug Pull, permission audit, and dependency monitoring."},
                     "url": "https://aishield.tools/mcp",
                     "provider": {"name": "AIShield", "url": "https://github.com/lm203688/aishield"},
@@ -1048,6 +1064,12 @@ class AIShieldHandler(BaseHTTPRequestHandler):
                     "POST /api/v1/mcp — MCP StreamableHTTP (JSON-RPC 2.0, 8 tools)",
                     "GET  /api/v1/arena/health — Arena agent health check",
                     "POST /api/v1/arena/scan — Arena agent scan (NetMind Arena integration)",
+                    "POST /api/v1/attestations — Create Trust Attestation credential",
+                    "POST /api/v1/attestations/verify — Verify Trust Attestation",
+                    "POST /api/v1/attestations/from-scan — Generate attestation from scan results",
+                    "POST /api/v1/attestations/revoke — Revoke Trust Attestation",
+                    "GET  /api/v1/attestations — List all attestations",
+                    "GET  /api/v1/attestations/{id} — Get specific attestation",
                     "GET  /openapi.json — OpenAPI 3.0.3 spec (Agent auto-discovery)",
                     "GET  /api/v1/health — Health check",
                     "GET  /api/v1/stats — Usage statistics",
@@ -1283,12 +1305,34 @@ class AIShieldHandler(BaseHTTPRequestHandler):
                 self._send_json({"error": "Invalid JSON"}, 400)
                 return
             try:
-                import trust_api
-                payload, status = trust_api.handle_post(path, data)
+                from trust_api import handle_post as trust_handle_post
+                payload, status = trust_handle_post(path, data)
                 self._send_json(payload, status)
             except Exception as e:
                 self._send_json({"error": str(e)}, 500)
             _record_usage("trust-api", self.client_address[0])
+            return
+
+        # ── Ecosystem API (P1): Agent 生态 5 支柱 ──
+        if (path.startswith("/api/v1/agent-card") or path.startswith("/api/v1/specialist")
+                or path.startswith("/api/v1/chain") or path.startswith("/api/v1/identity")
+                or path.startswith("/api/v1/protocol") or path.startswith("/api/v1/ecosystem")
+                or path.startswith("/api/v1/contributors")):
+            try:
+                body = self._read_body()
+                if body is None:
+                    return
+                data = json.loads(body) if body else {}
+            except json.JSONDecodeError:
+                self._send_json({"error": "Invalid JSON"}, 400)
+                return
+            try:
+                import ecosystem_api
+                payload, status = ecosystem_api.handle_post(path, data)
+                self._send_json(payload, status)
+            except Exception as e:
+                self._send_json({"error": str(e)}, 500)
+            _record_usage("ecosystem-api", self.client_address[0])
             return
 
         # ── SBOM / SARIF 导出 (P2) ──
