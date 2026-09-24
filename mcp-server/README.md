@@ -57,6 +57,91 @@ npx aishield-mcp-server
 | `aishield_digest` | Compact trust digest — a few hundred bytes + a content fingerprint, so an agent can answer "can I trust this?" every turn without re-pulling the full report. Its `risk` is never lighter than the worst finding present (high findings are never reported as "safe") and plaintext credentials are never echoed back |
 | `aishield_laya_precheck` | Local Laya 421M decision-model pre-filter — calibrated probabilities for jailbreak / injection / sensitive-data / topic-classification. Non-generative, ~500 ms per call, zero cost, data never leaves the machine. Complement to the remote aishield scan: cheap inline guardrail before a scan, batch offline pre-filter. Fails soft (returns a startup hint) when the Laya HTTP service is down. English checkpoint has high false-positive rate on Chinese text — use `checkpoint=ml` for Chinese. |
 
+### Trust Attestation (credential issue / verify / revoke)
+
+| Tool | Description |
+|------|-------------|
+| `aishield_generate_attestation` | Issue a Trust Attestation credential aligned with `trust-attestation-v1` schema. |
+| `aishield_verify_attestation` | Verify an attestation offline — schema + HMAC + expiry + revoke + issuer trust list. |
+| `aishield_list_attestations` | List issued attestations with status filter. |
+| `aishield_revoke_attestation` | Revoke an issued attestation with reason and operator. |
+
+### Agent Card + Identity (Ed25519 / KYA SD-JWT / ERC-8004)
+
+| Tool | Description |
+|------|-------------|
+| `aishield_sign_agent_card` | Sign an Agent Card with Ed25519 or HMAC-SHA256 fallback. |
+| `aishield_verify_agent_card` | Verify Agent Card signature; detects post-signature tampering. |
+| `aishield_export_identity` | Export agent identity as Ed25519 card + KYA SD-JWT + Web Bot Auth header. |
+| `aishield_wrap_erc8004` | Wrap an Ethereum wallet address into ERC-8004 agent identity. |
+
+### Specialist Registry (8 domains × 90-day TTL)
+
+| Tool | Description |
+|------|-------------|
+| `aishield_register_specialist` | Register a specialist agent in one of 8 domains (legal/medical/finance/education/engineering/design/research/civic). |
+| `aishield_list_specialist_domains` | List specialist domains with counts, top agents, and optional lapsed filter. |
+
+### Responsibility Chain (HMAC-SHA256 chained audit)
+
+| Tool | Description |
+|------|-------------|
+| `aishield_chain_create` | Create a new responsibility chain. |
+| `aishield_chain_append` | Append a record; each entry HMAC-links to the previous one. |
+| `aishield_chain_trace` | Trace backwards from an `output_ref` to the full responsibility path. |
+| `aishield_chain_migrate_to_bundle` | Migrate a chain into an Evidence Bundle for R4-compliant audit. |
+
+### Protocol Bridge (MCP / A2A / ACP / AP2)
+
+| Tool | Description |
+|------|-------------|
+| `aishield_protocol_translate` | Translate a payload between MCP, A2A, ACP, and AP2 protocol formats. |
+
+### Sandbox Backend (5-backend capability matrix)
+
+| Tool | Description |
+|------|-------------|
+| `aishield_sandbox_backend_current` | Return the currently selected sandbox backend and its capability summary. |
+| `aishield_sandbox_backend_matrix` | Full 5-backend capability matrix (OpenShell / mcpguard / meclaw / CF-isolate / python-subprocess). |
+| `aishield_sandbox_evaluate` | Environment self-check returning per-backend availability. |
+
+### Leaderboard + Contributor Incentives
+
+| Tool | Description |
+|------|-------------|
+| `aishield_leaderboard_top` | Top-N agents by trust_score, optionally filtered by domain. |
+| `aishield_leaderboard_query` | 4-dimension leaderboard snapshot (score/domain/provider/badge). |
+| `aishield_leaderboard_snapshot` | Full leaderboard snapshot across all dimensions. |
+| `aishield_contributors_leaderboard` | Contributor leaderboard across the 4-tier incentive system. |
+| `aishield_contributor_register` | Register a contributor; enter the Contributor → Reviewer → Maintainer → Trustee ladder. |
+| `aishield_contributor_add_event` | Add a weighted contribution event (review/rule_patch/bug_report/attestation/doc/ship_gate). |
+
+### Evidence Bundle (R4-深化, CyberGuard v0.13.0 aligned)
+
+HMAC-SHA256 chained audit + OCSF 1.1 event classes + STIX 2.1 observables + ATT&CK v15 TTP mapping + Proposal-Bound Approval + dual-round independent testing.
+
+| Tool | Description |
+|------|-------------|
+| `aishield_evidence_create` | Create an Evidence Bundle instance (optionally HMAC-sealed). |
+| `aishield_evidence_add_event` | Append an OCSF 1.1 event with optional ATT&CK TTP tag. |
+| `aishield_evidence_create_proposal` | Create a Proposal-Bound proposal awaiting explicit approval. |
+| `aishield_evidence_proposal` | Alias of `aishield_evidence_create_proposal`. |
+| `aishield_evidence_approve_proposal` | Approve a proposal; binds approval_hash ↔ proposal_hash bidirectionally. |
+| `aishield_evidence_approve` | Alias of `aishield_evidence_approve_proposal`. |
+| `aishield_evidence_dispatch` | Dispatch an approved proposal to an executor agent. |
+| `aishield_evidence_observe` | Run the dual-round independent observer against an executed proposal. |
+| `aishield_evidence_rollback` | Roll back a dispatched action, emitting a rollback event into the HMAC chain. |
+| `aishield_evidence_archive` | Archive a bundle into a portable manifest for offline transfer. |
+| `aishield_evidence_verify` | Query live bundle verify state and HMAC chain integrity. |
+| `aishield_evidence_verify_payload` | Offline verify a bundle payload with its HMAC secret. |
+| `aishield_verify_evidence_bundle` | Alias of `aishield_evidence_verify_payload`. |
+
+### Ship Gate (10-state release lifecycle)
+
+| Tool | Description |
+|------|-------------|
+| `aishield_ship_gate_run` | Run the 10-state release gate: ANALYZE → BLIND_TEST → CHALLENGE → GATE → PREPARE → RELEASE → OBSERVE → ARCHIVE (+ ROLLBACK / REJECT). Emits an Evidence Bundle when `emit_bundle=true`. |
+
 ## Scoring Dimensions
 
 1. **Security** (40%) — OWASP MCP Top 10 coverage

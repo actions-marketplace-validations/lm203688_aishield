@@ -19,7 +19,7 @@ const stdio_js_1 = require("@modelcontextprotocol/sdk/server/stdio.js");
 const zod_1 = require("zod");
 // 版本单一真源。由 scripts/sync_version.py 统一维护，CI 的版本一致性门禁会校验它，
 // 因此这里不再手写数字 —— 硬编码的 '3.0.0' 曾与已发布的 4.2.x 差了一个大版本。
-const SERVER_VERSION = '4.7.0';
+const SERVER_VERSION = '4.7.1';
 const API_BASE = process.env.AISHIELD_API_URL || 'https://api.aishield.tools';
 const API_KEY = process.env.AISHIELD_API_KEY || '';
 // ── Laya 本地决策模型集成 (可选) ──
@@ -513,6 +513,489 @@ function formatFinding(f) {
         s += `\n      ↪ Fix: ${String(f.remediation).slice(0, 200)}`;
     return s;
 }
+// ══════════════════════════════════════════════════════════════
+// Ecosystem Activation Tools (v4.5.0+)
+// ──────────────────────────────────────────────────────────────
+// 5 支柱统一服务 API 代理：Discovery / Certification / Composition /
+// Execution / Attestation。所有工具通过 api.aishield.tools 转发，
+// 支持零依赖 HMAC 回退或 Ed25519 全异步签名。
+//
+// 与扫描/防护工具体系并行——扫描工具做"入站安全门"，生态工具做
+// "跨 agent 治理 + 认证 + 证据"。R4-深化对齐 CyberGuard v0.13.0
+// (GOAI 2026 Agent Infra 季军) 的证据规范。
+//
+// 命名规范：所有生态工具均以 `aishield_` 前缀命名，与扫描/防护工具
+// 统一在同一个命名空间下，避免与第三方 MCP 工具冲突。
+// ══════════════════════════════════════════════════════════════
+// Helper: 通用 API 代理工具工厂，返回格式化的 JSON 响应文本。
+// 所有生态工具都走这条通道，避免为每个端点手写 fetch + 错误处理。
+//
+// 后端分两类端点：
+//   - handle_post(path, data): 需要请求体
+//   - handle_get(path, query): 只吃 query string (leaderboard/snapshot/sandbox matrix 等)
+// 本 helper 走 POST 通道；callEcoGet 走 GET 通道，query 参数通过 URL 拼接。
+async function callEco(path, body) {
+    try {
+        const data = await apiCall(path, body);
+        const header = `▶ ${path}\n`;
+        return {
+            content: [{
+                    type: 'text',
+                    text: header + JSON.stringify(data, null, 2),
+                }],
+        };
+    }
+    catch (e) {
+        return {
+            content: [{
+                    type: 'text',
+                    text: `✖ Ecosystem API call failed: ${e.message}\nEndpoint: ${path}`,
+                }],
+        };
+    }
+}
+// Helper: GET 版代理，用于只读查询端点 (leaderboard/snapshot/sandbox matrix 等)。
+async function callEcoGet(path) {
+    try {
+        const url = `${API_BASE}${path}`;
+        const headers = {
+            'User-Agent': `AIShield-MCP-Server/${SERVER_VERSION}`,
+        };
+        if (API_KEY)
+            headers['Authorization'] = `Bearer ${API_KEY}`;
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 30000);
+        try {
+            const res = await fetch(url, { method: 'GET', headers, signal: controller.signal });
+            if (!res.ok) {
+                const text = await res.text().catch(() => '');
+                throw new Error(`AIShield API ${res.status}: ${text.slice(0, 200)}`);
+            }
+            const data = await res.json();
+            return {
+                content: [{
+                        type: 'text',
+                        text: `▶ GET ${path}\n` + JSON.stringify(data, null, 2),
+                    }],
+            };
+        }
+        finally {
+            clearTimeout(timer);
+        }
+    }
+    catch (e) {
+        return {
+            content: [{
+                    type: 'text',
+                    text: `✖ Ecosystem API GET failed: ${e.message}\nEndpoint: ${path}`,
+                }],
+        };
+    }
+}
+// ── Agent Card: 签名 / 验证 / 身份导出 ──
+server.tool('aishield_sign_agent_card', `对 Agent Card 做 Ed25519 或 HMAC-SHA256 签名，产出可跨系统验证的 agent 身份凭证。
+
+签名算法选择：
+  - Ed25519（首选）：非对称，可离线验证，适合公开分发的 Agent Card
+  - HMAC-SHA256（零依赖回退）：对称，需要共享 secret，适合私有部署
+
+输入 card 字段：name / version / capabilities / endpoint / maintainer / trust_score / issued_at / expires_at。
+返回 signature (base64url) + algorithm + signed_at + public_key。`, {
+    card: zod_1.z.record(zod_1.z.any()).describe('Agent Card 对象 (name/version/capabilities/endpoint 等)'),
+    public_key_b64: zod_1.z.string().optional().describe('Ed25519 公钥 (base64url，可选，用于验证)'),
+    trust_score: zod_1.z.number().min(0).max(100).optional().describe('信任分 0-100'),
+}, ({ card, public_key_b64, trust_score }) => callEco('/api/v1/agent-card/sign', { card, public_key: public_key_b64, trust_score }));
+server.tool('aishield_verify_agent_card', `验证 Agent Card 的签名完整性，检测内容被篡改。
+
+签名算法自动识别 (Ed25519 / HMAC)。篡改任一字段后重算的 signature 会与原值不匹配，
+返回 signature_valid: false + 篡改检测摘要。
+
+关键场景：安装第三方 agent 前，用它核对 agent card 是否被中间人修改过。`, {
+    card: zod_1.z.record(zod_1.z.any()).describe('带 signature 的 Agent Card 对象'),
+    public_key_b64: zod_1.z.string().optional().describe('Ed25519 公钥 (base64url)'),
+}, ({ card, public_key_b64 }) => callEco('/api/v1/agent-card/verify', { card, public_key: public_key_b64 }));
+server.tool('aishield_export_identity', `从 Agent Card 导出三态身份凭证：Ed25519 签名卡片 + KYA SD-JWT + Web Bot Auth header。
+
+对齐标准：
+  - KYA SD-JWT (Keyed Agent) — 可分割声明集合，支持委托链
+  - Web Bot Auth (RFC draft, GoDaddy+Cloudflare 2026-04) — HTTP header bot 身份
+  - ERC-8004 — Ethereum 钱包身份绑定（独立走 wrap_erc8004）
+
+适合 agent 首次上架或跨平台迁移时批量导出身份包。`, {
+    card: zod_1.z.record(zod_1.z.any()).describe('Agent Card 对象'),
+    trust_score: zod_1.z.number().min(0).max(100).optional().describe('信任分'),
+}, ({ card, trust_score }) => callEco('/api/v1/agent-card/identity', { card, trust_score }));
+// ── Specialist Registry: 专业 agent 注册 ──
+server.tool('aishield_register_specialist', `注册专业 agent 到 8 域 Registry (90 天 TTL)。
+
+支持的域：legal / medical / finance / education / engineering / design / research / civic。
+注册成功后 agent 会获得 agent_id，其他 agent 可通过 list_specialists 查询、跨域协作。
+
+超过 90 天需调用 renew 续期，否则进入 lapsed 状态；被撤销的 agent 永久不可再注册同域。`, {
+    agent_id: zod_1.z.string().optional().describe('agent ID (不填自动生成)'),
+    domain: zod_1.z.enum(['legal', 'medical', 'finance', 'education', 'engineering', 'design', 'research', 'civic']).describe('专业域'),
+    agent_card: zod_1.z.record(zod_1.z.any()).optional().describe('关联的 Agent Card (可选)'),
+    description: zod_1.z.string().optional().describe('专业描述'),
+    capabilities: zod_1.z.array(zod_1.z.string()).optional().describe('能力标签'),
+    ttl_days: zod_1.z.number().min(1).max(365).default(90).describe('有效期（天）'),
+}, ({ agent_id, domain, agent_card, description, capabilities, ttl_days }) => callEco('/api/v1/specialist/agents', { agent_id, domain, agent_card, description, capabilities, ttl_days }));
+// ── ERC-8004: 钱包身份绑定 ──
+server.tool('aishield_wrap_erc8004', `将以太坊钱包地址包装成 ERC-8004 agent 身份。
+
+ERC-8004 是 Ethereum Foundation 2024 年底提出的 agent 身份标准，agent 通过钱包
+地址获得链上可验证身份，可组合 on-chain 权限与治理角色。
+
+地址格式：0x + 40 位十六进制。chain_id 常见：1=主网, 5=Goerli, 8453=Base, 42161=Arbitrum。`, {
+    wallet_address: zod_1.z.string().regex(/^0x[0-9a-fA-F]{40}$/).describe('以太坊钱包地址'),
+    chain_id: zod_1.z.number().default(1).describe('Chain ID'),
+}, ({ wallet_address, chain_id }) => callEco('/api/v1/identity/erc8004/wrap', { wallet_address, chain_id }));
+// ── Responsibility Chain ──
+server.tool('aishield_chain_create', `创建责任链 (HMAC-SHA256 链式追加结构)。
+
+责任链用于记录 agent 间的责任转移 / 委托 / 协作事件，形成不可篡改的审计轨迹。
+链头带 HMAC 摘要，每次 append 都引用前一条的 HMAC，任何篡改都会导致后续所有 HMAC 失效。
+
+返回 chain_id 后，用 chain_append 追加事件、chain_trace 追踪某个 output_ref 的完整链路。`, {
+    chain_id: zod_1.z.string().optional().describe('自定义链 ID (不填自动生成)'),
+}, ({ chain_id }) => callEco('/api/v1/chain', { chain_id }));
+server.tool('aishield_chain_append', `向责任链追加一条记录。
+
+每条记录包含 actor_id / action / target / payload / ts，自动生成 HMAC 摘要链。
+append 后立即返回 verify 结果——如果链被外部修改过，verify 会返回 false。`, {
+    chain_id: zod_1.z.string().describe('责任链 ID'),
+    actor_id: zod_1.z.string().describe('执行者 ID'),
+    action: zod_1.z.string().describe('动作描述'),
+    target: zod_1.z.record(zod_1.z.any()).optional().describe('作用对象'),
+    payload: zod_1.z.record(zod_1.z.any()).optional().describe('附加数据'),
+    ts: zod_1.z.string().optional().describe('时间戳 (ISO8601，不填用当前)'),
+}, ({ chain_id, actor_id, action, target, payload, ts }) => callEco(`/api/v1/chain/${encodeURIComponent(chain_id)}/append`, { actor_id, action, target, payload, ts }));
+server.tool('aishield_chain_trace', `按 output_ref 反向追踪责任链，找出该产出物的完整责任路径。
+
+例如：某个 AI 生成的报告由 3 个 agent 协作完成，可以用 output_ref 查到 A→B→C 的完整委托链，
+并核对每一步的 HMAC 摘要是否完整。`, {
+    chain_id: zod_1.z.string().describe('责任链 ID'),
+    output_ref: zod_1.z.string().describe('产出物引用 ID'),
+}, ({ chain_id, output_ref }) => callEco(`/api/v1/chain/${encodeURIComponent(chain_id)}/trace`, { output_ref }));
+// ── Protocol Bridge ──
+server.tool('aishield_protocol_translate', `MCP / A2A / ACP / AP2 协议间互译。
+
+将 MCP tool call 翻译成 A2A message、ACP request 或 AP2 支付指令，反之亦然。
+用于 agent 跨平台互通——不同厂商的 agent 用不同协议，bridge 提供统一入口。
+
+支持的协议：mcp (Anthropic) / a2a (Google) / acp (Microsoft) / ap2 (Google Payments)。`, {
+    protocol: zod_1.z.enum(['mcp', 'a2a', 'acp', 'ap2']).describe('目标协议'),
+    payload: zod_1.z.record(zod_1.z.any()).describe('源协议 payload'),
+    from_protocol: zod_1.z.enum(['mcp', 'a2a', 'acp', 'ap2']).optional().describe('源协议 (省略时自动识别)'),
+}, ({ protocol, payload, from_protocol }) => callEco('/api/v1/bridge/translate', { protocol, payload, from_protocol }));
+// ── Sandbox Backend ──
+server.tool('aishield_sandbox_backend_current', `获取当前主机上被选中的 sandbox backend 及其能力摘要。
+
+返回：
+  - backend_name：当前选中的后端 (openshell / mcpguard / meclaw / cf-isolate / python-subprocess)
+  - reason：为何选中此 backend
+  - capabilities：能力布尔矩阵 (seccomp / landlock / namespaces / network-isolate / fs-isolate)
+  - availability：可用性评级
+
+与 sandbox_evaluate 的区别：本工具只返回当前 backend；sandbox_evaluate 是别名，
+sandbox_backend_matrix 返回全部 5 后端的完整能力矩阵。`, {}, () => callEcoGet('/api/v1/sandbox/backend/current'));
+server.tool('aishield_sandbox_evaluate', `获取当前主机 sandbox backend 评估结果 (5 后端可用性自检)。
+
+评估的 backend：
+  - OpenShell (Google, 推荐)
+  - mcpguard (Microsoft, 零依赖)
+  - meclaw (Linux Landlock, 内核级)
+  - CF isolate (Cloudflare, 边缘隔离)
+  - python-subprocess (兜底)
+
+返回每个 backend 的可用状态、能力评级、是否支持 seccomp / landlock / namespaces。
+适合在部署 agent 前做环境自检，选最合适的隔离层。
+
+与 sandbox_backend_current 的区别：本工具返回完整评估；backend_current 只返回当前选中的那一个。`, {}, () => callEcoGet('/api/v1/sandbox/backend/current'));
+// ── Leaderboard ──
+server.tool('aishield_leaderboard_query', `查询 4 维度 leaderboard 快照 (score/domain/provider/badge)。
+
+聚合 4 个维度：
+  - score: 按 trust_score 排序
+  - domain: 按专业域分类 (legal/medical/finance/...)
+  - provider: 按注册方聚合
+  - badge: gold/silver/bronze 徽章统计
+
+用于生态活跃度展示，也是 contributor 激励的依据之一。`, {
+    dimension: zod_1.z.enum(['score', 'domain', 'provider', 'badge']).describe('查询维度'),
+    limit: zod_1.z.number().min(1).max(100).default(20).describe('返回条数'),
+}, ({ dimension, limit }) => callEcoGet(`/api/v1/leaderboard/snapshot?dimension=${dimension}&limit=${limit}`));
+// ── Contributor ──
+server.tool('aishield_contributor_register', `注册 contributor，进入 4 级激励体系。
+
+级别：Contributor (基础贡献) → Reviewer (审核) → Maintainer (维护) → Trustee (托管)。
+可通过 contributor_add_event 累加 6 类事件分：review/rule_patch/bug_report/attestation/doc/ship_gate。
+
+贡献者等级决定其在 agent 注册审核、规则晋升、责任链裁决等环节的话语权。`, {
+    contributor_id: zod_1.z.string().optional().describe('自定义 ID'),
+    name: zod_1.z.string().describe('名称'),
+    org: zod_1.z.string().optional().describe('组织'),
+    email: zod_1.z.string().optional().describe('邮箱'),
+    badges: zod_1.z.array(zod_1.z.string()).optional().describe('初始徽章'),
+}, ({ contributor_id, name, org, email, badges }) => callEco('/api/v1/contributors', { contributor_id, name, org, email, badges }));
+// ── Attestation: 信任凭证签发/验证 ──
+server.tool('aishield_generate_attestation', `生成 Trust Attestation 凭证，为已扫描的 agent 签发信任凭证。
+
+对齐 docs/trust-attestation-spec.md v1 schema，凭证包含：
+  - issuer (签发方) / subject (被签发方)
+  - verdict (安全/警告/危险)
+  - coverage (扫描覆盖率矩阵)
+  - attestation (五维分数)
+
+生成的 attestation_id 可用于 verify 与 revoke，也可嵌入 Agent Card。`, {
+    source_url: zod_1.z.string().optional().describe('被签发 agent 的源 URL'),
+    scan_report: zod_1.z.record(zod_1.z.any()).optional().describe('已存在的扫描报告 (省略时自动扫描)'),
+    issuer: zod_1.z.string().describe('签发方标识'),
+    subject: zod_1.z.string().describe('被签发方标识'),
+}, ({ source_url, scan_report, issuer, subject }) => callEco('/api/v1/attestations', { source_url, scan_report, issuer, subject }));
+server.tool('aishield_verify_attestation', `验证 Trust Attestation 的完整性与有效性。
+
+检查项：
+  - JSON Schema v1 合规
+  - HMAC 签名完整
+  - 未过期
+  - 未被 revoke
+  - 签发方仍在信任列表
+
+用于跨组织信任传递——第三方拿到 attestation 后可独立核验，无需访问签发方的扫描结果。`, {
+    attestation_id: zod_1.z.string().describe('Attestation ID'),
+    payload: zod_1.z.record(zod_1.z.any()).optional().describe('直接提供 payload (可选，与 ID 二选一)'),
+}, ({ attestation_id, payload }) => callEco('/api/v1/attestations/verify', { attestation_id, payload }));
+server.tool('aishield_list_attestations', `列出所有已签发的 Trust Attestation。`, {
+    status: zod_1.z.enum(['active', 'revoked', 'expired', 'all']).default('all').describe('筛选状态'),
+    limit: zod_1.z.number().min(1).max(200).default(50).describe('返回条数'),
+}, ({ status, limit }) => callEco(`/api/v1/attestations?status=${status}&limit=${limit}`, {}));
+server.tool('aishield_revoke_attestation', `撤销已签发的 Trust Attestation。
+
+撤销后 attestation 状态变为 revoked，任何后续 verify 都会返回 invalid。
+撤销事件也会写入 Evidence Bundle（如已关联）。`, {
+    attestation_id: zod_1.z.string().describe('待撤销的 attestation ID'),
+    reason: zod_1.z.string().describe('撤销原因'),
+    revoked_by: zod_1.z.string().default('system').describe('操作者'),
+}, ({ attestation_id, reason, revoked_by }) => callEco('/api/v1/attestations/revoke', { attestation_id, reason, revoked_by }));
+// ── Specialist Domains: 列出 8 个专业域 ──
+server.tool('aishield_list_specialist_domains', `列出 Specialist Registry 支持的 8 个专业域及其注册的 agent 数量。
+
+域列表：legal / medical / finance / education / engineering / design / research / civic。
+返回每域的注册数、活跃数、过期数、顶级 agent 列表。`, {
+    include_lapsed: zod_1.z.boolean().default(false).describe('是否包含已过期的 agent'),
+}, ({ include_lapsed }) => callEcoGet(`/api/v1/specialist/domains?include_lapsed=${include_lapsed}`));
+// ══════════════════════════════════════════════════════════════
+// Evidence Bundle Tools (R4-深化, 对齐 CyberGuard v0.13.0)
+// ──────────────────────────────────────────────────────────────
+// HMAC-SHA256 链式审计 + OCSF 1.1 + STIX 2.1 + ATT&CK v15 TTP +
+// Proposal-Bound Approval + 双轮独立验证 + 回滚/归档。
+// 参考: elsechord/CyberGuard v0.13.0, GOAI 2026 Agent Infra 3rd。
+// ══════════════════════════════════════════════════════════════
+server.tool('aishield_evidence_create', `创建 Evidence Bundle 实例 (HMAC-SHA256 链式审计容器)。
+
+Bundle 是 agent 执行证据的容器，所有事件 / proposal / approval / execution / observe / rollback
+都被组织为 OCSF 事件，并链接到 ATT&CK TTP 与 STIX Observable，可跨组织离线验证。
+
+hmac_secret 提供时启用 HMAC 完整链路；不提供则走无密钥结构模式（仅供调试，不能跨组织验证）。
+
+返回 run_id，后续所有 evidence_* 工具都用此 ID 定位 bundle。`, {
+    run_id: zod_1.z.string().optional().describe('自定义 run_id (不填自动生成)'),
+    hmac_secret: zod_1.z.string().optional().describe('HMAC 密钥 (可选，用于跨组织验证)'),
+    title: zod_1.z.string().optional().describe('Bundle 标题'),
+}, ({ run_id, hmac_secret, title }) => callEco('/api/v1/evidence', { run_id, hmac_secret, title }));
+server.tool('aishield_evidence_add_event', `向 Evidence Bundle 追加一条 OCSF 事件。
+
+event_type 遵循 OCSF 1.1 Event Class 命名 (audit.record / process.execution / network.connection ...)。
+ttp 字段可选，用于关联 MITRE ATT&CK v15 TTP ID (T1003/T1485/...)。
+
+每次追加后自动重算 HMAC 链，返回 verify 状态。`, {
+    run_id: zod_1.z.string().describe('Bundle run_id'),
+    event_type: zod_1.z.string().default('audit.record').describe('OCSF event type'),
+    agent_id: zod_1.z.string().default('unknown').describe('执行 agent'),
+    action: zod_1.z.string().default('record').describe('动作'),
+    payload: zod_1.z.record(zod_1.z.any()).default({}).describe('事件 payload'),
+    activity_id: zod_1.z.number().default(0).describe('OCSF activity_id'),
+    outcome: zod_1.z.enum(['successful', 'failed', 'unknown']).default('successful').describe('结果'),
+    reason: zod_1.z.string().optional().describe('原因说明'),
+    ttp: zod_1.z.string().optional().describe('ATT&CK TTP ID (T1xxx / Gxxx / Sxxx / TAxxx)'),
+}, ({ run_id, event_type, agent_id, action, payload, activity_id, outcome, reason, ttp }) => callEco(`/api/v1/evidence/${encodeURIComponent(run_id)}/events`, { event_type, agent_id, action, payload, activity_id, outcome, reason, ttp }));
+server.tool('aishield_evidence_proposal', `创建 Proposal-Bound 提案，等待 approver 显式批准后才允许 dispatch。
+
+对齐 CyberGuard v0.13.0 的 Proposal-Bound Approval：agent 生成的提案被 hash 锁定，
+只有当 approver 的签名绑定到该 hash 时才允许执行。防止 approver 事后否认或修改被批准的内容。`, {
+    run_id: zod_1.z.string().describe('Bundle run_id'),
+    agent_id: zod_1.z.string().default('planner').describe('提案 agent'),
+    action: zod_1.z.string().describe('建议动作'),
+    target: zod_1.z.record(zod_1.z.any()).default({}).describe('作用目标'),
+    parameters: zod_1.z.record(zod_1.z.any()).default({}).describe('动作参数'),
+    rationale: zod_1.z.string().describe('提案理由'),
+}, ({ run_id, agent_id, action, target, parameters, rationale }) => callEco(`/api/v1/evidence/${encodeURIComponent(run_id)}/proposals`, { agent_id, action, target, parameters, rationale }));
+server.tool('aishield_evidence_approve', `批准 Evidence Bundle 中的提案 (Proposal-Bound Approval)。
+
+批准记录独立于提案本身，二者通过 proposal_hash 双向绑定。篡改任意一边都会导致
+verify_bundle_payload 失败。scope=task 表示单次任务、scope=session 表示整个会话。`, {
+    run_id: zod_1.z.string().describe('Bundle run_id'),
+    proposal_id: zod_1.z.string().describe('待批准的提案 ID'),
+    approver_id: zod_1.z.string().default('unknown').describe('批准者 ID'),
+    scope: zod_1.z.enum(['task', 'session', 'global']).default('task').describe('批准作用域'),
+    expires_in: zod_1.z.number().min(60).max(86400).default(3600).describe('批准有效期（秒）'),
+}, ({ run_id, proposal_id, approver_id, scope, expires_in }) => callEco(`/api/v1/evidence/${encodeURIComponent(run_id)}/proposals/${encodeURIComponent(proposal_id)}/approve`, { approver_id, scope, expires_in }));
+server.tool('aishield_evidence_dispatch', `派发已批准的 proposal，让 executor agent 执行动作。
+
+dispatch 前必须存在有效的 approval 记录（Proposal-Bound）。执行结果被记录为 OCSF 事件，
+并进入双轮独立验证流程（第一轮 exec_result，第二轮 observe 观察实际效果）。`, {
+    run_id: zod_1.z.string().describe('Bundle run_id'),
+    approval_id: zod_1.z.string().describe('批准记录 ID'),
+    executor_id: zod_1.z.string().default('unknown').describe('执行者 ID'),
+    result: zod_1.z.boolean().default(true).describe('执行是否成功'),
+    detail: zod_1.z.record(zod_1.z.any()).default({}).describe('执行详情'),
+}, ({ run_id, approval_id, executor_id, result, detail }) => callEco(`/api/v1/evidence/${encodeURIComponent(run_id)}/dispatch`, { approval_id, executor_id, result, detail }));
+server.tool('aishield_evidence_observe', `派发后的双轮独立验证：观察者独立核对 exec_result 是否真的落地生效。
+
+对齐 CyberGuard 的 dual-round testing：第 1 轮 exec_result (executor 自证)，
+第 2 轮 observe (第三方观察)。两轮结果都 pass 才标记为 verified，任一轮 fail 会
+触发 rollback。round_no 支持多次观察累积证据。`, {
+    run_id: zod_1.z.string().describe('Bundle run_id'),
+    approval_id: zod_1.z.string().describe('关联的 approval ID'),
+    observer_id: zod_1.z.string().default('unknown').describe('观察者 ID'),
+    round_no: zod_1.z.number().min(1).max(10).default(1).describe('观察轮次'),
+    passed: zod_1.z.boolean().default(true).describe('是否通过'),
+    detail: zod_1.z.record(zod_1.z.any()).default({}).describe('观察详情'),
+    confidence: zod_1.z.number().min(0).max(1).default(1).describe('观察置信度'),
+}, ({ run_id, approval_id, observer_id, round_no, passed, detail, confidence }) => callEco(`/api/v1/evidence/${encodeURIComponent(run_id)}/observe`, { approval_id, observer_id, round_no, passed, detail, confidence }));
+server.tool('aishield_evidence_rollback', `回滚已派发的动作，创建 rollback 事件并标记原 approval 失效。
+
+对齐 CyberGuard 的 rollback 事件类型。rollback 记录本身也是 OCSF 事件，
+同样进入 HMAC 链，事后可以完整还原"执行 → 观察 → 回滚"的三段证据。`, {
+    run_id: zod_1.z.string().describe('Bundle run_id'),
+    approval_id: zod_1.z.string().describe('待回滚的 approval ID'),
+    operator_id: zod_1.z.string().default('unknown').describe('操作者 ID'),
+    reason: zod_1.z.string().describe('回滚原因'),
+}, ({ run_id, approval_id, operator_id, reason }) => callEco(`/api/v1/evidence/${encodeURIComponent(run_id)}/rollback`, { approval_id, operator_id, reason }));
+server.tool('aishield_evidence_archive', `归档 Evidence Bundle，生成 archive manifest 用于离线分发。
+
+归档后 bundle 变为只读，manifest 包含：
+  - HMAC 摘要链完整状态
+  - 所有 proposal / approval / dispatch / observe / rollback 记录
+  - OCSF event class 分布
+  - ATT&CK TTP 映射
+  - STIX Observable 列表
+
+manifest 可直接发送到第三方 audit 端点，无需重放原始事件。`, {
+    run_id: zod_1.z.string().describe('Bundle run_id'),
+    archiver_id: zod_1.z.string().default('system').describe('归档者 ID'),
+}, ({ run_id, archiver_id }) => callEco(`/api/v1/evidence/${encodeURIComponent(run_id)}/archive`, { archiver_id }));
+server.tool('aishield_verify_evidence_bundle', `离线验证 Evidence Bundle 的完整性 (跨组织传递后校验)。
+
+传入已归档的 bundle payload (JSON) + hmac_secret，验证：
+  - HMAC 摘要链完整
+  - 所有 proposal_hash / approval_hash 双向匹配
+  - OCSF event schema 有效
+  - ATT&CK TTP ID 合法
+  - STIX Observable 类型合法
+  - global_seq 单调递增
+
+对齐 CyberGuard 的 dual-round independent testing：即使脱离原组织环境也能
+通过 secret 一致重放完整验证。任何一条失败都会明确指出是哪一条事件、哪个字段出错。`, {
+    bundle: zod_1.z.record(zod_1.z.any()).describe('Bundle payload (JSON，来自 evidence_archive 的 manifest)'),
+    hmac_secret: zod_1.z.string().optional().describe('HMAC 密钥'),
+}, ({ bundle, hmac_secret }) => callEco('/api/v1/evidence/verify-payload', { bundle, hmac_secret }));
+server.tool('aishield_chain_migrate_to_bundle', `把责任链 (Responsibility Chain v1.1) 迁移为 Evidence Bundle，用于审计格式升级。
+
+迁移后：
+  - 原链的所有 append 事件成为 Bundle 的 audit.record 事件
+  - HMAC 摘要被重新计算并纳入新的 bundle 链
+  - 原链保留只读，Bundle 是新的 canonical 记录
+
+适合从旧责任链升级到 CyberGuard 兼容证据格式的迁移场景。`, {
+    chain_id: zod_1.z.string().describe('源责任链 ID'),
+    run_id: zod_1.z.string().optional().describe('目标 Bundle run_id'),
+    hmac_secret: zod_1.z.string().optional().describe('HMAC 密钥'),
+    archiver_id: zod_1.z.string().default('system').describe('归档者'),
+}, ({ chain_id, run_id, hmac_secret, archiver_id }) => callEco('/api/v1/chain/migrate', { chain_id, run_id, hmac_secret, archiver_id }));
+server.tool('aishield_ship_gate_run', `运行 10 状态发布门禁 (ANALYZE → BLIND_TEST → CHALLENGE → GATE → PREPARE → RELEASE → OBSERVE → ARCHIVE)。
+
+对齐 CyberGuard 的双轮独立测试流程：BLIND_TEST 由独立 agent 执行，CHALLENGE 可对抗性
+验证，GATE 综合 score/coverage/pass-fail 三态判定。
+
+--no-auto-accept-challenge 关闭自动接受挑战阶段，走人工审核。
+--emit-bundle 结束后自动创建 Evidence Bundle 记录整个生命周期。`, {
+    target: zod_1.z.string().describe('扫描目标 (仓库 URL 或本地路径)'),
+    target_type: zod_1.z.enum(['mcp', 'skill', 'gpt', 'prompt']).default('mcp').describe('目标类型'),
+    emit_bundle: zod_1.z.boolean().default(false).describe('是否生成 Evidence Bundle'),
+    auto_accept_challenge: zod_1.z.boolean().default(true).describe('自动接受 challenge 阶段'),
+    hmac_secret: zod_1.z.string().optional().describe('HMAC 密钥 (用于 bundle)'),
+}, ({ target, target_type, emit_bundle, auto_accept_challenge, hmac_secret }) => callEco('/api/v1/ship-gate/run', { target, target_type, emit_bundle, auto_accept_challenge, hmac_secret }));
+// ── Leaderboard 补充：TOP 榜 / 快照 / 贡献者排行 ──
+server.tool('aishield_leaderboard_top', `按 trust_score 排序查询 leaderboard TOP-N。
+
+默认按 score 降序，返回前 N 名 agent 及其评分、徽章、所属域、注册方。
+适合展示"本周最佳 agent"或用于推荐引擎的输入。`, {
+    limit: zod_1.z.number().min(1).max(100).default(10).describe('返回条数'),
+    domain: zod_1.z.string().optional().describe('按专业域过滤 (若指定，走 domains/{domain} 端点)'),
+    min_score: zod_1.z.number().min(0).max(100).default(0).describe('最低分阈值 (无 domain 时生效)'),
+}, ({ limit, domain, min_score }) => domain
+    ? callEcoGet(`/api/v1/leaderboard/domains/${encodeURIComponent(domain)}?limit=${limit}`)
+    : callEcoGet(`/api/v1/leaderboard/top?limit=${limit}&min_score=${min_score}`));
+server.tool('aishield_leaderboard_snapshot', `获取 4 维度 leaderboard 完整快照 (score/domain/provider/badge)。
+
+一次调用返回所有维度的完整数据，便于生态活跃度全景展示与报告生成。`, {
+    limit: zod_1.z.number().min(1).max(100).default(50).describe('每维度返回条数'),
+}, ({ limit }) => callEcoGet(`/api/v1/leaderboard/snapshot?limit=${limit}`));
+server.tool('aishield_contributors_leaderboard', `查询 contributor 排行榜 (4 级激励体系)。
+
+按累计贡献分排序，返回 Contributor / Reviewer / Maintainer / Trustee 四级贡献者
+及其分数、徽章、事件分布。`, {
+    limit: zod_1.z.number().min(1).max(100).default(20).describe('返回条数'),
+}, ({ limit }) => callEcoGet(`/api/v1/contributors/leaderboard?limit=${limit}`));
+server.tool('aishield_contributor_add_event', `给 contributor 追加一条贡献事件，累加积分。
+
+支持的 6 类事件：review (审核)、rule_patch (规则补丁)、bug_report (漏洞报告)、
+attestation (签发凭证)、doc (文档贡献)、ship_gate (发布门禁通过)。
+
+不同事件有不同权重，累计到一定分即可升级 contributor 等级。`, {
+    contributor_id: zod_1.z.string().describe('贡献者 ID'),
+    event_type: zod_1.z.enum(['review', 'rule_patch', 'bug_report', 'attestation', 'doc', 'ship_gate']).describe('事件类型'),
+    target_ref: zod_1.z.string().describe('事件作用对象 (rule_id / agent_id / PR URL 等)'),
+    score: zod_1.z.number().min(0).max(100).default(10).describe('事件基础分'),
+    metadata: zod_1.z.record(zod_1.z.any()).optional().describe('附加元数据'),
+}, ({ contributor_id, event_type, target_ref, score, metadata }) => callEco(`/api/v1/contributors/${encodeURIComponent(contributor_id)}/events`, { event_type, target_ref, score, metadata }));
+server.tool('aishield_sandbox_backend_matrix', `获取 sandbox backend 完整能力矩阵 (5 后端 × 全部能力维度)。
+
+比 sandbox_evaluate 更详细：返回每个 backend 的操作系统兼容性、资源限制支持、
+seccomp / landlock / namespaces 支持、网络隔离能力、性能评级等完整字段。`, {}, () => callEcoGet('/api/v1/sandbox/backend/matrix'));
+server.tool('aishield_evidence_create_proposal', `创建 Evidence Bundle 提案 (Proposal-Bound Approval)。
+
+等价于 evidence_proposal 的规范别名，对齐 CyberGuard v0.13.0 的提案流程。`, {
+    run_id: zod_1.z.string().describe('Bundle run_id'),
+    agent_id: zod_1.z.string().default('planner').describe('提案 agent'),
+    action: zod_1.z.string().describe('建议动作'),
+    target: zod_1.z.record(zod_1.z.any()).default({}).describe('作用目标'),
+    parameters: zod_1.z.record(zod_1.z.any()).default({}).describe('动作参数'),
+    rationale: zod_1.z.string().describe('提案理由'),
+}, ({ run_id, agent_id, action, target, parameters, rationale }) => callEco(`/api/v1/evidence/${encodeURIComponent(run_id)}/proposals`, { agent_id, action, target, parameters, rationale }));
+server.tool('aishield_evidence_approve_proposal', `批准 Evidence Bundle 提案 (Proposal-Bound Approval)。
+
+等价于 evidence_approve 的规范别名。批准记录通过 proposal_hash 与提案双向绑定。`, {
+    run_id: zod_1.z.string().describe('Bundle run_id'),
+    proposal_id: zod_1.z.string().describe('提案 ID'),
+    approver_id: zod_1.z.string().default('unknown').describe('批准者'),
+    scope: zod_1.z.enum(['task', 'session', 'global']).default('task').describe('批准作用域'),
+    expires_in: zod_1.z.number().min(60).max(86400).default(3600).describe('有效期（秒）'),
+}, ({ run_id, proposal_id, approver_id, scope, expires_in }) => callEco(`/api/v1/evidence/${encodeURIComponent(run_id)}/proposals/${encodeURIComponent(proposal_id)}/approve`, { approver_id, scope, expires_in }));
+server.tool('aishield_evidence_verify', `验证 Evidence Bundle 的 HMAC 链完整性 (bundle 视角)。
+
+不同于 verify_evidence_bundle（接收 payload JSON 做离线验证），本工具直接查询
+服务端已存储的 bundle，返回当前 verify 状态与摘要链完整性报告。`, {
+    run_id: zod_1.z.string().describe('Bundle run_id'),
+}, ({ run_id }) => callEcoGet(`/api/v1/evidence/${encodeURIComponent(run_id)}/verify`));
+server.tool('aishield_evidence_verify_payload', `离线验证 Evidence Bundle payload (跨组织传递后校验)。
+
+等价于 verify_evidence_bundle 的规范别名，对齐 CyberGuard 的 dual-round independent
+testing：即使脱离原组织环境也能通过 secret 一致重放完整验证。`, {
+    bundle: zod_1.z.record(zod_1.z.any()).describe('Bundle payload JSON'),
+    hmac_secret: zod_1.z.string().optional().describe('HMAC 密钥'),
+}, ({ bundle, hmac_secret }) => callEco('/api/v1/evidence/verify-payload', { bundle, hmac_secret }));
 // ── Start ──
 async function main() {
     const transport = new stdio_js_1.StdioServerTransport();
