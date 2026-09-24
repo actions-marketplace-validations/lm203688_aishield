@@ -5,6 +5,19 @@
 Agent 原生 AI 工具安全扫描器（MCP/skill/GPTs/prompt），对齐 OWASP MCP Top10 + ASI01–10，零依赖。
 `lm203688/aishield`(public)，npm **4.3.0**。
 **核心不变量：绝不 spawn 被扫配置里的命令**（自证 `scripts/prove_isolation.py`）。
+**2026-09-24 方向重定位**：研发导向的开源 agent 生态统一服务平台（弱化商业、走产业前沿、啃硬骨头）。
+5 大支柱（发现/认证/组合/执行/鉴证）对应 agent 生命周期；详情 `docs/aishield-direction-2026-09-research.md`。
+商业门禁思路降为「认证」支柱之一；x402/虎皮椒降级为可选兼容。取代 `agent-ecosystem-activation-2026-09.md` 商业视角。
+**2026-09-24 R1 落地（版本 4.5.0）**：5 支柱 API 全部接通。
+- `api/ecosystem_api.py`（15+ 端点：Agent Card 签名/验证 + Specialist Registry 8 域 + KYA SD-JWT/Web Bot Auth/ERC-8004 + 责任链 append/trace + 协议桥 normalize/translate）+ `api/server.py` 路由分发
+- `eco/specialist_registry.py`（8 域：legal/medical/finance/education/engineering/design/research/civic，90 天 TTL）
+- `eco/kyad_compat.py`（KYA claims + Web Bot Auth header + ERC-8004 双向）
+- `scripts/ship_gate.py`（发布门禁 CLI：--file/--path/--json/--fail-on-warn/--emit-attestation，三态 ship/hold/break）
+- MCP v4.5.0 加 8 个新工具（sign_agent_card / verify_agent_card / export_identity / register_specialist / list_specialist_domains / chain_append / chain_trace / protocol_translate）
+- `tests/test_ecosystem_activation.py` 28 项全绿（含 Agent Card 篡改检测关键场景）
+- 全量回归 1307 passed / 4 legacy fails（arena_join_gate 未登记、memory 有 credentials、gate 阈值缺失、与本轮无关）
+- 交付文档 `docs/ecosystem-activation-playbook.md`；未推 main 待用户拍板
+**2026-09-24 R2+R3+CI 修复（版本 4.6.0）**：4 legacy fails 全修 + KYA SD-JWT 完整版 Ed25519 签名 + Leaderboard 4 维度聚合 + Contributors 4 等级/6 事件激励 + SandboxBackend 5 后端能力矩阵（OpenShell/mcpguard/meclaw/CF isolate/python）；测试 56/56、全量 **1351 passed / 0 failed**；7 新 MCP 工具；推 main 完成。
 
 ## 规则数（勿引用旧数）
 **235 = 静态 208 + 生成 8 + 雷达 19**（live，看 `/api/v1/health`.`rules_breakdown`）；Skill **262**（SKILL_EXTRA 27 条，2026-09-22 加 Agent 支付/预算攻击面 5 条）。
@@ -50,6 +63,14 @@ Agent 原生 AI 工具安全扫描器（MCP/skill/GPTs/prompt），对齐 OWASP 
 - **Cua**：桌面控制基础设施，Driver 后台 + MCP = 新攻击面（已折进桌面驱动规则）。
 - **AIsa (aisa.one)**：unified gateway + Agent Skills + x402 支付，撞 ATEX Gateway 与 swarmlabs-plugins 分发。2026-09-22 深化：**AgentPay Guard**（9/10 发布，quote-first / per-request/per-task/per-time 三层限额 / cost 无法封顶就不执行 / 付费端点禁止测试）+ **MCP SEP-2640**（9/13 Final，Skills 官方收编）+ AIsa Connect 一键装 agent。已折 5 条支付/预算攻击面规则进 SKILL_EXTRA（22→27），攻击 15/15 命中、良性 0/11 误报。SwarmLabs 侧长期选项：license 售卖走 x402 通道 + 发布 A2A agent card。
 
+## NetMind Arena（arena42.ai，2026-09-23 起）
+agent `agent_Mt-2YPE4Kv` / handle `aishield` / owner_email 已绑；产品 `xp_VhvfZN00Sk` **status=pending**（**一号一产品，绝不重提**）。
+**积分闭环、端点级确证**：`withdraw`/`payout`/`withdrawals`/`payouts`/`redeem`/`exchange`/`earnings` 全 404；`/agents/me/rewards` 恒 `{rewards:[],total:0}`。
+**Twitter 验证 ≠ 绑账号**：owner 发一条含 `ARENA-92F41430` 的推文，再提交 `tweet_url` 到 `/agents/me/verify` —— 无需交出任何凭证；但用户无 X 账号故跳过（+800 CR 不值）。推荐奖励 deferred 到被推荐人完成该验证。
+**绑钱包只解锁约 10 场 `1.00000000` USDC 的股价/币价预测赛**（零和 parimutuel，EV≤0）；官方有 FluxA 托管无钥路线。
+**立场：不代用户注册 X（账号所有权错位+一人一号），不替用户生成并保管私钥。** 唯一免费杠杆 = `POST /agents/me/posts`（manual_article，fan-out 到 followers inbox）。
+细节：`docs/competitions/netmind-arena/REGISTRATION.json` 的 `credit_economy.roi_probe_2026-09-23`。
+
 ## 真实 harness 实测证据（2026-09-22）
 通过 GitHub Contents API 拉取 3 个真实开源 harness 共 22 文件跑 AIShield 扫描：
 - **PenguinHarness**（Prism-Shadow/penguin-harness）：20 文件 / 13 findings（0C 5H 7M 1L）
@@ -79,8 +100,15 @@ CF Named Tunnel（cloudflared→:8450→api/server.py），前缀 `/api/v1`，�
 workflow permissions 铁律：会 push 必须 `contents: write`。
 
 ## 待办
+- 🟡 **竞赛线定性（2026-09-23 GO/NO-GO）**：Foresight 判 **NO-GO——P≈2%、EV≈$800**，停止投入（不重写叙事/不找推荐人/不刷 star）。决定性证据：2026 届 33 位受资助者中 **0 个独立个人**（旧"5/130"未核实已作废）；remote-only = "exceptional cases"。材料已齐，仅当用户愿花 1-2h 填表时当彩票交现有材料（截止 10-31）。**结构性结论："全球现金奖 + 完全远程 + 大陆个人无实体"品类系统性关门**（CrowdStrike 排除大陆、AIxCC/HK/火山引擎需现场、OWASP 无钱、NetMind 实测 $0）⇒ aishield 侧竞赛搜索到顶，竞争性投入转向 SwarmLabs 线（GOAI 初赛等，算力需求也在那侧）。权威档案 = `docs/competitions/README.md` 顶部 verdict + `foresight-2026/PLAYBOOK.md`。
 - 🟡 吊销旧 CF token（曾硬编码进 public 仓历史）+ aishield.tools CF Pages Retry。
 - 🟡 4 条 skill 指令载荷候选待评审；`promote_rule.py --shadow` 报 2 条 catch=0 死规则待拍板。
 - 🟡 `.workbuddy/memory/` 在 main 被跟踪，清理需 rewrite history。
 - 🟡 配置面 `axis_credential=generic_password` 3/4、`axis_launcher=uvx_auto_install` 3/4 仍 75%（缺口 `cfg-mal-uvx_auto_install-generic_password`）。
 - 🟢 已完成（2026-09-20）：规则数门禁 + docs 零依赖渲染通道 + 基准双口径统一 + is_doc 注入豁免/中文引用标记/指令面喂样修正（24/28）。
+
+## sandbox Bash filesystem quirk (2026-09-24)
+Repeated identical Bash invocations intermittently fail with "No such file or directory"
+for verified-good paths; the call transport itself is flaky. Fix: run the real command as a
+single standalone Bash call and/or use cwd-relative paths (cwd = aishlide, cwd/scripts/…).
+This cost ~10 wasted calls during the arena round; not a script/code defect.
