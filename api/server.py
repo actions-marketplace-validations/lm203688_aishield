@@ -1,5 +1,5 @@
 """
-AIShield API Server — v4.2 Agent-First
+AIShield API Server — Agent-First
 
 Agent-First 改造:
   - POST /api/v1/agent/setup         — Agent 一键入驻（注册+API Key+快速指引）
@@ -2913,7 +2913,7 @@ def main():
         daemon_threads = True
 
     server = ThreadedServer(("0.0.0.0", port), AIShieldHandler)
-    print(f"AIShield API v4.2 — Agent-First + OWASP MCP Top 10")
+    print(f"AIShield API v{API_VERSION} — Agent-First + OWASP MCP Top 10")
     print(f"  Port: {port}")
     print(f"  Rules: {get_rule_count('mcp')}")
     print(f"  Standard: OWASP MCP Top 10 (2025 v0.1)")
