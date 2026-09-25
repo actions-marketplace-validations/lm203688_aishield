@@ -17,14 +17,24 @@ jobs:
 
       # 自扫描：本仓库用自己的扫描器扫自己。pin 到 main（而不是某个 v 标签）
       # 是为了让扫描器随仓库同步演进——否则每次发版都得额外打标签才能更新扫描器。
+      #
       # 2026-09-25 修复：原先 pin 在 v4.3.0，且传了该版本 action.yml 里根本不存在的
       # include_trust_attestation / output_format 两个 input（GitHub 直接告警
       # "Unexpected input(s)"），action 忽略它们后就没产出 SARIF，导致下一步
       # upload-sarif 报 "Path does not exist: aishield-results.sarif"。
       # action.yml 声明的 input 只有：source_url / tool_type / name / enable_osv / fail_on。
+      #
+      # 这一步**只负责产出 SARIF / JSON 制品供 GitHub Security tab 展示，不承担门禁**。
+      # 原因见下面 "Gate on self-scan"：本仓库扫自己时，agent-card.json / docs/ /
+      # registry/ / distribution/ 里全是扫描器自己的检测词表与演示载荷，
+      # fail_on: high 必然触发（实测 score=25 risk=critical，50 条 finding 里 19 条
+      # high/critical 全落在自家 manifest 与文档上），那是自指噪音不是真实信号。
+      # fail_on 没有 "关闭" 档位（合法值只有 safe/medium/high/critical，
+      # safe 也意味着 info 就失败），所以用 continue-on-error 把它降级为制品步骤。
       - name: Run AIShield Security Scan
         id: aishield
         uses: lm203688/aishield@main
+        continue-on-error: true
         with:
           source_url: ${{ github.server_url }}/${{ github.repository }}
           tool_type: mcp
@@ -52,23 +62,44 @@ jobs:
         with:
           sarif_file: aishield.sarif
 
-      - name: Gate on security score
-        if: always()
+      # 真正的门禁：scripts/self_scan.py —— 仓库自有的自扫描入口，
+      # 用 distribution/self_reference_allowlist.json 把扫描器自指误报
+      # （检测器词汇 / 演示载荷 / 只读 preflight）标注为 self_reference
+      # 后不再阻断，只保留"未登记的阻断级发现"作为真实信号。
+      #
+      # 退出码契约：0 = 无未登记的阻断级发现；1 = 存在真实信号；
+      #            2 = allowlist 清单本身有问题（条目已腐烂）。
+      # 三档都该让 CI 红 —— 第 3 档说明免杀清单过期，等于门禁静默失效。
+      - name: Gate on self-scan
+        id: selfscan
         run: |
-          python3 - <<'PY'
-          import json, os, sys
-          p = 'aishield-report.json'
-          if not os.path.exists(p):
-              print('no aishield-report.json -- skip score gate')
-              sys.exit(0)
-          with open(p) as fh:
-              d = json.load(fh)
-          score = d.get('score', d.get('overall_score', 0))
-          print('security score:', score)
-          if score < 60:
-              print(f'FAIL: security score {score} < 60')
-              sys.exit(1)
+          # 零第三方依赖：self_scan.py 只走 stdlib + scanner.* + scripts/verify_distribution.py，
+          # 唯一可能用到的 PyYAML 在 scanner/policy.py 里是 try/except 包裹、
+          # 缺了会降级到内置 _mini_yaml，所以这里不装任何包。
+          python scripts/self_scan.py --json > self-scan.json 2>self-scan.err
+          rc=$?
+          cat self-scan.err || true
+          python - <<'PY'
+          import json
+          d = json.load(open('self-scan.json', encoding='utf-8'))
+          t = d.get('totals', {})
+          print('=== self-scan totals ===')
+          for k, v in t.items():
+              print('  %s: %s' % (k, v))
+          print('allowlist_version:', d.get('allowlist_version'))
+          bad = [s for s in d.get('sources', []) if s.get('blocking_unsuppressed')]
+          print('sources with blocking_unsuppressed: %d' % len(bad))
+          for s in bad:
+              for f in s['blocking_unsuppressed']:
+                  print('  BLOCKING [%s] %s -> %s'
+                        % (f.get('severity'), s.get('source'), f.get('rule_id') or f.get('rule')))
+          stale = d.get('stale_allowlist_entries') or []
+          if stale:
+              print('STALE allowlist entries (%d):' % len(stale))
+              for e in stale[:20]:
+                  print('  -', e)
           PY
+          exit $rc
 
       - name: Comment PR with results
         if: github.event_name == 'pull_request'
@@ -76,32 +107,39 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-            const path = 'aishield-report.json';
+            const path = 'self-scan.json';
 
             if (fs.existsSync(path)) {
               const results = JSON.parse(fs.readFileSync(path, 'utf8'));
+              const t = results.totals || {};
+              const sources = results.sources || [];
+              const offenders = sources.filter(s => (s.blocking_unsuppressed || []).length > 0);
 
-              let comment = `## AIShield Security Scan Results\n\n`;
-              comment += `**Security Score**: ${results.score}/100\n`;
-              comment += `**Risk Level**: ${results.risk_level}\n\n`;
+              let status = offenders.length === 0 ? 'PASS' : 'FAIL';
+              let comment = `## AIShield Self-Scan Results\n\n`;
+              comment += `**Result**: ${status}\n`;
+              comment += `**Sources scanned**: ${sources.length}\n`;
+              comment += `**Blocking (unsuppressed)**: ${t.blocking_unsuppressed || 0}\n`;
+              comment += `**Self-reference suppressed**: ${t.suppressed || 0}\n`;
+              comment += `**Stale allowlist entries**: ${t.stale_allowlist || (results.stale_allowlist_entries || []).length}\n`;
+              comment += `**Allowlist version**: ${results.allowlist_version}\n\n`;
 
-              if (results.findings && results.findings.length > 0) {
-                comment += `### Security Findings (${results.findings.length})\n\n`;
-
-                results.findings.slice(0, 5).forEach(finding => {
-                  comment += `**${finding.severity.toUpperCase()}**: ${finding.rule}\n`;
-                  comment += `${finding.description}\n\n`;
+              if (offenders.length > 0) {
+                comment += `### Blocking Findings\n\n`;
+                offenders.forEach(src => {
+                  comment += `**${src.source}**\n\n`;
+                  (src.blocking_unsuppressed || []).forEach(f => {
+                    comment += `**${(f.severity || '').toUpperCase()}**: ${f.rule_id || f.rule}\n`;
+                    comment += `${f.description || ''}\n\n`;
+                  });
                 });
-
-                if (results.findings.length > 5) {
-                  comment += `... and ${results.findings.length - 5} more findings\n\n`;
-                }
               } else {
-                comment += `No security findings detected!\n\n`;
+                comment += `No unregistered blocking findings.\n\n`;
               }
 
-              comment += `### Full Report\n`;
-              comment += `[View detailed SARIF report](https://github.com/${{ github.repository }}/security/analysis)`;
+              comment += `### Raw Scan Artifacts\n`;
+              comment += `[View SARIF report](https://github.com/${{ github.repository }}/security/analysis)\n`;
+              comment += `Self-reference suppression: \`distribution/self_reference_allowlist.json\` v${results.allowlist_version}`;
 
               github.rest.issues.createComment({
                 issue_number: context.issue.number,
