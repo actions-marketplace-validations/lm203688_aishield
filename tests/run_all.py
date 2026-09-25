@@ -172,6 +172,12 @@ def main():
         # 2026-09-25 版本声明位覆盖门禁：防"门禁假绿"（api/server.py 曾 6 处 4.3.0
         # 而 mcp.json 已 4.8.3，sync_version 报"全部一致"却对那 8 处失明）
         'tests.test_version_declare',
+        # 2026-09-25 import 完整性门禁：仓库内引用的模块/符号必须真的存在。
+        # 起因是 api/trust_api.py 的 attestation 扩展从未推送到 main，导致
+        # `import api.server` 在干净 checkout 上 ImportError、self-scan 连红 8 次；
+        # 另查出 eco/crypto_sign.py 等 6 个模块缺失，Muse/Grok/NVIDIA 三个连接器
+        # 在远端全都无法导入——而本机因为有这些文件，测试全绿。
+        'tests.test_import_integrity',
         # 2026-09-19 AIShield Collector：本地持续观测（不 spawn / 不联网 / 指纹幂等 / 紧凑摘要）
         # 2026-09-22 MCP SEP-2640 manifest 扫描器：过度代理/供应链/凭据/签名/过期
         'tests.test_mcp_manifest_scan',
