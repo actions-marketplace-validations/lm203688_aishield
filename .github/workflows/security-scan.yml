@@ -10,36 +10,56 @@ on:
 jobs:
   security-scan:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-      
+
+      # 自扫描：本仓库用自己的扫描器扫自己。pin 到 main（而不是某个 v 标签）
+      # 是为了让扫描器随仓库同步演进——否则每次发版都得额外打标签才能更新扫描器。
+      # 2026-09-25 修复：原先 pin 在 v4.3.0，且传了该版本 action.yml 里根本不存在的
+      # include_trust_attestation / output_format 两个 input（GitHub 直接告警
+      # "Unexpected input(s)"），action 忽略它们后就没产出 SARIF，导致下一步
+      # upload-sarif 报 "Path does not exist: aishield-results.sarif"。
+      # action.yml 声明的 input 只有：source_url / tool_type / name / enable_osv / fail_on。
       - name: Run AIShield Security Scan
-        uses: lm203688/aishield@v4.3.0
+        id: aishield
+        uses: lm203688/aishield@main
         with:
           source_url: ${{ github.server_url }}/${{ github.repository }}
           tool_type: mcp
           name: ${{ github.event.repository.name }}
           enable_osv: false
           fail_on: high
-          include_trust_attestation: true
-          output_format: sarif
-      
-      - name: Upload SARIF to GitHub Security
+
+      # action_entrypoint.py 实际落盘的文件名是 aishield.sarif / aishield-report.json，
+      # 不是 aishield-results.sarif / aishield-results.json（原 workflow 写错了，
+      # 导致 SARIF 上传硬失败、分数门禁与 PR 评论都静默空转）。
+      - name: Show scan artifacts
         if: always()
-        uses: github/codeql-action/upload-sarif@v3
+        run: |
+          echo "=== produced files ==="
+          ls -la aishield.sarif aishield-report.json 2>&1 || true
+          echo "=== action outputs ==="
+          echo "score=${{ steps.aishield.outputs.score }}"
+          echo "risk_level=${{ steps.aishield.outputs.risk_level }}"
+          echo "report=${{ steps.aishield.outputs.report }}"
+          echo "sarif=${{ steps.aishield.outputs.sarif }}"
+
+      - name: Upload SARIF to GitHub Security
+        if: always() && hashFiles('aishield.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v4
         with:
-          sarif_file: aishield-results.sarif
-      
+          sarif_file: aishield.sarif
+
       - name: Gate on security score
         if: always()
         run: |
           python3 - <<'PY'
           import json, os, sys
-          p = 'aishield-results.json'
+          p = 'aishield-report.json'
           if not os.path.exists(p):
-              print('no aishield-results.json — skip score gate')
+              print('no aishield-report.json -- skip score gate')
               sys.exit(0)
           with open(p) as fh:
               d = json.load(fh)
@@ -56,33 +76,33 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-            const path = 'aishield-results.json';
-            
+            const path = 'aishield-report.json';
+
             if (fs.existsSync(path)) {
               const results = JSON.parse(fs.readFileSync(path, 'utf8'));
-              
-              let comment = `## 🛡️ AIShield Security Scan Results\n\n`;
+
+              let comment = `## AIShield Security Scan Results\n\n`;
               comment += `**Security Score**: ${results.score}/100\n`;
               comment += `**Risk Level**: ${results.risk_level}\n\n`;
-              
+
               if (results.findings && results.findings.length > 0) {
-                comment += `### 🔍 Security Findings (${results.findings.length})\n\n`;
-                
+                comment += `### Security Findings (${results.findings.length})\n\n`;
+
                 results.findings.slice(0, 5).forEach(finding => {
                   comment += `**${finding.severity.toUpperCase()}**: ${finding.rule}\n`;
                   comment += `${finding.description}\n\n`;
                 });
-                
+
                 if (results.findings.length > 5) {
                   comment += `... and ${results.findings.length - 5} more findings\n\n`;
                 }
               } else {
-                comment += `✅ No security findings detected!\n\n`;
+                comment += `No security findings detected!\n\n`;
               }
-              
-              comment += `### 📊 Full Report\n`;
+
+              comment += `### Full Report\n`;
               comment += `[View detailed SARIF report](https://github.com/${{ github.repository }}/security/analysis)`;
-              
+
               github.rest.issues.createComment({
                 issue_number: context.issue.number,
                 owner: context.repo.owner,
