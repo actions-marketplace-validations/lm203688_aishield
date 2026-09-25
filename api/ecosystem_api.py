@@ -15,15 +15,42 @@ api/ecosystem_api.py — Agent 生态服务 API（5 支柱落地）
 """
 from __future__ import annotations
 
+import importlib.util
 import json
 import os
-import platform
 import re
 import sys
+import sysconfig
 import threading
 from urllib.parse import parse_qs
 
 _BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+def _stdlib_platform():
+    """取标准库的 platform 模块，而不是仓库里的 eco/platform.py。
+
+    本文件下面把 eco/ 挂上 sys.path，而 eco/ 里有一个 platform.py
+    （平台注册中心，与标准库无关）。裸 `import platform` 的解析结果就
+    取决于导入顺序：标准库 platform 已被别的模块先加载时拿到标准库，
+    首次加载时拿到 eco/platform.py，随后 platform.system() 抛
+    AttributeError: module 'platform' has no attribute 'system'。
+    本地因为 sys.modules 里恰好已有标准库 platform 而长期未炸，
+    干净 CI runner 上必炸。这里按标准库安装路径直接加载。
+    """
+    cached = sys.modules.get("platform")
+    if cached is not None and "system" in dir(cached):
+        return cached
+    stdlib = sysconfig.get_paths()["stdlib"]
+    spec = importlib.util.spec_from_file_location(
+        "platform", os.path.join(stdlib, "platform.py"))
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules["platform"] = mod          # 先入 sys.modules 防循环导入半初始化
+    spec.loader.exec_module(mod)
+    return mod
+
+
+platform = _stdlib_platform()
 
 # 允许作为独立脚本或被 api/server.py 两种路径调用
 for _p in (_BASE, _BASE + "/eco", _BASE + "/api"):

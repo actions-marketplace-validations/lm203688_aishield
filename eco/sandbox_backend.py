@@ -16,12 +16,40 @@ eco/sandbox_backend.py — 沙箱后端抽象层（R3 轻量落地）
 """
 from __future__ import annotations
 
+import importlib.util
 import os
-import platform
 import shutil
 import subprocess
+import sys
+import sysconfig
 from dataclasses import dataclass, field
 from typing import Any
+
+
+def _stdlib_platform():
+    """取标准库的 platform 模块（不是 eco/platform.py）。
+
+    本文件位于 eco/，而 sys.path 上同时挂着 eco/platform.py（五支柱编排模块）。
+    裸 `import platform` 的解析结果完全取决于导入顺序：标准库 platform 若已被
+    别的依赖先加载，拿到的是标准库；若它是首次加载（干净 CI runner 的常见情形），
+    就会落到 eco/platform.py，随后 platform.system() 抛
+    AttributeError: module 'platform' has no attribute 'system'。
+
+    这里按标准库安装路径直接加载，与 sys.path 顺序无关。已缓存的标准库模块直接复用。
+    """
+    cached = sys.modules.get("platform")
+    if cached is not None and "system" in dir(cached):
+        return cached
+    stdlib = sysconfig.get_paths()["stdlib"]
+    spec = importlib.util.spec_from_file_location(
+        "platform", os.path.join(stdlib, "platform.py"))
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules["platform"] = mod  # 先入表，处理 platform.py 内部的自引用
+    spec.loader.exec_module(mod)
+    return mod
+
+
+platform = _stdlib_platform()
 
 
 # ══════════════════════════════════════════════
