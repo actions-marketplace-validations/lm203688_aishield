@@ -8,7 +8,7 @@ description: >-
   your machine. Use when an agent is about to install or run an untrusted MCP
   server, skill, or prompt and you need to know if it is poisoned, leaking data,
   or over-privileged.
-version: 4.2.2
+version: 4.8.3
 metadata:
   openclaw:
     requires:

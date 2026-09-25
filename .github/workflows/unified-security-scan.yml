@@ -53,14 +53,71 @@ jobs:
           python-version: '3.11'
 
       - name: Start AIShield Server
+        env:
+          # 本 workflow 专用端口。8450 会与并发 workflow / 其它隧道抢 bind，
+          # 端口被占时 server 静默启动失败，后续 curl 再空跑，整条门禁就红。
+          AISHIELD_PORT: '8731'
         run: |
-          python api/server.py &
-          sleep 3
-          curl -s http://localhost:8450/api/v1/health
+          set -uo pipefail
+          echo "python: $(python -V 2>&1) at $(which python)"
+          echo "cwd:  $(pwd)  user: $(whoami)  uid: $(id -u)"
+          echo "port: ${AISHIELD_PORT}"
+
+          # ① 语法预检：把 SyntaxError 直接暴露在这一步，而不是埋在 server.log 里。
+          python -m py_compile api/server.py api/trust_api.py \
+            || { echo "::error::py_compile failed"; exit 1; }
+
+          # ② 导入预检：`import api.server` 只导入不 serve，跑完即退出。
+          #    本仓库历史上 6 次连续红灯的根因都在这一步——自研代码在干净
+          #    ubuntu-latest 上导入即崩，但本机带 venv 的 Python 3.13 一切正常，
+          #    所以必须在这里把 traceback 打到 step 输出里，而不是让它消失在
+          #    server.log（GitHub 下载日志需 admin 权限，本 PAT 拿不到）。
+          if ! python -c "import api.server" 2>&1 | tee server-import.log; then
+            echo "::error::import api.server 失败，traceback 见 server-import.log"
+            exit 1
+          fi
+          echo "import preflight passed (api.server 导入成功)"
+
+          python api/server.py > server.log 2>&1 &
+          SERVER_PID=$!
+          # 有界就绪探测，最多 30s。原先 `sleep 3` 是一次性赌注：冷启动或
+          # 依赖加载稍慢一次就整条链路假失败，而 `curl -s` 不带 --fail，
+          # 拿到非 2xx 也不报错，等于把"没起来"伪装成"起来了"。
+          for i in $(seq 1 30); do
+            if curl -sf "http://127.0.0.1:${AISHIELD_PORT}/api/v1/health" \
+                 -o server-health.json 2>/dev/null; then
+              echo "AIShield server ready after ${i}s (pid ${SERVER_PID})"
+              cat server-health.json
+              exit 0
+            fi
+            # 进程已经退出了就是真失败，别等满 30s 再报"未就绪"
+            if ! kill -0 "$SERVER_PID" 2>/dev/null; then
+              echo "::error::AIShield server 启动即退出 (pid ${SERVER_PID})，日志如下"
+              cat server.log
+              exit 1
+            fi
+            sleep 1
+          done
+          echo "::error::AIShield server 30s 内未就绪，日志如下"
+          cat server.log
+          exit 1
+
+      - name: Upload server diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: server-diagnostics
+          path: |
+            server.log
+            server-import.log
+          retention-days: 14
+          if-no-files-found: ignore
 
       - name: Scan Repository
+        env:
+          AISHIELD_PORT: '8731'
         run: |
-          curl -s -X POST http://localhost:8450/api/v1/audit \
+          curl -sf -X POST "http://127.0.0.1:${AISHIELD_PORT}/api/v1/audit" \
             -H "Content-Type: application/json" \
             -d '{
               "tool_name": "aishield-repo",

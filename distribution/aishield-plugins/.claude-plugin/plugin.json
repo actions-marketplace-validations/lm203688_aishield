@@ -1,0 +1,36 @@
+{
+  "$schema": "https://www.anthropic.com/schema/plugin.json",
+  "name": "aishield-security-scan",
+  "version": "4.8.3",
+  "description": "AIShield security scanner for MCP servers, AI Skills, and agent workspaces. Covers OWASP MCP Top 10 + OWASP Agentic AI Top 10 + sandbox hardening. Zero-dependency, local-first, offline-capable.",
+  "author": {
+    "name": "lm203688",
+    "url": "https://github.com/lm203688/aishield"
+  },
+  "homepage": "https://aishield.tools",
+  "repository": "https://github.com/lm203688/aishield",
+  "license": "MIT",
+  "keywords": [
+    "security",
+    "scanner",
+    "mcp",
+    "agent",
+    "skill",
+    "prompt-injection",
+    "supply-chain",
+    "sbom",
+    "sarif"
+  ],
+  "categories": [
+    "quality-security"
+  ],
+  "mcpServers": {
+    "aishield": {
+      "command": "npx",
+      "args": ["-y", "aishield-mcp-server"],
+      "description": "AIShield security scanner as an MCP server — scan MCP configs, AI Skills, and agent workspaces without ever executing a scanned command."
+    }
+  },
+  "skills": ["skills/aishield-security-scan/SKILL.md"],
+  "readme": "README.md"
+}

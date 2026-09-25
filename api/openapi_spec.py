@@ -19,6 +19,11 @@ api/openapi_spec.py — 自动生成 OpenAPI 3.0.3 规范
   10. GET /api/v1/billing/plans     — 套餐列表
 """
 
+# 版本号唯一事实源：api/server.py 的 API_VERSION（受 scripts/sync_version.py 门禁）。
+# 不在此处再写一个字面量——下面 HealthResponse 的示例值就是靠这种方式消除漂移的，
+# 复制一份版本号等于复制一个将来必然过期的副本。
+from api.server import API_VERSION  # noqa: E402
+
 # ══════════════════════════════════════════════
 #  共用 Schema 片段
 # ══════════════════════════════════════════════
@@ -64,7 +69,7 @@ def get_openapi_spec():
         "openapi": "3.0.3",
         "info": {
             "title": "AIShield API",
-            "version": "4.3.0",
+            "version": "4.8.3",
             "description": (
                 "AI Agent Security & Trust Platform — Agent-First API\n\n"
                 "AIShield 为 AI Agent 提供一站式安全能力：安全扫描、Prompt 注入检测、\n"
@@ -132,7 +137,11 @@ def get_openapi_spec():
                         },
                         "version": {
                             "type": "string",
-                            "example": "4.2.2",
+                            # 示例值取自 api.server.API_VERSION，不再写死。
+                            # 此前这里钉在 "4.2.2"：Swagger UI / Postman 里展示
+                            # 的版本与实际 /health 返回的版本长期不一致，
+                            # 使用者照示例写断言会全部对不上。
+                            "example": API_VERSION,
                         },
                         "uptime_seconds": {
                             "type": "number",

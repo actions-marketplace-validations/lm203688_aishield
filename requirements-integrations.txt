@@ -1,24 +1,57 @@
 # AIShield Integrations - Optional Dependencies
 # ================================================
-# 鏍稿績妯″潡鏃犲閮ㄤ緷璧栵紝浠ヤ笅涓哄悇闆嗘垚鐨勫彲閫変緷璧?# 瀹夎鏂瑰紡: pip install -r requirements-integrations.txt
+# 核心模块无外部依赖，以下为各集成的可选依赖。
+# 安装方式: pip install -r requirements-integrations.txt
+#
+# 本文件同时是 tests/test_import_integrity.py 的第三方依赖事实源：
+# 门禁按「裸 import 若非标准库、也不在本文件声明，则必须是仓库内部模块且
+# 必须能落盘解析」判定。新增第三方依赖时请同步登记到这里，否则门禁会把它
+# 当成缺失的仓库内模块报出来（这正是 scripts/harness_corpus.py 未推送时
+# 的漏检场景）。
 
-# Phase 1: BB Browser (鍙€夛紝鐢ㄤ簬 MCP 宸ュ叿澧炲己)
-# bb-browser 閫氳繃 npm 鍏ㄥ眬瀹夎: npm install -g bb-browser
+# Phase 1: BB Browser (可选，用于 MCP 工具增强)
+# bb-browser 通过 npm 全局安装: npm install -g bb-browser
 
-# Phase 2: Browser Use (AI 娴忚鍣ㄦ壂鎻?
+# Phase 2: Browser Use (AI 浏览器扫描) — scanner/integrations/browser_use.py
 browser-use>=0.2.0
 
-# Phase 3: Graph DB (濞佽儊鍥捐氨)
-neo4j>=5.0.0          # Neo4j 鍚庣
-# arango>=3.0.0       # ArangoDB 鍚庣 (鍙€?
+# Phase 3: Graph DB (威胁图谱) — scanner/integrations/graph_db.py
+neo4j>=5.0.0          # Neo4j 后端
+falkordb>=0.6.0       # FalkorDB 后端
+arango>=3.0.0         # ArangoDB 后端
 
-# Phase 4: Event Stream (瀹炴椂浜嬩欢绠￠亾)
-kafka-python>=2.0.0   # Apache Kafka (鍙€夛紝鏃犱緷璧栨椂浣跨敤鍐呭瓨鎬荤嚎)
+# Phase 4: Event Stream (实时事件管道)
+# 注意：发行名 kafka-python 的 import 名是 kafka，两者都已登记。
+kafka-python>=2.0.0   # Apache Kafka (可选，无依赖时使用内存总线)
 
-# Phase 5: Scan Isolation (vCluster 闅旂鐜)
+# Phase 5: Scan Isolation (scanner/sandbox.py)
+python-seccomp>=0.3.0 # 系统调用过滤（需要 libseccomp，无则降级为仅超时墙）
 # vcluster CLI: https://www.vcluster.com/docs/getting-started/setup
 # kubectl: https://kubernetes.io/docs/tasks/tools/
 
 # Phase 6: Persistent Agent (Grok Bot)
-# 鏃犻渶棰濆渚濊禆锛屼娇鐢ㄦ爣鍑嗗簱 urllib
+# 无需额外依赖，使用标准库 urllib
 # API Key: https://console.x.ai/
+
+# Phase 7: Arena Agent HTTP 服务 (scripts/arena/arena_agent.py)
+fastapi>=0.100.0
+uvicorn>=0.23.0
+
+# Phase 8: YAML 配置解析 (scanner/policy.py、scripts/gen_task_registry.py、
+# scripts/meta_monitor.py、scripts/validate_workflows.py)
+# 缺失时 scanner/policy.py 降级到内置 _mini_yaml，其余脚本降级为跳过校验。
+PyYAML>=6.0
+
+# Legacy: trust/validator.py 顶层无条件 import requests。
+# 该模块当前无调用方（零引用），但文件仍在仓库里，故登记以免门禁误报。
+requests>=2.31.0
+
+# Phase 9: 评测用 LLM 后端 (scripts/ 下的模型对照评测脚本)
+langchain-anthropic>=0.1.0
+langchain-openai>=0.1.0
+
+# Phase 10: 图片处理 (scripts/arena/make_cover.py 生成封面图)
+Pillow>=10.0.0
+
+# Phase 11: 打包发布 (setup.py)
+setuptools>=68.0.0

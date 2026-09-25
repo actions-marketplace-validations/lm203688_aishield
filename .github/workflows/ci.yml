@@ -126,8 +126,29 @@ jobs:
         python tests/quick_test.py
 
     - name: Run all tests
+      shell: bash
       run: |
-        python tests/run_all.py
+        # 2026-09-25：这一步原先只是裸 `python tests/run_all.py`。失败时 annotation
+        # 只给 "Process completed with exit code 1"，而 job log 需要 admin 权限才能
+        # 取（本 PAT 是 403），等于完全看不见死因——unified-security-scan 就是这样
+        # 连红 8 次才定位到根因。现在把输出落到文件并随失败上传为 artifact。
+        # 注意保留 exit code：tee 会吞掉上游退出码，必须显式 rc=$? 再退出。
+        echo "python: $(python -V 2>&1) at $(which python)"
+        echo "cwd: $(pwd)  user: $(whoami)  uid: $(id -u)"
+        echo "python: $(python -c 'import sys;print(sys.version.split()[0])')  pytest-style runner: tests/run_all.py"
+        python tests/run_all.py 2>&1 | tee test-output.log
+        rc=${PIPESTATUS[0]}
+        echo "=== run_all.py exit code: ${rc} ==="
+        exit ${rc}
+
+    - name: Upload test diagnostics
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-output
+        path: test-output.log
+        retention-days: 14
+        if-no-files-found: ignore
 
   security-scan:
     runs-on: ubuntu-latest

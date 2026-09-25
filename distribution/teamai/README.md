@@ -32,7 +32,7 @@ teamai source add https://github.com/lm203688/aishield.git --name aishield
 ## 二、两条接入路径
 
 ### 路径 A（推荐，零适配）：MCP 桥接 + TeamAI skill
-- AIShield 已是标准 MCP server（6 个 `aishield_*` 工具，npm `aishield-mcp-server` 4.3.0）。
+- AIShield 已是标准 MCP server（6 个 `aishield_*` 工具，npm `aishield-mcp-server` 4.8.3）。
 - 已随 AIShield 仓库发布 `skills/aishield-scan/SKILL.md`；订阅方 `teamai pull` 后自动落到各 agent 原生目录（`~/.claude/skills/` 等），agent 在装/跑不可信 MCP/skill 前先调 AIShield 扫一遍。
 
 ### 路径 B（强门禁）：`aishield-scan-skills` hook

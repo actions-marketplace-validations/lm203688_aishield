@@ -311,7 +311,7 @@ graph TB
             RP["Rug Pull 检测"]
             AS["API 安全扫描"]
             BW["违禁词检测"]
-            SC["5 维评分引擎<br/>235/241 条规则"]
+            SC["5 维评分引擎<br/>235/262 条规则"]
         end
 
         subgraph Eco["生态模块"]
@@ -383,7 +383,7 @@ AIShield 会根据最新扫描结果动态渲染徽章颜色和状态。
 
 ### Phase 1 — 安全扫描引擎 ✅ (当前)
 
-- [x] 235 MCP / 241 Skill 条 OWASP MCP Top 10 + Agentic ASI01–10 对齐检测规则
+- [x] 235 MCP / 262 Skill 条 OWASP MCP Top 10 + Agentic ASI01–10 对齐检测规则
 - [x] 5 维安全评分引擎
 - [x] 中文 Prompt 注入检测（拼音 / 谐音 / 拆字）
 - [x] 零宽字符 / 隐写术 / Rug Pull 检测

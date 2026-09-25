@@ -21,6 +21,8 @@ import sys
 import json
 import uuid
 import threading
+import hashlib
+import base64
 from datetime import datetime, timezone, timedelta
 from urllib.parse import urlparse, parse_qs
 
@@ -35,11 +37,14 @@ DATA_DIR = os.path.join(BASE, "data")
 CERTIFICATIONS_FILE = os.path.join(DATA_DIR, "certifications.json")
 REGISTRY_FILE = os.path.join(DATA_DIR, "agent_registry.json")
 AGENT_CARD_FILE = os.path.join(_ROOT, "docs", ".well-known", "agent-card.json")
+ATTESTATIONS_FILE = os.path.join(DATA_DIR, "attestations.json")
+SCHEMA_DIR = os.path.join(_ROOT, "schema")
 
 TZ = timezone(timedelta(hours=8))
 _lock = threading.Lock()
 
 TRUST_VERSION = "0.1"
+ATTESTATION_VERSION = "1.0"
 ISSUER = "AIShield Trust Authority"
 ISSUER_URL = "https://aishield.tools"
 
@@ -434,6 +439,291 @@ def _digest_fingerprint(payload):
     return "sha256:" + hashlib.sha256(blob.encode("utf-8")).hexdigest()
 
 
+# ══════════════════════════════════════════════
+#  Trust Attestation 生成和验证
+# ══════════════════════════════════════════════
+
+def _load_attestation_schema():
+    """加载Trust Attestation JSON Schema"""
+    schema_path = os.path.join(SCHEMA_DIR, "trust-attestation-v1.json")
+    if not os.path.exists(schema_path):
+        return None
+    try:
+        with open(schema_path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return None
+
+
+def _validate_attestation_schema(attestation):
+    """验证attestation是否符合JSON Schema"""
+    schema = _load_attestation_schema()
+    if not schema:
+        return False, "Schema not found"
+    
+    # 简单验证 - 在实际应用中可以使用jsonschema库
+    required_fields = ["schema", "issuer", "subject", "verdict", "coverage", "attestation"]
+    for field in required_fields:
+        if field not in attestation:
+            return False, f"Missing required field: {field}"
+    
+    # 验证schema版本
+    if not attestation["schema"].startswith("trust-attestation/"):
+        return False, "Invalid schema format"
+    
+    # 验证时间戳格式
+    timestamp_fields = ["issued_at", "expires_at"]
+    for field in timestamp_fields:
+        if field in attestation and attestation[field]:
+            try:
+                datetime.fromisoformat(attestation[field].replace("Z", "+00:00"))
+            except ValueError:
+                return False, f"Invalid timestamp format in {field}"
+    
+    return True, "Valid"
+
+
+def _generate_attestation_id():
+    """生成唯一的attestation ID"""
+    return str(uuid.uuid4())
+
+
+def _hash_content(content):
+    """生成内容哈希"""
+    if isinstance(content, str):
+        content = content.encode('utf-8')
+    return hashlib.sha256(content).hexdigest()
+
+
+def generate_attestation(subject, verdict, coverage, attestation, issuer=None, expires_at=None):
+    """生成Trust Attestation凭证"""
+    try:
+        # 验证输入参数
+        if not subject or not verdict or not coverage or not attestation:
+            return None, "Missing required parameters"
+        
+        # 验证schema
+        test_attestation = {
+            "schema": "trust-attestation/v1",
+            "issuer": issuer or ISSUER,
+            "subject": subject,
+            "verdict": verdict,
+            "coverage": coverage,
+            "attestation": attestation
+        }
+        is_valid, message = _validate_attestation_schema(test_attestation)
+        if not is_valid:
+            return None, f"Schema validation failed: {message}"
+        
+        # 生成完整的attestation
+        attestation_obj = {
+            "schema": "trust-attestation/v1",
+            "id": _generate_attestation_id(),
+            "issuer": issuer or ISSUER,
+            "issued_at": datetime.now(TZ).isoformat(),
+            "subject": subject,
+            "verdict": verdict,
+            "coverage": coverage,
+            "attestation": attestation
+        }
+        
+        if expires_at:
+            attestation_obj["expires_at"] = expires_at
+        
+        # 计算内容指纹
+        content_hash = _hash_content(json.dumps(attestation_obj, sort_keys=True))
+        attestation_obj["fingerprint"] = f"sha256:{content_hash}"
+        
+        # 保存attestation
+        attestations = _load_json(ATTESTATIONS_FILE, {})
+        if not isinstance(attestations, dict):
+            attestations = {}
+        
+        attestations[attestation_obj["id"]] = attestation_obj
+        _save_json(ATTESTATIONS_FILE, attestations)
+        
+        return attestation_obj, None
+        
+    except Exception as e:
+        return None, f"Failed to generate attestation: {str(e)}"
+
+
+def verify_attestation(attestation_id, online_verification=True):
+    """验证Trust Attestation凭证"""
+    try:
+        attestations = _load_json(ATTESTATIONS_FILE, {})
+        if not isinstance(attestations, dict):
+            return None, "Attestations not found"
+        
+        attestation = attestations.get(attestation_id)
+        if not attestation:
+            return None, "Attestation not found"
+        
+        # 验证schema
+        is_valid, message = _validate_attestation_schema(attestation)
+        if not is_valid:
+            return None, f"Schema validation failed: {message}"
+        
+        # 检查过期时间
+        if "expires_at" in attestation:
+            try:
+                expires = datetime.fromisoformat(attestation["expires_at"].replace("Z", "+00:00"))
+                if expires < datetime.now(TZ):
+                    return None, "Attestation expired"
+            except ValueError:
+                return None, "Invalid expiration date"
+        
+        # 验证指纹
+        if "fingerprint" in attestation:
+            content = json.dumps(attestation, sort_keys=True, ensure_ascii=False)
+            expected_hash = attestation["fingerprint"]
+            actual_hash = f"sha256:{_hash_content(content)}"
+            if expected_hash != actual_hash:
+                return None, "Fingerprint mismatch"
+        
+        # 在线验证
+        if online_verification:
+            try:
+                # 这里可以添加对issuer API的在线验证
+                # 例如验证badge URL是否可访问
+                if "badge" in attestation:
+                    badge_url = attestation["badge"]
+                    # 简单的HTTP检查（在实际应用中应该使用更robust的方法）
+                    import urllib.request
+                    try:
+                        urllib.request.urlopen(badge_url, timeout=5)
+                    except Exception:
+                        return None, "Badge URL not accessible"
+            except Exception:
+                # 在线验证失败不应该阻止整个验证过程
+                pass
+        
+        # 添加验证状态
+        verified_attestation = attestation.copy()
+        verified_attestation["verified"] = True
+        verified_attestation["verified_at"] = datetime.now(TZ).isoformat()
+        
+        return verified_attestation, None
+        
+    except Exception as e:
+        return None, f"Verification failed: {str(e)}"
+
+
+def list_attestations(subject=None, issuer=None, status=None):
+    """列出attestations"""
+    try:
+        attestations = _load_json(ATTESTATIONS_FILE, {})
+        if not isinstance(attestations, dict):
+            return {"count": 0, "attestations": []}
+        
+        results = []
+        for attestation_id, attestation in attestations.items():
+            # 过滤条件
+            if subject and attestation.get("subject", {}).get("url") != subject:
+                continue
+            if issuer and attestation.get("issuer") != issuer:
+                continue
+            
+            # 检查状态
+            current_status = "active"
+            if "expires_at" in attestation:
+                try:
+                    expires = datetime.fromisoformat(attestation["expires_at"].replace("Z", "+00:00"))
+                    if expires < datetime.now(TZ):
+                        current_status = "expired"
+                except ValueError:
+                    current_status = "invalid"
+            
+            if status and current_status != status:
+                continue
+            
+            # 添加状态信息
+            result = attestation.copy()
+            result["status"] = current_status
+            results.append(result)
+        
+        return {"count": len(results), "attestations": results}
+        
+    except Exception as e:
+        return {"error": f"Failed to list attestations: {str(e)}", "count": 0, "attestations": []}
+
+
+def revoke_attestation(attestation_id, reason=None):
+    """撤销attestation"""
+    try:
+        attestations = _load_json(ATTESTATIONS_FILE, {})
+        if not isinstance(attestations, dict):
+            return False, "Attestations not found"
+        
+        if attestation_id not in attestations:
+            return False, "Attestation not found"
+        
+        # 标记为已撤销
+        attestations[attestation_id]["revoked"] = True
+        attestations[attestation_id]["revoked_at"] = datetime.now(TZ).isoformat()
+        if reason:
+            attestations[attestation_id]["revoked_reason"] = reason
+        
+        _save_json(ATTESTATIONS_FILE, attestations)
+        return True, None
+        
+    except Exception as e:
+        return False, f"Failed to revoke attestation: {str(e)}"
+
+
+def create_attestation_from_scan(scan_result, subject_url, subject_type="tool"):
+    """从扫描结果创建Trust Attestation"""
+    try:
+        # 提取扫描结果的关键信息
+        summary = scan_result.get("summary", {})
+        overall_score = summary.get("overall_score", 0)
+        severity_counts = summary.get("severity_counts", {})
+        
+        # 构建subject
+        subject = {
+            "type": subject_type,
+            "url": subject_url,
+            "name": scan_result.get("source_url", subject_url)
+        }
+        
+        # 构建verdict
+        risk = "safe" if overall_score >= 80 else "medium" if overall_score >= 60 else "high" if overall_score >= 40 else "critical"
+        verdict = {
+            "score": overall_score,
+            "level": "gold" if overall_score >= 85 else "silver" if overall_score >= 70 else "bronze" if overall_score >= 55 else "none",
+            "risk": risk,
+            "no_spawn_guarantee": True,
+            "offline_scan": True
+        }
+        
+        # 构建coverage
+        coverage = {
+            "owasp_mcp_top10": "10/10",
+            "owasp_asi_top10": "10/10",
+            "dimensions": ["security", "permissions", "data_handling", "supply_chain", "reliability"]
+        }
+        
+        # 构建attestation
+        attestation = {
+            "method": "automated",
+            "scan_id": scan_result.get("scan_id"),
+            "findings_count": summary.get("findings_total", 0),
+            "severity_counts": severity_counts,
+            "evidence_count": len(scan_result.get("findings", [])),
+            "generated_at": datetime.now(TZ).isoformat()
+        }
+        
+        # 生成attestation
+        result, error = generate_attestation(subject, verdict, coverage, attestation)
+        if error:
+            return None, error
+        
+        return result, None
+        
+    except Exception as e:
+        return None, f"Failed to create attestation from scan: {str(e)}"
+
+
 def _digest_envelope(envelope, max_findings=3):
     """把一个 aishield-trust/v1 信封压成摘要。
 
@@ -568,6 +858,33 @@ def handle_get(path, query=""):
     """返回 (payload_dict, status_code)。"""
     q = parse_qs(query) if query else {}
 
+    # Trust Attestation 端点
+    if path == "/api/v1/attestations":
+        # 列出attestations
+        subject = q.get("subject", [None])[0]
+        issuer = q.get("issuer", [None])[0]
+        status = q.get("status", [None])[0]
+        result = list_attestations(subject=subject, issuer=issuer, status=status)
+        return result, 200
+
+    m = __import__("re").match(r"^/api/v1/attestations/([^/]+)$", path)
+    if m:
+        # 获取单个attestation
+        attestation_id = m.group(1)
+        online = q.get("online", ["false"])[0].lower() == "true"
+        result, error = verify_attestation(attestation_id, online_verification=online)
+        if error:
+            return {"error": error}, 404
+        return result, 200
+
+    if path == "/api/v1/attestations/schema":
+        # 获取attestation schema
+        schema = _load_attestation_schema()
+        if schema:
+            return schema, 200
+        return {"error": "Schema not found"}, 404
+
+    # 原有的Trust API端点
     if path == "/api/v1/registry":
         tag = q.get("tag", [None])[0]
         provider = q.get("provider", [None])[0]
@@ -618,6 +935,69 @@ def handle_post(path, data):
     """返回 (payload_dict, status_code)。"""
     data = data or {}
 
+    # Trust Attestation 端点
+    if path == "/api/v1/attestations":
+        # 创建新的attestation
+        subject = data.get("subject")
+        verdict = data.get("verdict")
+        coverage = data.get("coverage")
+        attestation = data.get("attestation")
+        issuer = data.get("issuer")
+        expires_at = data.get("expires_at")
+        
+        if not subject or not verdict or not coverage or not attestation:
+            return {"error": "subject, verdict, coverage, and attestation required"}, 400
+        
+        result, error = generate_attestation(subject, verdict, coverage, attestation, issuer, expires_at)
+        if error:
+            return {"error": error}, 400
+        
+        return {"success": True, "attestation": result}, 201
+
+    if path == "/api/v1/attestations/verify":
+        # 验证attestation
+        attestation_id = data.get("attestation_id")
+        online = data.get("online_verification", True)
+        
+        if not attestation_id:
+            return {"error": "attestation_id required"}, 400
+        
+        result, error = verify_attestation(attestation_id, online_verification=online)
+        if error:
+            return {"error": error}, 404
+        
+        return {"success": True, "attestation": result}, 200
+
+    if path == "/api/v1/attestations/from-scan":
+        # 从扫描结果创建attestation
+        scan_result = data.get("scan_result")
+        subject_url = data.get("subject_url")
+        subject_type = data.get("subject_type", "tool")
+        
+        if not scan_result or not subject_url:
+            return {"error": "scan_result and subject_url required"}, 400
+        
+        result, error = create_attestation_from_scan(scan_result, subject_url, subject_type)
+        if error:
+            return {"error": error}, 400
+        
+        return {"success": True, "attestation": result}, 201
+
+    if path == "/api/v1/attestations/revoke":
+        # 撤销attestation
+        attestation_id = data.get("attestation_id")
+        reason = data.get("reason")
+        
+        if not attestation_id:
+            return {"error": "attestation_id required"}, 400
+        
+        success, error = revoke_attestation(attestation_id, reason)
+        if error:
+            return {"error": error}, 400
+        
+        return {"success": True, "message": "Attestation revoked"}, 200
+
+    # 原有的Trust API端点
     if path == "/api/v1/trust/auto":
         scan_result = data.get("scan_result") or data.get("scan_report")
         if not scan_result:

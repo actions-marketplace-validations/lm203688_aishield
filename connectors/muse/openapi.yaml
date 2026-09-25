@@ -1,0 +1,483 @@
+openapi: 3.1.0
+info:
+  title: AIShield Personal Agent Governance API
+  version: 4.8.1
+  description: |
+    个人 Agent 治理层（PAI DID + 预算守护 + 行动溯源 + Connector 独立审核）。
+    对齐 OWASP MCP Top 10 + Agentic AI Top 10。Meta Muse Connector 提交材料。
+  license:
+    name: MIT
+    url: https://github.com/lm203688/aishield
+servers:
+  - url: https://aishield.tools
+    description: Production
+security:
+  - bearerAuth: []
+paths:
+  /api/v1/personal-agents/stats:
+    get:
+      summary: 全局统计（脱敏）
+      responses:
+        '200':
+          description: users_total / instances / tickets / actions / disputes
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+
+  /api/v1/personal-agents/users:
+    post:
+      summary: 创建/查询个人 DID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [user_id]
+              properties:
+                user_id:
+                  type: string
+                display_name:
+                  type: string
+                email:
+                  type: string
+      responses:
+        '201':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user_id:
+                    type: string
+                  did:
+                    type: string
+                    pattern: '^did:aishield:pa:[a-z0-9]+$'
+    get:
+      summary: 列出所有用户 id
+      responses:
+        '200':
+          description: ok
+  /api/v1/personal-agents/users/{user_id}:
+    parameters:
+      - $ref: '#/components/parameters/userId'
+    get:
+      summary: 用户全量状态
+      responses:
+        '200':
+          description: 身份 + 实例 + tickets + actions + disputes + budget 摘要
+  /api/v1/personal-agents/users/{user_id}/agent-instances:
+    parameters:
+      - $ref: '#/components/parameters/userId'
+    post:
+      summary: 登记个人 Agent 实例
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [agent_name, provider]
+              properties:
+                agent_name:
+                  type: string
+                provider:
+                  type: string
+                platform_hint:
+                  type: string
+                capabilities:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '201':
+          description: 实例已登记
+  /api/v1/personal-agents/users/{user_id}/agent-instances/{instance_id}/revoke:
+    parameters:
+      - $ref: '#/components/parameters/userId'
+      - name: instance_id
+        in: path
+        required: true
+        schema:
+          type: string
+    post:
+      summary: 吊销实例（连带吊销其所有 tickets）
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+      responses:
+        '200':
+          description: 吊销结果
+  /api/v1/personal-agents/users/{user_id}/tickets:
+    parameters:
+      - $ref: '#/components/parameters/userId'
+    post:
+      summary: 签发 Capability Ticket
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [instance_id, actions]
+              properties:
+                instance_id:
+                  type: string
+                actions:
+                  type: array
+                  items:
+                    type: string
+                scope:
+                  type: object
+                  properties:
+                    max_amount:
+                      type: number
+                    to_domain:
+                      type: string
+                    allowed_categories:
+                      type: array
+                      items:
+                        type: string
+                expires_in:
+                  type: integer
+                  default: 3600
+                reason:
+                  type: string
+      responses:
+        '201':
+          description: Ticket 已签发
+  /api/v1/personal-agents/tickets/verify:
+    post:
+      summary: 验证 Ticket
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ticket]
+              properties:
+                ticket:
+                  type: object
+      responses:
+        '200':
+          description: valid + reason
+  /api/v1/personal-agents/tickets/consume:
+    post:
+      summary: 检查并消耗 Ticket
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ticket, action]
+              properties:
+                ticket:
+                  type: object
+                action:
+                  type: string
+                payload:
+                  type: object
+      responses:
+        '200':
+          description: allowed + reason
+  /api/v1/personal-agents/budget/check:
+    post:
+      summary: 预算 + 风险 pre-flight
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [user_id, action, amount]
+              properties:
+                user_id:
+                  type: string
+                action:
+                  type: string
+                amount:
+                  type: number
+                currency:
+                  type: string
+                  default: CNY
+                target_url:
+                  type: string
+                category:
+                  type: string
+      responses:
+        '200':
+          description: verdict=allow|confirm|block|denied + risk_score + limits
+  /api/v1/personal-agents/budget/reserve:
+    post:
+      summary: 预留预算（冻结 15 min）
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [user_id, order_id, amount]
+              properties:
+                user_id:
+                  type: string
+                order_id:
+                  type: string
+                amount:
+                  type: number
+                currency:
+                  type: string
+                  default: CNY
+                target:
+                  type: string
+                note:
+                  type: string
+      responses:
+        '201':
+          description: reservation_id
+  /api/v1/personal-agents/budget/commit:
+    post:
+      summary: 确认消费
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reservation_id:
+                  type: string
+                order_id:
+                  type: string
+                user_id:
+                  type: string
+                amount:
+                  type: number
+                currency:
+                  type: string
+      responses:
+        '200':
+          description: 落账结果
+  /api/v1/personal-agents/budget/release:
+    post:
+      summary: 释放预留
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reservation_id:
+                  type: string
+                order_id:
+                  type: string
+      responses:
+        '200':
+          description: 释放结果
+  /api/v1/personal-agents/users/{user_id}/budget/policy:
+    parameters:
+      - $ref: '#/components/parameters/userId'
+    post:
+      summary: 设置个人预算策略
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                currency:
+                  type: string
+                  default: CNY
+                per_tx:
+                  type: number
+                daily:
+                  type: number
+                weekly:
+                  type: number
+                monthly:
+                  type: number
+                note:
+                  type: string
+      responses:
+        '200':
+          description: 策略已设置
+  /api/v1/personal-agents/users/{user_id}/budget:
+    parameters:
+      - $ref: '#/components/parameters/userId'
+    get:
+      summary: 查询预算策略
+      parameters:
+        - name: currency
+          in: query
+          schema:
+            type: string
+            default: CNY
+      responses:
+        '200':
+          description: 当前 limits
+  /api/v1/personal-agents/users/{user_id}/budget/usage:
+    parameters:
+      - $ref: '#/components/parameters/userId'
+    get:
+      summary: 查询预算使用情况
+      parameters:
+        - name: currency
+          in: query
+          schema:
+            type: string
+            default: CNY
+      responses:
+        '200':
+          description: daily/weekly/monthly spent + reserved + remaining
+  /api/v1/personal-agents/users/{user_id}/actions:
+    parameters:
+      - $ref: '#/components/parameters/userId'
+    post:
+      summary: 追加行动记录（HMAC 链）
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [action]
+              properties:
+                action:
+                  type: string
+                payload:
+                  type: object
+                instance_id:
+                  type: string
+                ticket_id:
+                  type: string
+                verdict:
+                  type: string
+                  default: allow
+                actor_did:
+                  type: string
+                note:
+                  type: string
+      responses:
+        '201':
+          description: seq + hash + prev_hash
+  /api/v1/personal-agents/users/{user_id}/actions/{seq}:
+    parameters:
+      - $ref: '#/components/parameters/userId'
+      - name: seq
+        in: path
+        required: true
+        schema:
+          type: integer
+    get:
+      summary: 获取行动回执
+      responses:
+        '200':
+          description: 完整记录
+  /api/v1/personal-agents/users/{user_id}/actions/verify:
+    parameters:
+      - $ref: '#/components/parameters/userId'
+    get:
+      summary: 验证行动链完整性
+      responses:
+        '200':
+          description: valid + records + head_hash
+  /api/v1/personal-agents/users/{user_id}/disputes:
+    parameters:
+      - $ref: '#/components/parameters/userId'
+    post:
+      summary: 提出争议
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [seq, reason]
+              properties:
+                seq:
+                  type: integer
+                reason:
+                  type: string
+                description:
+                  type: string
+      responses:
+        '201':
+          description: dispute_id
+    get:
+      summary: 列出争议
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [open, resolved]
+      responses:
+        '200':
+          description: disputes 列表
+  /api/v1/personal-agents/users/{user_id}/connectors/vet:
+    parameters:
+      - $ref: '#/components/parameters/userId'
+    post:
+      summary: 独立审核 Connector
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [connector]
+              properties:
+                connector:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                    publisher:
+                      type: string
+                    url:
+                      type: string
+                    capabilities:
+                      type: array
+                      items:
+                        type: string
+                    scopes:
+                      type: array
+                      items:
+                        type: string
+                    install_commands:
+                      type: array
+                      items:
+                        type: string
+                    signature:
+                      type: string
+                    expires_at:
+                      type: string
+                    requires_payments:
+                      type: boolean
+      responses:
+        '200':
+          description: verdict + score + findings
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: API key
+  parameters:
+    userId:
+      name: user_id
+      in: path
+      required: true
+      schema:
+        type: string

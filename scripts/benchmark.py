@@ -420,16 +420,91 @@ def _plane_b():
     }
 
 
+def _plane_c():
+    """真实项目面：扫描真实开源 agent harness 的 skill/plugin 文件。
+
+    与 Plane A/B 不同，这一面**没有正负样本之分**，也没有召回/误报率。
+    它回答的问题是：「AIShield 在真实开源项目上的表现如何？」
+
+    设计原则
+    --------
+    1. **不做负面对照**：Cua 的桌面驱动模式被规则命中是**正确的**——Cua 本身
+       就是桌面驱动工具，AIShield 应该标记它让用户知情。
+    2. **报告而非判定**：只报告 findings 数量和严重度分布，不判定是否误报。
+    3. **按项目分组**：每个 harness 项目单独统计，便于横向对比。
+
+    用途
+    ----
+    - 验证规则对真实项目的覆盖率（规则是否真的能识别真实攻击面）
+    - 跟踪规则变化对真实项目的影响（新增规则会不会误伤已知项目）
+    - 作为「AIShield 已在真实生态跑通」的公开证据
+
+    数据来源
+    --------
+    `scripts/harness_corpus.py`，内联 6 个代表性文件（PenguinHarness 3 + Cua 2 + Mano-P 1）。
+    完整 22 文件的扫描报告见 `docs/harness-measurement/2026-09-22-real-harness-scan.md`。
+    """
+    from scanner.rules import analyze
+    import harness_corpus
+
+    files_scanned = 0
+    total_findings = 0
+    severity_counts = {"critical": 0, "high": 0, "medium": 0, "low": 0, "info": 0}
+    rule_types_hit = {}
+    by_project = {}
+
+    for sample in harness_corpus.HARNESS_CORPUS:
+        path = sample["path"]
+        content = sample["content"]
+        project = path.split("__")[0] if "__" in path else path.split("/")[0]
+
+        findings = analyze({path: content}, "mcp").get("findings", [])
+        files_scanned += 1
+        total_findings += len(findings)
+
+        # 按项目分组统计
+        proj = by_project.setdefault(project, {
+            "files": 0, "findings": 0,
+            "severity": {"critical": 0, "high": 0, "medium": 0, "low": 0, "info": 0},
+            "rules_hit": [],
+        })
+        proj["files"] += 1
+        proj["findings"] += len(findings)
+
+        for f in findings:
+            sev = f.get("severity", "info")
+            severity_counts[sev] = severity_counts.get(sev, 0) + 1
+            proj["severity"][sev] = proj["severity"].get(sev, 0) + 1
+
+            # 记录规则类型
+            rtype = f.get("type", "unknown")
+            rule_types_hit[rtype] = rule_types_hit.get(rtype, 0) + 1
+            if rtype not in proj["rules_hit"]:
+                proj["rules_hit"].append(rtype)
+
+    return {
+        "name": "harness_plane",
+        "description": "真实开源 agent harness 扫描（PenguinHarness/Cua/Mano-P）",
+        "files_scanned": files_scanned,
+        "total_findings": total_findings,
+        "severity_counts": severity_counts,
+        "rule_types_hit": dict(sorted(rule_types_hit.items(), key=lambda x: -x[1])),
+        "by_project": {k: by_project[k] for k in sorted(by_project)},
+        "note": "本平面不做正负样本判定，只报告真实项目上的 findings 分布",
+    }
+
+
 def run():
     """跑完整基准，返回确定性结果字典。"""
     from scanner.rules import get_rule_count
 
     plane_a = _plane_a()
     plane_b = _plane_b()
+    plane_c = _plane_c()
     return {
         "benchmark": BENCHMARK_ID,
         "rules": {"mcp": get_rule_count("mcp"), "skill": get_rule_count("skill")},
-        "planes": [plane_a, plane_b],
+        "planes": [plane_a, plane_b, plane_c],
         "summary": {
             "positives": plane_a["positives"] + plane_b["positives"],
             "detected": plane_a["detected"] + plane_b["detected"],
@@ -448,6 +523,9 @@ def run():
                 / max(1, plane_a["positives"] + plane_b["positives"]), 4),
             "detection_bar": "serious_only",
             "coverage_bar": "any_finding",
+            # Plane C 独立统计，不混入总分
+            "harness_files_scanned": plane_c["files_scanned"],
+            "harness_total_findings": plane_c["total_findings"],
         },
         "invariants": {
             "network_calls": False,
@@ -496,7 +574,7 @@ def render_markdown(result):
         "| 平面 | 检出线 | 正样本 | 检出 | 召回 | 覆盖 | 负样本 | 误报 |",
         "|---|---|---|---|---|---|---|---|",
     ]
-    for p in result["planes"]:
+    for p in result["planes"][:2]:  # 只渲染 Plane A/B 的 recall/fp 表格
         lines.append("| `%s` | `%s` | %d | %d | %.1f%% | %.1f%% | %d | %d |" % (
             p["name"], p.get("detection_bar", "?"),
             p["positives"], p["detected"],
@@ -536,6 +614,50 @@ def render_markdown(result):
     else:
         lines.append("- 无")
     lines += [""]
+
+    # Plane C: 真实项目面
+    c = result["planes"][2]
+    lines += [
+        "",
+        "## 真实项目面（Harness Corpus）",
+        "",
+        "扫描真实开源 agent harness 的 skill/plugin 文件，验证规则在真实生态的表现。",
+        "本平面**不做正负样本判定**——Cua 的桌面驱动模式被命中是**正确的**，",
+        "因为 Cua 本身就是桌面驱动工具。",
+        "",
+        "| 指标 | 值 |",
+        "|---|---|",
+        "| 扫描文件数 | %d |" % c["files_scanned"],
+        "| 总 Findings | %d |" % c["total_findings"],
+        "| Critical | %d |" % c["severity_counts"].get("critical", 0),
+        "| High | %d |" % c["severity_counts"].get("high", 0),
+        "| Medium | %d |" % c["severity_counts"].get("medium", 0),
+        "| Low | %d |" % c["severity_counts"].get("low", 0),
+        "| Info | %d |" % c["severity_counts"].get("info", 0),
+        "",
+        "### 按项目分组",
+        "",
+        "| 项目 | 文件数 | Findings | C | H | M | L | I |",
+        "|---|---|---|---|---|---|---|---|",
+    ]
+    for proj, data in c["by_project"].items():
+        sev = data["severity"]
+        lines.append("| `%s` | %d | %d | %d | %d | %d | %d | %d |" % (
+            proj, data["files"], data["findings"],
+            sev.get("critical", 0), sev.get("high", 0), sev.get("medium", 0),
+            sev.get("low", 0), sev.get("info", 0)))
+
+    if c.get("rule_types_hit"):
+        lines += [
+            "",
+            "### 触发的规则类型",
+            "",
+            "| 规则类型 | 命中次数 |",
+            "|---|---|",
+        ]
+        for rtype, count in c["rule_types_hit"].items():
+            lines.append("| `%s` | %d |" % (rtype, count))
+
     lines += [
         "",
         "## 不变量",

@@ -426,5 +426,45 @@ def main(argv=None):
     return 0
 
 
+def create_audit_chain(secret_key: str = None, key_id: str = "default") -> "AuditChain":
+    """Create an HMAC audit chain for tamper-evident event logging.
+
+    Inspired by CyberGuard's hash-bound approvals and HMAC audit chain design.
+    Each event is signed with HMAC-SHA256, creating a tamper-evident chain
+    where any modification breaks the chain.
+
+    Args:
+        secret_key: HMAC secret key (generates random if None).
+        key_id: Key identifier for rotation tracking.
+
+    Returns:
+        AuditChain instance.
+
+    Usage:
+        chain = create_audit_chain(secret_key="your-key")
+        chain.append(chain.sign(event_payload))
+    """
+    from .audit_chain import AuditChain
+    return AuditChain(secret_key=secret_key, key_id=key_id)
+
+
+def emit_with_audit(events: list, audit_chain: "AuditChain") -> list:
+    """Sign and append events to an audit chain.
+
+    Args:
+        events: List of event dicts to sign.
+        audit_chain: AuditChain instance.
+
+    Returns:
+        List of signed events.
+    """
+    signed_events = []
+    for event in events:
+        signed = audit_chain.sign(event)
+        audit_chain.append(signed)
+        signed_events.append(signed)
+    return signed_events
+
+
 if __name__ == "__main__":
     raise SystemExit(main())

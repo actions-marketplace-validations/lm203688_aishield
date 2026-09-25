@@ -169,7 +169,18 @@ def main():
         # 2026-09-19 在线扫描页 + 框架适配器 + SARIF 导出契约
         'tests.test_sarif_export',
         'tests.test_scan_inline_page',
+        # 2026-09-25 版本声明位覆盖门禁：防"门禁假绿"（api/server.py 曾 6 处 4.3.0
+        # 而 mcp.json 已 4.8.3，sync_version 报"全部一致"却对那 8 处失明）
+        'tests.test_version_declare',
+        # 2026-09-25 import 完整性门禁：仓库内引用的模块/符号必须真的存在。
+        # 起因是 api/trust_api.py 的 attestation 扩展从未推送到 main，导致
+        # `import api.server` 在干净 checkout 上 ImportError、self-scan 连红 8 次；
+        # 另查出 eco/crypto_sign.py 等 6 个模块缺失，Muse/Grok/NVIDIA 三个连接器
+        # 在远端全都无法导入——而本机因为有这些文件，测试全绿。
+        'tests.test_import_integrity',
         # 2026-09-19 AIShield Collector：本地持续观测（不 spawn / 不联网 / 指纹幂等 / 紧凑摘要）
+        # 2026-09-22 MCP SEP-2640 manifest 扫描器：过度代理/供应链/凭据/签名/过期
+        'tests.test_mcp_manifest_scan',
         'tests.test_collector',
         # 2026-09-19 紧凑信任摘要（aishield-digest/v1）+ 套件脏数据守卫的正向对照
         'tests.test_trust_digest',
@@ -181,6 +192,30 @@ def main():
         # 2026-09-20 规则数一致性门禁契约：scan/sync 口径不得分裂、pair 替换
         # 不得截断、正则不得从数字中间起跳、分解表与 CSS 颜色不得误报
         'tests.test_rule_count_gate',
+        # 2026-09-22 已知良性项目白名单：PenguinHarness/Cua/Mano-P 路径不降级误报
+        'tests.test_registry_supply_scan',
+        # 2026-09-24 Agent 生态 5 支柱落地：specialist_registry / kyad_compat / ecosystem_api / ship_gate
+        'tests.test_ecosystem_activation',
+        # 2026-09-24 R4-深化：Evidence Bundle 1.0 + Responsibility Chain v1.1 + ship_gate 10 态状态机
+        # 对标 GOAI 2026 Agent Infra 季军 CyberGuard（HMAC 链式审计 + OCSF/STIX/ATT&CK + 双轮独立复测）
+        'tests.test_evidence_bundle',
+        # 2026-09-24 v4.8.0：个人 Agent 治理层（PAI DID + 预算守护 + 行动溯源 + Connector 独立审核）
+        # 触发：Meta Muse 上线 13 天 250 万下载，2026-09-18 开放 connector platform
+        'tests.test_personal_agent',
+        # 2026-09-24 v4.8.1：平台中立接入层（40+ 平台注册表 + 治理缺口矩阵 + 推荐引擎）
+        'tests.test_platform_registry',
+        # 2026-09-24 v4.8.2：海外平台真实接入（Meta Muse + xAI Grok Bot）
+        # OAuth + PAT 双通道、fail-closed 续期、preflight 敏感词升级、proxy 透传
+        'tests.test_connectors',
+        # 2026-09-25 v4.8.3：NVIDIA 开发者平台真实接入（NGC Catalog + NIM 推理 + NeMo 编排）
+        # NGC API Key 形态，复用个人 Agent 治理层 preflight + HMAC 行动链
+        'tests.test_nvidia_connector',
+        # 2026-09-25 v4.8.3：Agent 基础设施开源扫描管道
+        # scanner.engine → 封装（MCP 适配器骨架）→ 二次研发清单，支持 URL/本地/内存三态
+        'tests.test_agent_infra_scan',
+        # 2026-09-25 v4.8.3：三平台双形态联调（开发者身份形态 + MCP 桥形态）
+        'tests.test_dual_form_integration',
+        'tests.test_arena_join_gate',
     ]
 
     loaded = 0

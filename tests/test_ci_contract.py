@@ -92,6 +92,103 @@ class TestSecurityGateReadsRealKeys(unittest.TestCase):
                          '门禁缺少显式分数阈值')
 
 
+class TestSelfScanGateEmitsRealKeys(unittest.TestCase):
+    """门禁脚本实际产出的 JSON，顶层键必须被自己提供（对偶测试）
+
+    上面那个类只做静态文本校验：门禁读的键名必须在白名单里。但那只能保证
+    "键名看起来合法"，不能保证门禁脚本真的产出了这些键——2026-08-05 那次
+    事故（门禁读 score、响应里没有 score，连红 17 次）恰恰就是"写了个键名、
+    产出端并没有"。
+
+    这个类直接跑 scripts/ci_self_scan_gate.py，检查它**实际吐出来的**顶层键
+    ⊆ API_SCORE_KEYS，且 score 落在 0-100 区间。
+
+    还额外钉死阈值不是空转：注入一条未登记的阻断级发现，分数必须跌破阈值。
+    否则门禁就是个只看心情红绿的灯，跟 2026-08-05 那次一样是"假绿"。
+
+    纯本地、零第三方依赖、不联网；耗时约 1s。
+    """
+
+    GATE_PATH = os.path.join(ROOT, 'scripts', 'ci_self_scan_gate.py')
+
+    def _build(self):
+        """跑一次真实自扫描，返回 (门禁模块, 扫描结论)"""
+        scripts_dir = os.path.join(ROOT, 'scripts')
+        if scripts_dir not in sys.path:
+            sys.path.insert(0, scripts_dir)
+        import ci_self_scan_gate as G
+        import self_scan
+        return G, self_scan.scan()
+
+    @unittest.skipUnless(
+        os.path.exists(GATE_PATH), 'scripts/ci_self_scan_gate.py 不存在')
+    def test_emitted_keys_are_all_served(self):
+        """门禁脚本产出的顶层键，必须都是白名单里真实存在的键"""
+        G, scan = self._build()
+        gate = G.build_summary(scan)
+        unknown = set(gate.keys()) - API_SCORE_KEYS
+        self.assertEqual(
+            unknown, set(),
+            f'门禁脚本产出了 API_SCORE_KEYS 之外的顶层键 {sorted(unknown)}，'
+            f'门禁可能静默取到默认值',
+        )
+
+    @unittest.skipUnless(
+        os.path.exists(GATE_PATH), 'scripts/ci_self_scan_gate.py 不存在')
+    def test_score_key_is_present_and_in_range(self):
+        """score 键必须真实存在且落在 0-100"""
+        G, scan = self._build()
+        gate = G.build_summary(scan)
+        self.assertIn('score', gate)
+        self.assertIsInstance(gate['score'], int)
+        self.assertTrue(0 <= gate['score'] <= 100,
+                        f'score={gate["score"]} 超出 0-100')
+
+    @unittest.skipUnless(
+        os.path.exists(GATE_PATH), 'scripts/ci_self_scan_gate.py 不存在')
+    def test_threshold_is_not_vacuous(self):
+        """注入一条阻断级发现，分数必须跌破阈值 —— 阈值不是空转
+
+        反例（假绿）：门槛写死 60，但注入一条 critical 发现后分数仍是 88，
+        那这个门禁永远不红，等于没有门禁。
+        """
+        import copy
+        G, scan = self._build()
+        clean = G.build_summary(scan)
+        self.assertGreaterEqual(clean['score'], G.WORKFLOW_THRESHOLD,
+                                '干净态分数就该过阈值，否则 CI 常态红')
+
+        dirty = copy.deepcopy(scan)
+        dirty['sources'][0]['blocking_unsuppressed'].append(
+            {'severity': 'critical', 'rule_id': 'ASI04', 'file': 'x',
+             'description': 'inject'})
+        dirty['totals']['blocking_unsuppressed'] = 1
+        bad = G.build_summary(dirty)
+
+        self.assertLess(bad['score'], G.WORKFLOW_THRESHOLD,
+                        f'注入 1 条 critical 阻断后 score={bad["score"]} 仍 >= '
+                        f'{G.WORKFLOW_THRESHOLD}，阈值形同虚设')
+        self.assertLess(bad['score'], clean['score'])
+
+    @unittest.skipUnless(
+        os.path.exists(GATE_PATH), 'scripts/ci_self_scan_gate.py 不存在')
+    def test_low_scanner_score_trips_threshold_even_without_blocking(self):
+        """扫描器自己给低分（没有阻断发现）也必须触发阈值
+
+        这条证明分数门禁独立于退出码起作用——退出码只看"有没有阻断级发现"，
+        分数还覆盖"扫描器整体质量很差但没到阻断线"这一类。
+        """
+        import copy
+        G, scan = self._build()
+        low = copy.deepcopy(scan)
+        for r in low['sources']:
+            r['overall_score'] = 50
+        gate = G.build_summary(low)
+        self.assertEqual(G.exit_code(low), 0, '无阻断发现时退出码应为 0')
+        self.assertLess(gate['score'], G.WORKFLOW_THRESHOLD,
+                        '扫描器整体低分应触发分数阈值')
+
+
 class TestActionEntrypointSeverityGate(unittest.TestCase):
     """GitHub Action 门禁的风险档推导 —— 锁定 fail_on=critical 可达
 

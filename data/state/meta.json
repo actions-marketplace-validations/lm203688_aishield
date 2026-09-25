@@ -1,454 +1,20 @@
 {
   "domain": "meta",
   "current": {
-    "score": 100,
-    "passed": 9,
+    "score": 67,
+    "passed": 6,
     "total": 9,
-    "problems": [],
-    "checked_at": "2026-09-20T18:45:50.141068+00:00",
+    "problems": [
+      "M2 运行活性: 0 个任务超期未执行，1 个最近运行失败 —— 这是静默失效的典型信号",
+      "M3 状态新鲜度: 状态域 ['distribution', 'intel', 'rules', 'flywheel', 'feature'] 的归属 workflow 超过阈值未成功运行 —— 对应环节可能已停摆",
+      "M7 上游情报源: 上游情报源异常：情报库已 98h 未成功更新"
+    ],
+    "checked_at": "2026-09-25T11:03:37.294918+00:00",
     "_source": "meta_monitor",
-    "_ts": "2026-09-20T18:45:50.141248+00:00",
-    "level": "healthy"
+    "_ts": "2026-09-25T11:03:37.295140+00:00",
+    "level": "degraded"
   },
   "history": [
-    {
-      "ts": "2026-09-12T04:53:40.219055+00:00",
-      "source": "meta_monitor",
-      "state": {
-        "score": 100,
-        "passed": 8,
-        "total": 8,
-        "problems": [],
-        "checked_at": "2026-09-12T04:53:40.218842+00:00",
-        "level": "healthy"
-      }
-    },
-    {
-      "ts": "2026-09-12T12:09:24.121478+00:00",
-      "source": "meta_monitor",
-      "state": {
-        "score": 100,
-        "passed": 8,
-        "total": 8,
-        "problems": [],
-        "checked_at": "2026-09-12T12:09:24.121209+00:00",
-        "level": "healthy"
-      }
-    },
-    {
-      "ts": "2026-09-12T18:20:55.307637+00:00",
-      "source": "meta_monitor",
-      "state": {
-        "score": 100,
-        "passed": 9,
-        "total": 9,
-        "problems": [],
-        "checked_at": "2026-09-12T18:20:55.307420+00:00",
-        "level": "healthy"
-      }
-    },
-    {
-      "ts": "2026-09-13T02:29:20.344968+00:00",
-      "source": "meta_monitor",
-      "state": {
-        "score": 100,
-        "passed": 9,
-        "total": 9,
-        "problems": [],
-        "checked_at": "2026-09-13T02:29:20.344764+00:00",
-        "level": "healthy"
-      }
-    },
-    {
-      "ts": "2026-09-13T02:31:32.796726+00:00",
-      "source": "meta_monitor",
-      "state": {
-        "score": 100,
-        "passed": 9,
-        "total": 9,
-        "problems": [],
-        "checked_at": "2026-09-13T02:31:32.796577+00:00",
-        "level": "healthy"
-      }
-    },
-    {
-      "ts": "2026-09-13T02:35:31.630487+00:00",
-      "source": "meta_monitor",
-      "state": {
-        "score": 100,
-        "passed": 9,
-        "total": 9,
-        "problems": [],
-        "checked_at": "2026-09-13T02:35:31.630256+00:00",
-        "level": "healthy"
-      }
-    },
-    {
-      "ts": "2026-09-13T02:37:14.195281+00:00",
-      "source": "meta_monitor",
-      "state": {
-        "score": 100,
-        "passed": 9,
-        "total": 9,
-        "problems": [],
-        "checked_at": "2026-09-13T02:37:14.195117+00:00",
-        "level": "healthy"
-      }
-    },
-    {
-      "ts": "2026-09-13T04:45:46.451706+00:00",
-      "source": "meta_monitor",
-      "state": {
-        "score": 100,
-        "passed": 9,
-        "total": 9,
-        "problems": [],
-        "checked_at": "2026-09-13T04:45:46.451492+00:00",
-        "level": "healthy"
-      }
-    },
-    {
-      "ts": "2026-09-13T13:17:38.403721+00:00",
-      "source": "meta_monitor",
-      "state": {
-        "score": 100,
-        "passed": 9,
-        "total": 9,
-        "problems": [],
-        "checked_at": "2026-09-13T13:17:38.403500+00:00",
-        "level": "healthy"
-      }
-    },
-    {
-      "ts": "2026-09-13T18:46:38.235775+00:00",
-      "source": "meta_monitor",
-      "state": {
-        "score": 100,
-        "passed": 9,
-        "total": 9,
-        "problems": [],
-        "checked_at": "2026-09-13T18:46:38.235570+00:00",
-        "level": "healthy"
-      }
-    },
-    {
-      "ts": "2026-09-14T04:51:46.818333+00:00",
-      "source": "meta_monitor",
-      "state": {
-        "score": 100,
-        "passed": 9,
-        "total": 9,
-        "problems": [],
-        "checked_at": "2026-09-14T04:51:46.818061+00:00",
-        "level": "healthy"
-      }
-    },
-    {
-      "ts": "2026-09-14T06:01:10.378640+00:00",
-      "source": "meta_monitor",
-      "state": {
-        "score": 100,
-        "passed": 9,
-        "total": 9,
-        "problems": [],
-        "checked_at": "2026-09-14T06:01:10.378408+00:00",
-        "level": "healthy"
-      }
-    },
-    {
-      "ts": "2026-09-14T15:00:13.894427+00:00",
-      "source": "meta_monitor",
-      "state": {
-        "score": 100,
-        "passed": 9,
-        "total": 9,
-        "problems": [],
-        "checked_at": "2026-09-14T15:00:13.894217+00:00",
-        "level": "healthy"
-      }
-    },
-    {
-      "ts": "2026-09-14T20:17:49.466617+00:00",
-      "source": "meta_monitor",
-      "state": {
-        "score": 100,
-        "passed": 9,
-        "total": 9,
-        "problems": [],
-        "checked_at": "2026-09-14T20:17:49.466405+00:00",
-        "level": "healthy"
-      }
-    },
-    {
-      "ts": "2026-09-15T04:50:50.768953+00:00",
-      "source": "meta_monitor",
-      "state": {
-        "score": 100,
-        "passed": 9,
-        "total": 9,
-        "problems": [],
-        "checked_at": "2026-09-15T04:50:50.768765+00:00",
-        "level": "healthy"
-      }
-    },
-    {
-      "ts": "2026-09-15T07:34:35.956517+00:00",
-      "source": "meta_monitor",
-      "state": {
-        "score": 100,
-        "passed": 9,
-        "total": 9,
-        "problems": [],
-        "checked_at": "2026-09-15T07:34:35.956296+00:00",
-        "level": "healthy"
-      }
-    },
-    {
-      "ts": "2026-09-15T09:02:14.622184+00:00",
-      "source": "meta_monitor",
-      "state": {
-        "score": 100,
-        "passed": 9,
-        "total": 9,
-        "problems": [],
-        "checked_at": "2026-09-15T09:02:14.621977+00:00",
-        "level": "healthy"
-      }
-    },
-    {
-      "ts": "2026-09-15T09:07:31.948243+00:00",
-      "source": "meta_monitor",
-      "state": {
-        "score": 100,
-        "passed": 9,
-        "total": 9,
-        "problems": [],
-        "checked_at": "2026-09-15T09:07:31.948048+00:00",
-        "level": "healthy"
-      }
-    },
-    {
-      "ts": "2026-09-15T09:54:16.586097+00:00",
-      "source": "meta_monitor",
-      "state": {
-        "score": 100,
-        "passed": 9,
-        "total": 9,
-        "problems": [],
-        "checked_at": "2026-09-15T09:54:16.585893+00:00",
-        "level": "healthy"
-      }
-    },
-    {
-      "ts": "2026-09-15T10:12:17.266658+00:00",
-      "source": "meta_monitor",
-      "state": {
-        "score": 100,
-        "passed": 9,
-        "total": 9,
-        "problems": [],
-        "checked_at": "2026-09-15T10:12:17.266413+00:00",
-        "level": "healthy"
-      }
-    },
-    {
-      "ts": "2026-09-15T13:30:55.118678+00:00",
-      "source": "meta_monitor",
-      "state": {
-        "score": 100,
-        "passed": 9,
-        "total": 9,
-        "problems": [],
-        "checked_at": "2026-09-15T13:30:55.118473+00:00",
-        "level": "healthy"
-      }
-    },
-    {
-      "ts": "2026-09-15T19:41:15.797454+00:00",
-      "source": "meta_monitor",
-      "state": {
-        "score": 100,
-        "passed": 9,
-        "total": 9,
-        "problems": [],
-        "checked_at": "2026-09-15T19:41:15.797201+00:00",
-        "level": "healthy"
-      }
-    },
-    {
-      "ts": "2026-09-16T04:46:08.556977+00:00",
-      "source": "meta_monitor",
-      "state": {
-        "score": 100,
-        "passed": 9,
-        "total": 9,
-        "problems": [],
-        "checked_at": "2026-09-16T04:46:08.556793+00:00",
-        "level": "healthy"
-      }
-    },
-    {
-      "ts": "2026-09-16T13:29:12.879472+00:00",
-      "source": "meta_monitor",
-      "state": {
-        "score": 100,
-        "passed": 9,
-        "total": 9,
-        "problems": [],
-        "checked_at": "2026-09-16T13:29:12.879307+00:00",
-        "level": "healthy"
-      }
-    },
-    {
-      "ts": "2026-09-16T19:32:40.686765+00:00",
-      "source": "meta_monitor",
-      "state": {
-        "score": 100,
-        "passed": 9,
-        "total": 9,
-        "problems": [],
-        "checked_at": "2026-09-16T19:32:40.686597+00:00",
-        "level": "healthy"
-      }
-    },
-    {
-      "ts": "2026-09-17T04:49:03.675644+00:00",
-      "source": "meta_monitor",
-      "state": {
-        "score": 100,
-        "passed": 9,
-        "total": 9,
-        "problems": [],
-        "checked_at": "2026-09-17T04:49:03.675468+00:00",
-        "level": "healthy"
-      }
-    },
-    {
-      "ts": "2026-09-17T06:25:45.476396+00:00",
-      "source": "meta_monitor",
-      "state": {
-        "score": 100,
-        "passed": 9,
-        "total": 9,
-        "problems": [],
-        "checked_at": "2026-09-17T06:25:45.476190+00:00",
-        "level": "healthy"
-      }
-    },
-    {
-      "ts": "2026-09-17T06:27:35.467628+00:00",
-      "source": "meta_monitor",
-      "state": {
-        "score": 100,
-        "passed": 9,
-        "total": 9,
-        "problems": [],
-        "checked_at": "2026-09-17T06:27:35.467419+00:00",
-        "level": "healthy"
-      }
-    },
-    {
-      "ts": "2026-09-17T07:35:37.076918+00:00",
-      "source": "meta_monitor",
-      "state": {
-        "score": 100,
-        "passed": 9,
-        "total": 9,
-        "problems": [],
-        "checked_at": "2026-09-17T07:35:37.076675+00:00",
-        "level": "healthy"
-      }
-    },
-    {
-      "ts": "2026-09-17T13:24:57.033692+00:00",
-      "source": "meta_monitor",
-      "state": {
-        "score": 78,
-        "passed": 7,
-        "total": 9,
-        "problems": [
-          "M2 运行活性: 0 个任务超期未执行，2 个最近运行失败 —— 这是静默失效的典型信号",
-          "M3 状态新鲜度: 状态域 ['health', 'selfheal', 'distribution', 'intel', 'rules', 'flywheel', 'feature'] 的归属 workflow 超过阈值未成功运行 —— 对应环节可能已停摆"
-        ],
-        "checked_at": "2026-09-17T13:24:57.033480+00:00",
-        "level": "degraded"
-      }
-    },
-    {
-      "ts": "2026-09-17T19:43:04.108301+00:00",
-      "source": "meta_monitor",
-      "state": {
-        "score": 78,
-        "passed": 7,
-        "total": 9,
-        "problems": [
-          "M2 运行活性: 0 个任务超期未执行，2 个最近运行失败 —— 这是静默失效的典型信号",
-          "M3 状态新鲜度: 状态域 ['health', 'selfheal', 'distribution', 'intel', 'rules', 'flywheel', 'feature'] 的归属 workflow 超过阈值未成功运行 —— 对应环节可能已停摆"
-        ],
-        "checked_at": "2026-09-17T19:43:04.108146+00:00",
-        "level": "degraded"
-      }
-    },
-    {
-      "ts": "2026-09-17T22:57:22.513632+00:00",
-      "source": "meta_monitor",
-      "state": {
-        "score": 78,
-        "passed": 7,
-        "total": 9,
-        "problems": [
-          "M2 运行活性: 0 个任务超期未执行，2 个最近运行失败 —— 这是静默失效的典型信号",
-          "M3 状态新鲜度: 状态域 ['health', 'selfheal', 'distribution', 'intel', 'rules', 'flywheel', 'feature'] 的归属 workflow 超过阈值未成功运行 —— 对应环节可能已停摆"
-        ],
-        "checked_at": "2026-09-17T22:57:22.513440+00:00",
-        "level": "degraded"
-      }
-    },
-    {
-      "ts": "2026-09-18T01:03:36.206482+00:00",
-      "source": "meta_monitor",
-      "state": {
-        "score": 78,
-        "passed": 7,
-        "total": 9,
-        "problems": [
-          "M2 运行活性: 0 个任务超期未执行，1 个最近运行失败 —— 这是静默失效的典型信号",
-          "M3 状态新鲜度: 状态域 ['distribution', 'intel', 'rules', 'flywheel', 'feature'] 的归属 workflow 超过阈值未成功运行 —— 对应环节可能已停摆"
-        ],
-        "checked_at": "2026-09-18T01:03:36.206279+00:00",
-        "level": "degraded"
-      }
-    },
-    {
-      "ts": "2026-09-18T01:28:10.008551+00:00",
-      "source": "meta_monitor",
-      "state": {
-        "score": 78,
-        "passed": 7,
-        "total": 9,
-        "problems": [
-          "M2 运行活性: 0 个任务超期未执行，2 个最近运行失败 —— 这是静默失效的典型信号",
-          "M3 状态新鲜度: 状态域 ['health', 'selfheal', 'distribution', 'intel', 'rules', 'flywheel', 'feature'] 的归属 workflow 超过阈值未成功运行 —— 对应环节可能已停摆"
-        ],
-        "checked_at": "2026-09-18T01:28:10.008370+00:00",
-        "level": "degraded"
-      }
-    },
-    {
-      "ts": "2026-09-18T02:22:59.116638+00:00",
-      "source": "meta_monitor",
-      "state": {
-        "score": 78,
-        "passed": 7,
-        "total": 9,
-        "problems": [
-          "M2 运行活性: 0 个任务超期未执行，1 个最近运行失败 —— 这是静默失效的典型信号",
-          "M3 状态新鲜度: 状态域 ['distribution', 'intel', 'rules', 'flywheel', 'feature'] 的归属 workflow 超过阈值未成功运行 —— 对应环节可能已停摆"
-        ],
-        "checked_at": "2026-09-18T02:22:59.116477+00:00",
-        "level": "degraded"
-      }
-    },
     {
       "ts": "2026-09-18T04:39:37.270773+00:00",
       "source": "meta_monitor",
@@ -631,8 +197,528 @@
         "checked_at": "2026-09-20T18:45:50.141068+00:00",
         "level": "healthy"
       }
+    },
+    {
+      "ts": "2026-09-21T04:51:39.365684+00:00",
+      "source": "meta_monitor",
+      "state": {
+        "score": 100,
+        "passed": 9,
+        "total": 9,
+        "problems": [],
+        "checked_at": "2026-09-21T04:51:39.365484+00:00",
+        "level": "healthy"
+      }
+    },
+    {
+      "ts": "2026-09-21T15:05:15.333821+00:00",
+      "source": "meta_monitor",
+      "state": {
+        "score": 100,
+        "passed": 9,
+        "total": 9,
+        "problems": [],
+        "checked_at": "2026-09-21T15:05:15.333588+00:00",
+        "level": "healthy"
+      }
+    },
+    {
+      "ts": "2026-09-21T20:25:04.566918+00:00",
+      "source": "meta_monitor",
+      "state": {
+        "score": 100,
+        "passed": 9,
+        "total": 9,
+        "problems": [],
+        "checked_at": "2026-09-21T20:25:04.566722+00:00",
+        "level": "healthy"
+      }
+    },
+    {
+      "ts": "2026-09-22T04:50:53.830195+00:00",
+      "source": "meta_monitor",
+      "state": {
+        "score": 100,
+        "passed": 9,
+        "total": 9,
+        "problems": [],
+        "checked_at": "2026-09-22T04:50:53.830003+00:00",
+        "level": "healthy"
+      }
+    },
+    {
+      "ts": "2026-09-22T05:47:28.491199+00:00",
+      "source": "meta_monitor",
+      "state": {
+        "score": 100,
+        "passed": 9,
+        "total": 9,
+        "problems": [],
+        "checked_at": "2026-09-22T05:47:28.491036+00:00",
+        "level": "healthy"
+      }
+    },
+    {
+      "ts": "2026-09-22T13:23:27.724144+00:00",
+      "source": "meta_monitor",
+      "state": {
+        "score": 78,
+        "passed": 7,
+        "total": 9,
+        "problems": [
+          "M2 运行活性: 0 个任务超期未执行，2 个最近运行失败 —— 这是静默失效的典型信号",
+          "M3 状态新鲜度: 状态域 ['distribution', 'intel', 'rules', 'flywheel', 'feature', 'ci'] 的归属 workflow 超过阈值未成功运行 —— 对应环节可能已停摆"
+        ],
+        "checked_at": "2026-09-22T13:23:27.723949+00:00",
+        "level": "degraded"
+      }
+    },
+    {
+      "ts": "2026-09-22T14:51:55.761014+00:00",
+      "source": "meta_monitor",
+      "state": {
+        "score": 78,
+        "passed": 7,
+        "total": 9,
+        "problems": [
+          "M2 运行活性: 0 个任务超期未执行，1 个最近运行失败 —— 这是静默失效的典型信号",
+          "M3 状态新鲜度: 状态域 ['distribution', 'intel', 'rules', 'flywheel', 'feature'] 的归属 workflow 超过阈值未成功运行 —— 对应环节可能已停摆"
+        ],
+        "checked_at": "2026-09-22T14:51:55.760808+00:00",
+        "level": "degraded"
+      }
+    },
+    {
+      "ts": "2026-09-22T15:04:12.835975+00:00",
+      "source": "meta_monitor",
+      "state": {
+        "score": 78,
+        "passed": 7,
+        "total": 9,
+        "problems": [
+          "M2 运行活性: 0 个任务超期未执行，1 个最近运行失败 —— 这是静默失效的典型信号",
+          "M3 状态新鲜度: 状态域 ['distribution', 'intel', 'rules', 'flywheel', 'feature'] 的归属 workflow 超过阈值未成功运行 —— 对应环节可能已停摆"
+        ],
+        "checked_at": "2026-09-22T15:04:12.835765+00:00",
+        "level": "degraded"
+      }
+    },
+    {
+      "ts": "2026-09-22T15:17:16.166747+00:00",
+      "source": "meta_monitor",
+      "state": {
+        "score": 78,
+        "passed": 7,
+        "total": 9,
+        "problems": [
+          "M2 运行活性: 0 个任务超期未执行，1 个最近运行失败 —— 这是静默失效的典型信号",
+          "M3 状态新鲜度: 状态域 ['distribution', 'intel', 'rules', 'flywheel', 'feature'] 的归属 workflow 超过阈值未成功运行 —— 对应环节可能已停摆"
+        ],
+        "checked_at": "2026-09-22T15:17:16.166528+00:00",
+        "level": "degraded"
+      }
+    },
+    {
+      "ts": "2026-09-22T19:43:47.221745+00:00",
+      "source": "meta_monitor",
+      "state": {
+        "score": 78,
+        "passed": 7,
+        "total": 9,
+        "problems": [
+          "M2 运行活性: 0 个任务超期未执行，2 个最近运行失败 —— 这是静默失效的典型信号",
+          "M3 状态新鲜度: 状态域 ['distribution', 'intel', 'rules', 'flywheel', 'feature', 'ci'] 的归属 workflow 超过阈值未成功运行 —— 对应环节可能已停摆"
+        ],
+        "checked_at": "2026-09-22T19:43:47.221505+00:00",
+        "level": "degraded"
+      }
+    },
+    {
+      "ts": "2026-09-23T01:42:32.227728+00:00",
+      "source": "meta_monitor",
+      "state": {
+        "score": 78,
+        "passed": 7,
+        "total": 9,
+        "problems": [
+          "M2 运行活性: 0 个任务超期未执行，1 个最近运行失败 —— 这是静默失效的典型信号",
+          "M3 状态新鲜度: 状态域 ['distribution', 'intel', 'rules', 'flywheel', 'feature'] 的归属 workflow 超过阈值未成功运行 —— 对应环节可能已停摆"
+        ],
+        "checked_at": "2026-09-23T01:42:32.227526+00:00",
+        "level": "degraded"
+      }
+    },
+    {
+      "ts": "2026-09-23T02:32:58.619555+00:00",
+      "source": "meta_monitor",
+      "state": {
+        "score": 78,
+        "passed": 7,
+        "total": 9,
+        "problems": [
+          "M2 运行活性: 0 个任务超期未执行，1 个最近运行失败 —— 这是静默失效的典型信号",
+          "M3 状态新鲜度: 状态域 ['distribution', 'intel', 'rules', 'flywheel', 'feature'] 的归属 workflow 超过阈值未成功运行 —— 对应环节可能已停摆"
+        ],
+        "checked_at": "2026-09-23T02:32:58.619316+00:00",
+        "level": "degraded"
+      }
+    },
+    {
+      "ts": "2026-09-23T04:41:41.847119+00:00",
+      "source": "meta_monitor",
+      "state": {
+        "score": 78,
+        "passed": 7,
+        "total": 9,
+        "problems": [
+          "M2 运行活性: 0 个任务超期未执行，2 个最近运行失败 —— 这是静默失效的典型信号",
+          "M3 状态新鲜度: 状态域 ['distribution', 'intel', 'rules', 'flywheel', 'feature', 'ci'] 的归属 workflow 超过阈值未成功运行 —— 对应环节可能已停摆"
+        ],
+        "checked_at": "2026-09-23T04:41:41.846871+00:00",
+        "level": "degraded"
+      }
+    },
+    {
+      "ts": "2026-09-23T05:09:00.397893+00:00",
+      "source": "meta_monitor",
+      "state": {
+        "score": 78,
+        "passed": 7,
+        "total": 9,
+        "problems": [
+          "M2 运行活性: 0 个任务超期未执行，1 个最近运行失败 —— 这是静默失效的典型信号",
+          "M3 状态新鲜度: 状态域 ['distribution', 'intel', 'rules', 'flywheel', 'feature'] 的归属 workflow 超过阈值未成功运行 —— 对应环节可能已停摆"
+        ],
+        "checked_at": "2026-09-23T05:09:00.397687+00:00",
+        "level": "degraded"
+      }
+    },
+    {
+      "ts": "2026-09-23T05:12:41.894611+00:00",
+      "source": "meta_monitor",
+      "state": {
+        "score": 78,
+        "passed": 7,
+        "total": 9,
+        "problems": [
+          "M2 运行活性: 0 个任务超期未执行，1 个最近运行失败 —— 这是静默失效的典型信号",
+          "M3 状态新鲜度: 状态域 ['distribution', 'intel', 'rules', 'flywheel', 'feature'] 的归属 workflow 超过阈值未成功运行 —— 对应环节可能已停摆"
+        ],
+        "checked_at": "2026-09-23T05:12:41.894438+00:00",
+        "level": "degraded"
+      }
+    },
+    {
+      "ts": "2026-09-23T06:45:46.720406+00:00",
+      "source": "meta_monitor",
+      "state": {
+        "score": 78,
+        "passed": 7,
+        "total": 9,
+        "problems": [
+          "M2 运行活性: 0 个任务超期未执行，1 个最近运行失败 —— 这是静默失效的典型信号",
+          "M3 状态新鲜度: 状态域 ['distribution', 'intel', 'rules', 'flywheel', 'feature'] 的归属 workflow 超过阈值未成功运行 —— 对应环节可能已停摆"
+        ],
+        "checked_at": "2026-09-23T06:45:46.720186+00:00",
+        "level": "degraded"
+      }
+    },
+    {
+      "ts": "2026-09-23T07:03:21.527262+00:00",
+      "source": "meta_monitor",
+      "state": {
+        "score": 78,
+        "passed": 7,
+        "total": 9,
+        "problems": [
+          "M2 运行活性: 0 个任务超期未执行，1 个最近运行失败 —— 这是静默失效的典型信号",
+          "M3 状态新鲜度: 状态域 ['distribution', 'intel', 'rules', 'flywheel', 'feature'] 的归属 workflow 超过阈值未成功运行 —— 对应环节可能已停摆"
+        ],
+        "checked_at": "2026-09-23T07:03:21.527052+00:00",
+        "level": "degraded"
+      }
+    },
+    {
+      "ts": "2026-09-23T07:07:02.153307+00:00",
+      "source": "meta_monitor",
+      "state": {
+        "score": 78,
+        "passed": 7,
+        "total": 9,
+        "problems": [
+          "M2 运行活性: 0 个任务超期未执行，1 个最近运行失败 —— 这是静默失效的典型信号",
+          "M3 状态新鲜度: 状态域 ['distribution', 'intel', 'rules', 'flywheel', 'feature'] 的归属 workflow 超过阈值未成功运行 —— 对应环节可能已停摆"
+        ],
+        "checked_at": "2026-09-23T07:07:02.153059+00:00",
+        "level": "degraded"
+      }
+    },
+    {
+      "ts": "2026-09-23T07:15:25.842053+00:00",
+      "source": "meta_monitor",
+      "state": {
+        "score": 78,
+        "passed": 7,
+        "total": 9,
+        "problems": [
+          "M2 运行活性: 0 个任务超期未执行，1 个最近运行失败 —— 这是静默失效的典型信号",
+          "M3 状态新鲜度: 状态域 ['distribution', 'intel', 'rules', 'flywheel', 'feature'] 的归属 workflow 超过阈值未成功运行 —— 对应环节可能已停摆"
+        ],
+        "checked_at": "2026-09-23T07:15:25.841878+00:00",
+        "level": "degraded"
+      }
+    },
+    {
+      "ts": "2026-09-23T07:47:16.674758+00:00",
+      "source": "meta_monitor",
+      "state": {
+        "score": 78,
+        "passed": 7,
+        "total": 9,
+        "problems": [
+          "M2 运行活性: 0 个任务超期未执行，1 个最近运行失败 —— 这是静默失效的典型信号",
+          "M3 状态新鲜度: 状态域 ['distribution', 'intel', 'rules', 'flywheel', 'feature'] 的归属 workflow 超过阈值未成功运行 —— 对应环节可能已停摆"
+        ],
+        "checked_at": "2026-09-23T07:47:16.674501+00:00",
+        "level": "degraded"
+      }
+    },
+    {
+      "ts": "2026-09-23T13:37:00.452902+00:00",
+      "source": "meta_monitor",
+      "state": {
+        "score": 78,
+        "passed": 7,
+        "total": 9,
+        "problems": [
+          "M2 运行活性: 0 个任务超期未执行，2 个最近运行失败 —— 这是静默失效的典型信号",
+          "M3 状态新鲜度: 状态域 ['distribution', 'intel', 'rules', 'flywheel', 'feature', 'ci'] 的归属 workflow 超过阈值未成功运行 —— 对应环节可能已停摆"
+        ],
+        "checked_at": "2026-09-23T13:37:00.452750+00:00",
+        "level": "degraded"
+      }
+    },
+    {
+      "ts": "2026-09-23T19:40:09.142214+00:00",
+      "source": "meta_monitor",
+      "state": {
+        "score": 78,
+        "passed": 7,
+        "total": 9,
+        "problems": [
+          "M2 运行活性: 0 个任务超期未执行，2 个最近运行失败 —— 这是静默失效的典型信号",
+          "M3 状态新鲜度: 状态域 ['distribution', 'intel', 'rules', 'flywheel', 'feature', 'ci'] 的归属 workflow 超过阈值未成功运行 —— 对应环节可能已停摆"
+        ],
+        "checked_at": "2026-09-23T19:40:09.141999+00:00",
+        "level": "degraded"
+      }
+    },
+    {
+      "ts": "2026-09-24T02:31:16.441565+00:00",
+      "source": "meta_monitor",
+      "state": {
+        "score": 78,
+        "passed": 7,
+        "total": 9,
+        "problems": [
+          "M2 运行活性: 0 个任务超期未执行，1 个最近运行失败 —— 这是静默失效的典型信号",
+          "M3 状态新鲜度: 状态域 ['distribution', 'intel', 'rules', 'flywheel', 'feature'] 的归属 workflow 超过阈值未成功运行 —— 对应环节可能已停摆"
+        ],
+        "checked_at": "2026-09-24T02:31:16.441334+00:00",
+        "level": "degraded"
+      }
+    },
+    {
+      "ts": "2026-09-24T04:45:36.736191+00:00",
+      "source": "meta_monitor",
+      "state": {
+        "score": 78,
+        "passed": 7,
+        "total": 9,
+        "problems": [
+          "M2 运行活性: 0 个任务超期未执行，2 个最近运行失败 —— 这是静默失效的典型信号",
+          "M3 状态新鲜度: 状态域 ['distribution', 'intel', 'rules', 'flywheel', 'feature', 'ci'] 的归属 workflow 超过阈值未成功运行 —— 对应环节可能已停摆"
+        ],
+        "checked_at": "2026-09-24T04:45:36.735934+00:00",
+        "level": "degraded"
+      }
+    },
+    {
+      "ts": "2026-09-24T05:46:55.026290+00:00",
+      "source": "meta_monitor",
+      "state": {
+        "score": 78,
+        "passed": 7,
+        "total": 9,
+        "problems": [
+          "M2 运行活性: 0 个任务超期未执行，1 个最近运行失败 —— 这是静默失效的典型信号",
+          "M3 状态新鲜度: 状态域 ['distribution', 'intel', 'rules', 'flywheel', 'feature'] 的归属 workflow 超过阈值未成功运行 —— 对应环节可能已停摆"
+        ],
+        "checked_at": "2026-09-24T05:46:55.026066+00:00",
+        "level": "degraded"
+      }
+    },
+    {
+      "ts": "2026-09-24T13:31:57.665893+00:00",
+      "source": "meta_monitor",
+      "state": {
+        "score": 67,
+        "passed": 6,
+        "total": 9,
+        "problems": [
+          "M2 运行活性: 0 个任务超期未执行，2 个最近运行失败 —— 这是静默失效的典型信号",
+          "M3 状态新鲜度: 状态域 ['distribution', 'intel', 'rules', 'flywheel', 'feature', 'ci'] 的归属 workflow 超过阈值未成功运行 —— 对应环节可能已停摆",
+          "M7 上游情报源: 上游情报源异常：情报库已 77h 未成功更新"
+        ],
+        "checked_at": "2026-09-24T13:31:57.665697+00:00",
+        "level": "degraded"
+      }
+    },
+    {
+      "ts": "2026-09-24T19:58:48.364540+00:00",
+      "source": "meta_monitor",
+      "state": {
+        "score": 67,
+        "passed": 6,
+        "total": 9,
+        "problems": [
+          "M2 运行活性: 0 个任务超期未执行，2 个最近运行失败 —— 这是静默失效的典型信号",
+          "M3 状态新鲜度: 状态域 ['distribution', 'intel', 'rules', 'flywheel', 'feature', 'ci'] 的归属 workflow 超过阈值未成功运行 —— 对应环节可能已停摆",
+          "M7 上游情报源: 上游情报源异常：情报库已 83h 未成功更新"
+        ],
+        "checked_at": "2026-09-24T19:58:48.364320+00:00",
+        "level": "degraded"
+      }
+    },
+    {
+      "ts": "2026-09-25T04:15:18.584986+00:00",
+      "source": "meta_monitor",
+      "state": {
+        "score": 67,
+        "passed": 6,
+        "total": 9,
+        "problems": [
+          "M2 运行活性: 0 个任务超期未执行，1 个最近运行失败 —— 这是静默失效的典型信号",
+          "M3 状态新鲜度: 状态域 ['distribution', 'intel', 'rules', 'flywheel', 'feature'] 的归属 workflow 超过阈值未成功运行 —— 对应环节可能已停摆",
+          "M7 上游情报源: 上游情报源异常：情报库已 91h 未成功更新"
+        ],
+        "checked_at": "2026-09-25T04:15:18.584771+00:00",
+        "level": "degraded"
+      }
+    },
+    {
+      "ts": "2026-09-25T04:54:26.090347+00:00",
+      "source": "meta_monitor",
+      "state": {
+        "score": 67,
+        "passed": 6,
+        "total": 9,
+        "problems": [
+          "M2 运行活性: 0 个任务超期未执行，2 个最近运行失败 —— 这是静默失效的典型信号",
+          "M3 状态新鲜度: 状态域 ['distribution', 'intel', 'rules', 'flywheel', 'feature', 'ci'] 的归属 workflow 超过阈值未成功运行 —— 对应环节可能已停摆",
+          "M7 上游情报源: 上游情报源异常：情报库已 92h 未成功更新"
+        ],
+        "checked_at": "2026-09-25T04:54:26.090094+00:00",
+        "level": "degraded"
+      }
+    },
+    {
+      "ts": "2026-09-25T08:37:52.368553+00:00",
+      "source": "meta_monitor",
+      "state": {
+        "score": 67,
+        "passed": 6,
+        "total": 9,
+        "problems": [
+          "M2 运行活性: 0 个任务超期未执行，1 个最近运行失败 —— 这是静默失效的典型信号",
+          "M3 状态新鲜度: 状态域 ['distribution', 'intel', 'rules', 'flywheel', 'feature'] 的归属 workflow 超过阈值未成功运行 —— 对应环节可能已停摆",
+          "M7 上游情报源: 上游情报源异常：情报库已 96h 未成功更新"
+        ],
+        "checked_at": "2026-09-25T08:37:52.368335+00:00",
+        "level": "degraded"
+      }
+    },
+    {
+      "ts": "2026-09-25T09:44:23.903125+00:00",
+      "source": "meta_monitor",
+      "state": {
+        "score": 67,
+        "passed": 6,
+        "total": 9,
+        "problems": [
+          "M2 运行活性: 0 个任务超期未执行，1 个最近运行失败 —— 这是静默失效的典型信号",
+          "M3 状态新鲜度: 状态域 ['distribution', 'intel', 'rules', 'flywheel', 'feature'] 的归属 workflow 超过阈值未成功运行 —— 对应环节可能已停摆",
+          "M7 上游情报源: 上游情报源异常：情报库已 97h 未成功更新"
+        ],
+        "checked_at": "2026-09-25T09:44:23.902911+00:00",
+        "level": "degraded"
+      }
+    },
+    {
+      "ts": "2026-09-25T09:51:40.506270+00:00",
+      "source": "meta_monitor",
+      "state": {
+        "score": 67,
+        "passed": 6,
+        "total": 9,
+        "problems": [
+          "M2 运行活性: 0 个任务超期未执行，1 个最近运行失败 —— 这是静默失效的典型信号",
+          "M3 状态新鲜度: 状态域 ['distribution', 'intel', 'rules', 'flywheel', 'feature'] 的归属 workflow 超过阈值未成功运行 —— 对应环节可能已停摆",
+          "M7 上游情报源: 上游情报源异常：情报库已 97h 未成功更新"
+        ],
+        "checked_at": "2026-09-25T09:51:40.506074+00:00",
+        "level": "degraded"
+      }
+    },
+    {
+      "ts": "2026-09-25T10:30:06.099085+00:00",
+      "source": "meta_monitor",
+      "state": {
+        "score": 67,
+        "passed": 6,
+        "total": 9,
+        "problems": [
+          "M2 运行活性: 0 个任务超期未执行，1 个最近运行失败 —— 这是静默失效的典型信号",
+          "M3 状态新鲜度: 状态域 ['distribution', 'intel', 'rules', 'flywheel', 'feature'] 的归属 workflow 超过阈值未成功运行 —— 对应环节可能已停摆",
+          "M7 上游情报源: 上游情报源异常：情报库已 98h 未成功更新"
+        ],
+        "checked_at": "2026-09-25T10:30:06.098881+00:00",
+        "level": "degraded"
+      }
+    },
+    {
+      "ts": "2026-09-25T10:37:31.414488+00:00",
+      "source": "meta_monitor",
+      "state": {
+        "score": 67,
+        "passed": 6,
+        "total": 9,
+        "problems": [
+          "M2 运行活性: 0 个任务超期未执行，1 个最近运行失败 —— 这是静默失效的典型信号",
+          "M3 状态新鲜度: 状态域 ['distribution', 'intel', 'rules', 'flywheel', 'feature'] 的归属 workflow 超过阈值未成功运行 —— 对应环节可能已停摆",
+          "M7 上游情报源: 上游情报源异常：情报库已 98h 未成功更新"
+        ],
+        "checked_at": "2026-09-25T10:37:31.414270+00:00",
+        "level": "degraded"
+      }
+    },
+    {
+      "ts": "2026-09-25T11:03:37.295152+00:00",
+      "source": "meta_monitor",
+      "state": {
+        "score": 67,
+        "passed": 6,
+        "total": 9,
+        "problems": [
+          "M2 运行活性: 0 个任务超期未执行，1 个最近运行失败 —— 这是静默失效的典型信号",
+          "M3 状态新鲜度: 状态域 ['distribution', 'intel', 'rules', 'flywheel', 'feature'] 的归属 workflow 超过阈值未成功运行 —— 对应环节可能已停摆",
+          "M7 上游情报源: 上游情报源异常：情报库已 98h 未成功更新"
+        ],
+        "checked_at": "2026-09-25T11:03:37.294918+00:00",
+        "level": "degraded"
+      }
     }
   ],
-  "updated": "2026-09-20T18:45:50.141263+00:00",
+  "updated": "2026-09-25T11:03:37.295155+00:00",
   "desc": "元监控：自动化体系自身的健康度"
 }

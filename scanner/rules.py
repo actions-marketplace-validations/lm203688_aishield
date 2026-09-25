@@ -325,12 +325,236 @@ MCP10_RULES = {
 # Skill/GPT/Prompt 专用额外规则
 # ============================================================
 SKILL_EXTRA_RULES = {
+    # ---- 基础操作类（原有） ----
     r'(write|create|delete|remove)\s+file': ("文件操作指令", "medium"),
     r'(access|read|send).*(contact|calendar|location|camera|microphone)': ("隐私数据访问指令", "high"),
     r'(encrypt|ransom|lock).*(file|data|disk)': ("勒索/加密行为", "critical"),
     r'(spread|propagate|infect|replicate)\b': ("自我传播行为", "critical"),
     r'(elevate|privilege|sudo|root|admin).*(access|permission|escalat)': ("权限提升指令", "critical"),
     r'api[_-]?key|secret[_-]?key|access_token': ("敏感凭证请求", "high"),
+
+    # ---- 供应链 / 依赖注入（借鉴 OpenSquilla 生态 + limbo-ai 装脚本模式）----
+    # `curl | sh` / `wget | bash` 是最经典的供应链投毒入口，SKILL.md 里出现
+    # 就是让 agent 拉外部脚本执行，比 prompt injection 更难拦（agent 会当
+    # 常规安装步骤照做）。
+    r'(curl|wget)\s+[^\n|]*\|\s*(bash|sh|zsh|python)': ("供应链投毒: 远程脚本管道执行", "critical"),
+    r'npx\s+(?:-p\s+\S+\s+)?(?:add|skills\s+add|skills\s*use)\s+\S+': ("供应链投毒: npx 从未审计源安装 skill", "high"),
+    # 未审计 npm/pypi 包硬编码进 skill 的 install 步骤
+    r'(pip|pip3)\s+install\s+(?:--index-url\s+\S+\s+)?\S+'
+    r'|npm\s+install\s+(?:--registry\s+\S+\s+)?\S+'
+    r'|pnpm\s+add\s+\S+'
+    r'|yarn\s+add\s+\S+': ("供应链投毒: 依赖源可能未审计", "medium"),
+    # 第三方 MCP server 自动注册到 .mcp.json / mcpServers（供应链升级路径）
+    r'(mcpServers|mcp_servers)\s*[:=]'
+    r'|claude\s+plugin\s+marketplace\s+add\s+\S+'
+    r'|\.mcp\.json.*(?:add|install|register)'
+    r'|openchiip-harness\s+init'
+    r'|opensquilla\s+install': ("供应链升级: skill 试图自动注册 MCP/Plugin", "high"),
+
+    # ---- 上下文劫持 / 自我修改（借鉴 RSIAgent 自曝的 verifier 漏洞 + limbo-ai vault 暴露）----
+    # 让 agent 修改自身 SKILL.md / plugin.json / settings.json / memory。这是
+    # 自我进化类框架（RSI / OpenSquilla MetaSkills / OpenChiip MetaSkill）最
+    # 常见被攻击面：伪造一次"经验"写死，后续所有任务都被劫持。
+    r'(edit|update|modify|rewrite|overwrite)\s+(?:your\s+|the\s+|this\s+|./)?'
+    r'(?:SKILL\.md|plugin\.json|marketplace\.json|settings\.json|\.mcp\.json|'
+    r'\.claude/settings\.json|AGENTS\.md|CLAUDE\.md|system\.prompt)':
+        ("上下文劫持: skill 试图修改自身配置", "critical"),
+    # 让 agent 写自身 memory / blackboard / state（RSI 类框架的攻击点）
+    # 覆盖三种表达："write X to your long-term memory" / "add this to memory" /
+    # "remember X"（RSI 的 verifier 漏洞：一次被批准的错误经验就写死）
+    r'(?:'
+    r'(write|add|append|inject|remember|store|save)\s+(?:this|that|the\s+\S+|anything)?'
+    r'\s*(?:to|into)\s+(?:your\s+|the\s+|my\s+|its\s+|long[- ]?term\s+)*'
+    r'(?:memory|blackboard|state\s*file|experience\s*bank|memory\s*bank|'
+    r'personal\s+preferences|preferences|rules|settings)'
+    r'|'
+    r'(?:add|include)\s+this\s+(?:instruction|rule|directive)'
+    r'\s+(?:to|into)\s+(?:your|the|my)\s+(?:memory|preferences|rules)'
+    r')':
+        ("上下文劫持: skill 试图写入 agent 记忆", "high"),
+    # 让 agent 加载另一个 skill / MetaSkill（横向信任）
+    r'(load|install|add|fetch|pull)\s+(?:another\s+|the\s+|that\s+|external\s+)?'
+    r'(skill|metaskill|meta[- ]?skill|plugin)'
+    r'|npx\s+skills\s+(?:add|use)\s+\S+'
+    r'|\/plugin\s+install\s+\S+'
+    r'|install\s+(?:the\s+)?(?:skill|plugin)\s+at\s+\S+':
+        ("上下文劫持: skill 试图加载其他 skill", "high"),
+    # 让 agent 触发 channel / identity 切换（OpenSquilla/OpenChiip 元能力）
+    r'(switch|change)\s+(?:the\s+)?(?:channel|identity|provider|gateway|persona)'
+    r'|set\s+(?:channel|identity|provider|gateway)\s*[:=]'
+    r'|override\s+(?:channel|identity|provider|gateway)':
+        ("Harness 元能力滥用: 试图替换 channel/identity/provider", "high"),
+    # 让 agent 修改 sandbox 策略 / 关闭安全护栏
+    r'(disable|bypass|turn\s+off|skip|suspend)'
+    r'\s+(?:the\s+)?(?:sandbox|security\s*guard|guardrail|approval\s*flow|'
+    r'credential\s*scrubbing|credential\s*redact|pre[- ]?hook|post[- ]?hook)':
+        ("Harness 元能力滥用: 试图绕过沙箱/护栏", "critical"),
+
+    # ---- 中文供应链 / 上下文劫持（中文 skill 生态差异化）----
+    r'(下载|获取|拉取|安装).{0,10}(外部|第三方|远程).{0,6}(脚本|程序|包|组件)':
+        ("中文供应链: 引导 agent 拉外部脚本", "high"),
+    r'(修改|更新|改写|覆盖).{0,6}(自身的|自己的|这个)?.{0,6}'
+    r'(SKILL\.md|plugin\.json|配置|设置|记忆|黑板)':
+        ("中文上下文劫持: 引导 agent 修改自身配置/记忆", "critical"),
+    r'(加载|安装|引入).{0,6}(其他|另一个|外部).{0,6}(skill|技能|插件)':
+        ("中文上下文劫持: 引导 agent 加载其他 skill", "high"),
+    r'(关闭|禁用|跳过|绕过|取消).{0,8}(沙箱|sandbox|护栏|approval|审批流|脱敏|pre[- ]?hook|post[- ]?hook|凭证剥离|credential.{0,4}scrub)':
+        ("中文Harness滥用: 引导 agent 绕过沙箱/护栏", "critical"),
+
+    # ---- 未复现 benchmark 声称（借鉴 PenguinHarness 未开源 benchmark 事件）----
+    # 2026-09-21 案例：PenguinHarness 宣称 Agent 准确率 50%→90%、成本 = Claude
+    # Code 的 1/70，但 FollowAgents 审计指出其 benchmark 尚未公开，"100x/1-70
+    # cost/$0.02" 等数字无法独立验证。任何 skill/plugin 用无来源、无代码仓库、
+    # 无数据集的量化提升做宣传，都是可疑营销——不是攻击载荷，但会让 agent
+    # 用户误判可信度、放宽权限边界。降到 info 级只标记、不阻断，避免误伤。
+    # 关键判据：出现数字提升/成本对比，但没有 URL、benchmark 名、repo、issue
+    # 号等可复现锚点。这里保守匹配「明确性能指标名 + 两个百分比 + 提升动词」
+    # 或「量化成本对比到具体模型名」——避免把防御文档中引用公开 benchmark
+    # （OWASP / SWE-bench）的表述误报。
+    r'(?:准确率|accuracy|success\s*rate).{0,25}\d+%?[^.\n]{0,15}'
+    r'(?:到|→|->|提升|提高|improv|to)\s*\d+%?'
+    r'|'
+    r'(?:准确率|accuracy|success\s*rate).{0,15}'
+    r'(?:提升到|提高到|reaches?|improves?|improved?|up\s+to)\s*\d+%?'
+    r'|'
+    r'(?:cost|成本|费用).{0,20}1\s*/\s*\d+\s*(?:的|of|than)?\s*(?:Claude|GPT|OpenAI|Gemini|Copilot)'
+    r'|'
+    r'(?:\b\d{2,5}\b)\s*(?:x|倍)\s*(?:cheaper|faster|better|cost|price)':
+        ("未复现 benchmark 声称: 量化对比缺可复现来源", "info"),
+
+    # ---- 桌面驱动工具调用（借鉴 Cua / Mano-CUA / Browser-Use / OpenCUA 生态）----
+    # 端侧 GUI-VLA agent（Mano-CUA、OpenCUA）+ 桌面控制基础设施（Cua Driver、
+    # Browser-Use、Playwright stealth）都能让 agent 在用户看不见或不注意的情况
+    # 下点击"确认购买""转账""删除"。skill 里显式引用这类工具本身就是可疑信号，
+    # 因为 agent 一旦信任 skill 就会调用它——用户不会看到后台的鼠标移动。
+    # 匹配两类：安装/调用这些工具的显式指令 + MCP server 名。
+    r'(pip|npm|brew)\s+(?:install|add)\s+'
+    r'(?:cua|mano-cua|@1mcp/agent|browser-use|opencvui|pyautogui|pynput|'
+    r'pyscreeze|playwright-stealth)'
+    r'|'
+    r'(cua-driver|cua\.driver|mano-cua|openclaw\s*driver)'
+    r'\s+(?:mcp|serve|run|start)'
+    r'|'
+    r'control\s+(?:the\s+|your\s+)?(?:desktop|screen|mouse|keyboard)'
+    r'|'
+    r'(click|type|scroll).{0,6}(?:on\s+the\s+)?(?:screen|desktop|display)'
+    r'|'
+    r'background\s+(?:automation|input\s+injection)':
+        ("桌面驱动调用: skill 试图操作本机 GUI/鼠标键盘", "high"),
+
+    # 中文版：端侧 GUI agent 类工具
+    r'(控制|操作|驱动).{0,6}(本机|桌面|屏幕|鼠标|键盘|显示器)'
+    r'|'
+    r'(后台|隐形|无声|静默).{0,6}(操作|点击|输入|自动化|驱动)':
+        ("中文桌面驱动: 引导 agent 操作本机 GUI", "high"),
+
+    # ---- Agent 支付 / 预算控制攻击面（借鉴 AIsa / AgentPay Guard / x402）----
+    # 2026-09 AIsa 引入 AgentPay Guard："quote first, spend second, never act
+    # without approval"。核心控制点：per-request / per-task / per-time 限额、
+    # approval policy、"cost can't be capped → don't run"、"paid endpoints not
+    # for testing"。这些控制的存在说明一个新的攻击面正式形成：**agent 有了
+    # 花别人的钱的能力**，任何引导 agent 绕过或扩大这个预算边界的 skill /
+    # prompt 都是新的 critical。
+    #
+    # 覆盖三类：
+    # (1) 授权劫持：让 agent 跳过 quote / approval、直接执行付费动作；
+    # (2) 预算扩大：把每日/单次/总额预算调到远超合理的值，或"unlimited"；
+    # (3) 稳定币钱包访问：直接操作 x402 / USDC / Circle / facilitator 端点。
+    r'(approve|confirm|sign\s*off|skip|bypass).{0,20}'
+    r'(budget|spend|payment|expense|spending|cost\s*control)'
+    r'(?:\s*(flow|policy|guard|guardrail|control|approval))?'
+    r'|'
+    r'(turn|switch|set).{0,4}(on|off|auto)\s+(?:the\s+)?(?:auto[- ]?approv|auto[- ]?pay|spending)'
+    r'|'
+    r'never\s+(?:ask|confirm|require|need)\s+(?:for\s+|the\s+|user\s+)?'
+    r'(?:approval|consent|permission|confirmation)'
+    r'|'
+    r'(?:no|no\s+need|without)\s+(?:for\s+|user\s+|human\s+)?'
+    r'(?:approval|consent|confirmation|consent).{0,25}'
+    r'(?:paid|payment|spend|call|request)'
+    r'|'
+    r'(?:unlimited|no\s+limit|disable)\s+(?:the\s+)?(?:budget|spending|spend)\s*(?:limit|cap|control)':
+        ("Agent 支付授权劫持: 引导 agent 跳过预算审批", "critical"),
+
+    # 预算数值扩大：把 budget 提到异常高（$10K+）或明确设 "no cap"。
+    # 判据是"动词 + 预算名词 + 具体大数值"，而不是任意"预算 + 数字"，
+    # 否则防御文档中"每日限额 $5000 是合理上限"这种会误报。
+    r'(?:raise|set|bump|increase|update|change|adjust|move)\s+'
+    r'(?:the\s+|my\s+|your\s+|daily\s+|per[- ]?task\s+|per[- ]?request\s+|total\s+)?'
+    r'(?:budget|limit|cap|allowance|ceiling)'
+    r'.{0,30}\$?\s*\d[\d,]*\d{3,}'
+    r'|'
+    r'(?:budget|limit|cap|allowance|ceiling)\s+'
+    r'(?:to|at|of|=|set\s+to|raise\s+to)\s*\$?\s*\d[\d,]*\d{3,}'
+    r'|'
+    r'(?:set|make|configure|raise).{0,15}'
+    r'(?:budget|spending|allowance).{0,15}'
+    r'(?:unlimited|infinite|no[- ]?cap|no[- ]?limit)':
+        ("Agent 预算扩大: 试图把限额调到超常规值", "critical"),
+
+    # 稳定币钱包 / x402 支付端点直接操作：这类工具一旦连上，agent 就能在
+    # 没有人类介入下做 micropayment。skill 里显式引用 wallet 地址、facilitator
+    # URL、或签名动作，本身就是新的高风险信号。
+    #
+    # 关键约束：x402 / USDC 这类词单独出现（如学术论文引用）不算，
+    # 必须搭配动作动词（pay/sign/connect/access/signature/withdraw/transfer）
+    # 或具体钱包地址。参照之前"防御文档谈 benchmark 不算 benchmark claim"
+    # 的同类判据——「提及 ≠ 执行」。
+    r'(?:pay|pay\s*with|pay\s*using|use\s+(?:my|your|a)\s+stablecoin|'
+    r'connect\s+(?:my|your|a)\s+(?:stablecoin|USDC|USDT).{0,10}wallet)'
+    r'(?:\s+(?:my|your|a|the)\s+)?'
+    r'(?:stablecoin|USDC|USDT|DAI|ETH)\s*wallet'
+    r'|'
+    r'(?:sign|withdraw|transfer|approve|broadcast)\s+'
+    r'(?:the\s+|a\s+)?(?:USDC|USDT|DAI|ETH|stablecoin)\s+(?:transaction|payment|transfer|tx)'
+    r'|'
+    r'(?:sign|withdraw|transfer|approve|broadcast|pay)'
+    r'(?:\s+(?:my|your|the|a)\s+)?'
+    r'(?:wallet|treasury)\s+(?:address\s+)?'
+    r'(?:0x[0-9a-fA-F]{20,}|\d{4,})'
+    r'|'
+    r'(?:wallet|treasury)\s+(?:address\s+)?(?:0x[0-9a-fA-F]{20,})'
+    r'(?:\s+(?:to|for|via|at)\s+(?:pay|withdraw|transfer|x402))'
+    r'|'
+    r'(?:call|access|use|hit|execute|run)\s+'
+    r'(?:the\s+|an?\s+)?(?:x402|x[- ]?402|paywall)'
+    r'\s+(?:payment|paywall|endpoint|url|api|flow)'
+    r'|'
+    r'(?:use|hit|execute|run)\s+(?:the\s+|an?\s+)?(?:x402|x[- ]?402|paywall)'
+    r'\s+to\s+(?:pay|call|hit|execute|run|make|send)'
+    r'|'
+    r'(?:enable|setup|configure|install|connect)\s+'
+    r'(?:the\s+|my\s+|your\s+|an?\s+)?(?:x402|x[- ]?402|paywall)'
+    r'\s+(?:payment|paywall|endpoint|url|api|wallet|facilitator)'
+    r'|'
+    r'(?:circle|coinbase|solana|base\s+facilitator|agentic.wallet)\s+'
+    r'(?:pay|transfer|withdraw|sign|approve)'
+    r'|'
+    r'(?:circle|coinbase|solana|base\s+facilitator|agentic.wallet)\s+'
+    r'wallet\s+(?:address\s+)?0x[0-9a-fA-F]{20,}'
+    r'|'
+    r'(?:pay|sign|transfer|withdraw|approve)\s+'
+    r'(?:the\s+|a\s+|my\s+|your\s+)?x402\s+(?:payment|paywall|transfer|tx)'
+    r'(?:\s+(?:with|at|to|on|for)\s+\S+)?':
+        ("稳定币钱包 / x402 端点操作: 直接访问 agent 支付能力", "high"),
+
+    # 中文：Agent 支付授权劫持
+    r'(跳过|绕过|自动|免|无需).{0,6}(预算|费用|支付|花费|额度).{0,6}(审批|确认|授权|同意)'
+    r'|'
+    r'(取消|移除|设为|改为).{0,6}(预算|额度|限额|花费上限).{0,4}(为|成|到)?.{0,4}(无|不限|无限|解除|取消)'
+    r'|'
+    r'(把|将|让).{0,6}(预算|额度|限额).{0,6}(调|改|设|提到|放到).{0,6}(无|不限|无限|最高|无上限)':
+        ("中文Agent支付授权劫持: 引导 agent 跳过预算审批", "critical"),
+
+    # 中文：预算数值扩大 / 稳定币访问
+    r'(把|将|让).{0,6}(预算|额度|花费上限|每日额度|单次额度|总金额)'
+    r'.{0,15}(调|改|设|提到|放到).{0,10}(¥|RMB|CNY|USD|\$)?\s*\d[\d,]*\d{3,}'
+    r'|'
+    r'(接入|连上|绑定|连接|授权).{0,6}(稳定币|USDC|USDT|钱包|x402|circle|coinbase)'
+    r'.{0,20}(支付|付款|转账|签名|私钥)'
+    r'|'
+    r'(稳定币|USDC|USDT).{0,6}(钱包|x402|circle|coinbase).{0,20}(支付|付款|转账|签名|私钥)':
+        ("中文预算扩大/稳定币访问", "critical"),
 }
 
 # ============================================================

@@ -1,5 +1,5 @@
 """
-AIShield API Server — v4.2 Agent-First
+AIShield API Server — Agent-First
 
 Agent-First 改造:
   - POST /api/v1/agent/setup         — Agent 一键入驻（注册+API Key+快速指引）
@@ -38,6 +38,16 @@ from scanner.rules import OWASP_MCP_TOP10, get_rule_count, get_rule_breakdown
 from scanner.monitor import get_monitored_tools, add_monitor as add_tool_monitor, remove_monitor, check_version_change, check_all_monitored
 from scanner.api_scanner import APIScanOrchestrator
 from proxy import gateway as proxy_gateway
+from trust_api import generate_attestation, verify_attestation, list_attestations, revoke_attestation, create_attestation_from_scan
+
+# ── 产品版本（唯一声明位）──
+# 历史上本文件散落着 7 处独立写死的版本字面量：/health、/api/v1 根、三处
+# powered_by 水印、MCP-over-HTTP initialize 的 serverInfo、以及 server-card
+# fallback。它们各自独立漂移，实测曾出现同一进程对外自报 "4.3.0" 而
+# mcp.json 已是 "4.8.3"——用户按 /health 的版本去查文档，查到的永远是旧版。
+# 现在收敛为一个常量，由 scripts/sync_version.py 门禁约束；新增任何
+# "用户能读到的版本"都必须引用它，不得再写字面量。
+API_VERSION = "4.8.3"
 
 # ── Eco Dispatcher ──
 try:
@@ -57,6 +67,13 @@ AUDIT_FILE = os.path.join(DATA_DIR, "audits.json")
 USAGE_FILE = os.path.join(DATA_DIR, "usage.json")
 WEBHOOK_PROCESSED_FILE = os.path.join(DATA_DIR, "webhook_processed.json")  # 幂等性：已处理的webhook checkout_id
 CREDIT_TXN_FILE = os.path.join(DATA_DIR, "credit_transactions.json")  # 积分变动流水
+
+# Arena agent rate limiter (per-IP, 60 req/hour)
+try:
+    from api.arena_core import RateLimiter as _ArenaRateLimiter
+    _ARENA_LIMITER = _ArenaRateLimiter(max_per_hour=60)
+except Exception:
+    _ARENA_LIMITER = None
 
 TZ = timezone(timedelta(hours=8))
 
@@ -400,6 +417,44 @@ class AIShieldHandler(BaseHTTPRequestHandler):
             _record_usage("trust-api", self.client_address[0])
             return
 
+        # ── Ecosystem API (P1): Agent 生态 5 支柱 ──
+        if (path.startswith("/api/v1/ecosystem") or path.startswith("/api/v1/agent-card")
+                or path.startswith("/api/v1/specialist") or path.startswith("/api/v1/chain")
+                or path.startswith("/api/v1/identity") or path.startswith("/api/v1/protocol")
+                or path.startswith("/api/v1/leaderboard") or path.startswith("/api/v1/contributors")
+                or path.startswith("/api/v1/sandbox/backend")):
+            try:
+                import ecosystem_api
+                payload, status = ecosystem_api.handle_get(path, parsed.query)
+                self._send_json(payload, status)
+            except Exception as e:
+                self._send_json({"error": str(e)}, 500)
+            _record_usage("ecosystem-api", self.client_address[0])
+            return
+
+        # ── Personal Agent API (P2): 个人 Agent 治理层 + 平台注册表 ──
+        if (path.startswith("/api/v1/personal-agents")
+                or path.startswith("/api/v1/platforms")):
+            try:
+                import personal_agent_api
+                payload, status = personal_agent_api.handle_get(path, parsed.query)
+                self._send_json(payload, status)
+            except Exception as e:
+                self._send_json({"error": str(e)}, 500)
+            _record_usage("personal-agent-api", self.client_address[0])
+            return
+
+        # ── Connectors API: 海外平台接入（Muse / Grok Bot / NVIDIA）+ Agent 基础设施开源扫描 ──
+        if path.startswith("/api/v1/connectors") or path.startswith("/api/v1/agent-infra"):
+            try:
+                import connectors_api
+                payload, status = connectors_api.handle_get(path, parsed.query)
+                self._send_json(payload, status)
+            except Exception as e:
+                self._send_json({"error": str(e)}, 500)
+            _record_usage("connectors-api", self.client_address[0])
+            return
+
         # Landing Page — Agent SEO
         if path == "/agent.html":
             html_path = os.path.join(BASE, "static", "agent.html")
@@ -573,7 +628,7 @@ class AIShieldHandler(BaseHTTPRequestHandler):
             else:
                 # Fallback: inline server card for deployments without the static file
                 json_data = json.dumps({
-                    "serverInfo": {"name": "AIShield", "version": "4.3.0",
+                    "serverInfo": {"name": "AIShield", "version": API_VERSION,
                         "description": "AI Agent Security Shield — OWASP MCP Top 10 aligned security scanning. 235 rules covering prompt injection, zero-width characters, Rug Pull, permission audit, and dependency monitoring."},
                     "url": "https://aishield.tools/mcp",
                     "provider": {"name": "AIShield", "url": "https://github.com/lm203688/aishield"},
@@ -904,7 +959,7 @@ class AIShieldHandler(BaseHTTPRequestHandler):
             _meta = _git_meta()
             self._send_json({
                 "status": "ok",
-                "version": "4.3.0",
+                "version": API_VERSION,
                 "owasp_standard": "OWASP MCP Top 10 (2025 v0.1)",
                 "rules_count": get_rule_count("mcp"),
                 # 规则构成明细：static 是发版时固化的常量，generated / radar
@@ -1004,11 +1059,28 @@ class AIShieldHandler(BaseHTTPRequestHandler):
             _record_usage("agent-status", self.client_address[0])
             return
 
+        # ── Arena Agent: 健康检查（NetMind Arena 集成）──
+        if path == "/api/v1/arena/health":
+            try:
+                from api.arena_core import SCANNER_VERSION, SCANNER_AVAILABLE, _get_rule_count
+                self._send_json({
+                    "ok": True,
+                    "version": SCANNER_VERSION,
+                    "scanner_available": SCANNER_AVAILABLE,
+                    "mcp_rules": _get_rule_count("mcp") if _get_rule_count else None,
+                    "skill_rules": _get_rule_count("skill") if _get_rule_count else None,
+                    "timestamp": time.time(),
+                })
+            except Exception as e:
+                self._send_json({"ok": False, "error": str(e)}, 500)
+            _record_usage("arena-health", self.client_address[0])
+            return
+
         # API根节点 — JSON端点列表
         if path == "/api/v1":
             self._send_json({
                 "name": "AIShield API",
-                "version": "4.3.0",
+                "version": API_VERSION,
                 "description": "AI Agent Security & Trust Platform — Agent-First API",
                 "openapi": "/openapi.json",
                 "agent_setup": "/api/v1/agent/setup",
@@ -1022,6 +1094,14 @@ class AIShieldHandler(BaseHTTPRequestHandler):
                     "POST /api/v1/rug-pull — Rug pull detection",
                     "POST /api/v1/handshake — MCP handshake verification",
                     "POST /api/v1/mcp — MCP StreamableHTTP (JSON-RPC 2.0, 8 tools)",
+                    "GET  /api/v1/arena/health — Arena agent health check",
+                    "POST /api/v1/arena/scan — Arena agent scan (NetMind Arena integration)",
+                    "POST /api/v1/attestations — Create Trust Attestation credential",
+                    "POST /api/v1/attestations/verify — Verify Trust Attestation",
+                    "POST /api/v1/attestations/from-scan — Generate attestation from scan results",
+                    "POST /api/v1/attestations/revoke — Revoke Trust Attestation",
+                    "GET  /api/v1/attestations — List all attestations",
+                    "GET  /api/v1/attestations/{id} — Get specific attestation",
                     "GET  /openapi.json — OpenAPI 3.0.3 spec (Agent auto-discovery)",
                     "GET  /api/v1/health — Health check",
                     "GET  /api/v1/stats — Usage statistics",
@@ -1257,12 +1337,73 @@ class AIShieldHandler(BaseHTTPRequestHandler):
                 self._send_json({"error": "Invalid JSON"}, 400)
                 return
             try:
-                import trust_api
-                payload, status = trust_api.handle_post(path, data)
+                from trust_api import handle_post as trust_handle_post
+                payload, status = trust_handle_post(path, data)
                 self._send_json(payload, status)
             except Exception as e:
                 self._send_json({"error": str(e)}, 500)
             _record_usage("trust-api", self.client_address[0])
+            return
+
+        # ── Ecosystem API (P1): Agent 生态 5 支柱 ──
+        if (path.startswith("/api/v1/agent-card") or path.startswith("/api/v1/specialist")
+                or path.startswith("/api/v1/chain") or path.startswith("/api/v1/identity")
+                or path.startswith("/api/v1/protocol") or path.startswith("/api/v1/ecosystem")
+                or path.startswith("/api/v1/contributors")):
+            try:
+                body = self._read_body()
+                if body is None:
+                    return
+                data = json.loads(body) if body else {}
+            except json.JSONDecodeError:
+                self._send_json({"error": "Invalid JSON"}, 400)
+                return
+            try:
+                import ecosystem_api
+                payload, status = ecosystem_api.handle_post(path, data)
+                self._send_json(payload, status)
+            except Exception as e:
+                self._send_json({"error": str(e)}, 500)
+            _record_usage("ecosystem-api", self.client_address[0])
+            return
+
+        # ── Personal Agent API (P2): 个人 Agent 治理层 + 平台注册表 ──
+        if (path.startswith("/api/v1/personal-agents")
+                or path.startswith("/api/v1/platforms")):
+            try:
+                body = self._read_body()
+                if body is None:
+                    return
+                data = json.loads(body) if body else {}
+            except json.JSONDecodeError:
+                self._send_json({"error": "Invalid JSON"}, 400)
+                return
+            try:
+                import personal_agent_api
+                payload, status = personal_agent_api.handle_post(path, data)
+                self._send_json(payload, status)
+            except Exception as e:
+                self._send_json({"error": str(e)}, 500)
+            _record_usage("personal-agent-api", self.client_address[0])
+            return
+
+        # ── Connectors API: 海外平台接入（Muse / Grok Bot / NVIDIA）+ Agent 基础设施开源扫描 ──
+        if path.startswith("/api/v1/connectors") or path.startswith("/api/v1/agent-infra"):
+            try:
+                body = self._read_body()
+                if body is None:
+                    return
+                data = json.loads(body) if body else {}
+            except json.JSONDecodeError:
+                self._send_json({"error": "Invalid JSON"}, 400)
+                return
+            try:
+                import connectors_api
+                payload, status = connectors_api.handle_post(path, data)
+                self._send_json(payload, status)
+            except Exception as e:
+                self._send_json({"error": str(e)}, 500)
+            _record_usage("connectors-api", self.client_address[0])
             return
 
         # ── SBOM / SARIF 导出 (P2) ──
@@ -1765,6 +1906,41 @@ class AIShieldHandler(BaseHTTPRequestHandler):
             self._handle_handshake(data)
         elif path == "/api/v1/mcp":
             self._handle_mcp(data)
+        elif path == "/api/v1/arena/scan":
+            # ── Arena Agent: 扫描（NetMind Arena 集成）──
+            try:
+                import api.arena_core as _arena_core
+                if isinstance(data, bytes):
+                    data_bytes = data
+                else:
+                    data_bytes = json.dumps(data, separators=(",", ":")).encode("utf-8")
+                if len(data_bytes) > _arena_core.PAYLOAD_LIMIT_BYTES:
+                    self._send_json({
+                        "error": f"Payload too large (limit {_arena_core.PAYLOAD_LIMIT_BYTES} bytes)",
+                    }, 413)
+                    _record_usage("arena-scan", self.client_address[0], success=False)
+                    return
+                if _ARENA_LIMITER and not _ARENA_LIMITER.allow(self.client_address[0]):
+                    self._send_json({"error": "Rate limit exceeded (60 req/hour per IP)"}, 429)
+                    _record_usage("arena-scan", self.client_address[0], success=False)
+                    return
+                try:
+                    envelope = json.loads(data_bytes) if isinstance(data_bytes, (bytes, bytearray)) else data
+                except json.JSONDecodeError as exc:
+                    self._send_json({"error": f"Invalid JSON: {exc}"}, 400)
+                    _record_usage("arena-scan", self.client_address[0], success=False)
+                    return
+                if isinstance(envelope, dict) and ("config" in envelope or "payload" in envelope):
+                    payload = _arena_core.arena_envelope_to_payload(envelope)
+                else:
+                    payload = envelope if isinstance(envelope, dict) else {"config": envelope}
+                report = _arena_core.run_scan(payload)
+                self._send_json(_arena_core.report_to_dict(report))
+                _record_usage("arena-scan", self.client_address[0])
+            except Exception as e:
+                self._send_json({"error": str(e)}, 500)
+                _record_usage("arena-scan", self.client_address[0], success=False)
+            return
         elif path == "/api/v1/monitor/add":
             # ── 监控路由：添加工具到监控列表 ──
             source_url = data.get("source_url", "")
@@ -2128,7 +2304,7 @@ blockquote{{border-left:4px solid #3b82f6;padding-left:16px;margin-left:0;color:
                 "powered_by": {
                     "name": "AIShield",
                     "url": "https://aishield.tools",
-                    "version": "4.3.0",
+                    "version": API_VERSION,
                 },
             }
             
@@ -2174,7 +2350,7 @@ blockquote{{border-left:4px solid #3b82f6;padding-left:16px;margin-left:0;color:
         result["powered_by"] = {
             "name": "AIShield",
             "url": "https://aishield.tools",
-            "version": "4.3.0",
+            "version": API_VERSION,
         }
         self._send_json(result)
         _record_usage("prompt-check", self.client_address[0])
@@ -2191,7 +2367,7 @@ blockquote{{border-left:4px solid #3b82f6;padding-left:16px;margin-left:0;color:
         result["powered_by"] = {
             "name": "AIShield",
             "url": "https://aishield.tools",
-            "version": "4.3.0",
+            "version": API_VERSION,
         }
         self._send_json(result)
         _record_usage("banned-words", self.client_address[0])
@@ -2443,7 +2619,7 @@ blockquote{{border-left:4px solid #3b82f6;padding-left:16px;margin-left:0;color:
                     "capabilities": {"tools": {}},
                     "serverInfo": {
                         "name": "AIShield Security Scanner",
-                        "version": "4.3.0",
+                        "version": API_VERSION,
                     },
                 },
             })
@@ -2737,7 +2913,7 @@ def main():
         daemon_threads = True
 
     server = ThreadedServer(("0.0.0.0", port), AIShieldHandler)
-    print(f"AIShield API v4.2 — Agent-First + OWASP MCP Top 10")
+    print(f"AIShield API v{API_VERSION} — Agent-First + OWASP MCP Top 10")
     print(f"  Port: {port}")
     print(f"  Rules: {get_rule_count('mcp')}")
     print(f"  Standard: OWASP MCP Top 10 (2025 v0.1)")
