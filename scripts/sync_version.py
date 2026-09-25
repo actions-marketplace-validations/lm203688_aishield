@@ -81,10 +81,24 @@ TARGETS: List[Tuple[str, str, str]] = [
     ("mcp-server/src/index.ts",
      r"(const SERVER_VERSION\s*=\s*')([^']+)(')",
      r"\g<1>{v}\g<3>"),
-    # API 层自报版本：MCP 客户端在 negotiate 时看到的 serverInfo.version
-    # 曾长期硬编码 4.2.0 而 setup.py 已到 4.2.2 —— 用户报障时版本对不上。
+    # API 层自报版本的**唯一声明位**。此前本文件散落 7 处独立字面量（/health、
+    # /api/v1 根、三处 powered_by 水印、MCP-over-HTTP initialize 的 serverInfo、
+    # server-card fallback），各自漂移——2026-09-25 实测同一进程 /health 报
+    # "4.3.0" 而 mcp.json 已是 "4.8.3"，用户按 /health 查文档永远查旧版。
+    # 已收敛为单一常量，故锚点由「匹配某个字面量」改为「匹配常量定义」。
+    # 注意：不要改回锚定字面量的写法——那是漂移的根源。
     ("api/server.py",
-     r'("serverInfo": \{"name": "AIShield", "version": ")([^"]+)(")',
+     r'(API_VERSION\s*=\s*")([^"]+)(")',
+     r"\g<1>{v}\g<3>"),
+    # SARIF / SBOM 产物里对外自报的工具版本。会直接进入用户的 CI 产物，
+    # 却从未在门禁内——曾长期停在 4.3.0 而 npm 已 4.8.3。
+    ("scanner/sbom.py",
+     r'(TOOL_VERSION\s*=\s*")([^"]+)(")',
+     r"\g<1>{v}\g<3>"),
+    # 仓库根目录的 SARIF 样例。必须锚定在 driver.name 之后，否则会先命中
+    # 文件第 3 行的 SARIF 规范版本 "2.1.0"——那是 schema 决定的，不是产品版本。
+    ("aishield.sarif",
+     r'("name": "AIShield",\r?\n\s+"version": ")([^"]+)(")',
      r"\g<1>{v}\g<3>"),
     # OpenAPI 规范里的 info.version
     ("api/openapi_spec.py",
@@ -156,6 +170,69 @@ TARGETS: List[Tuple[str, str, str]] = [
     ("api/static/.well-known/agent.json",
      r'("service_version"\s*:\s*")([^"]+)(")',
      r"\g<1>{v}\g<3>"),
+    # Agent Card 与 MCP Server Card：A2A / MCP 客户端在握手时直接读取的自报版本，
+    # 属于最靠前的对外面。此前两份文件完全不在门禁内，一直停在 4.3.0 而
+    # mcp.json 已 4.8.3——线上 aishield.tools 报的就是这个错版本号。
+    # 正则必须带前导引号锚定 `"version"`：否则 `protocol_version` /
+    # `mcp_protocol_version` / `owasp_version` 都会被误判为产品版本。
+    ("api/static/.well-known/agent-card.json",
+     r'("version"\s*:\s*")([^"]+)(")',
+     r"\g<1>{v}\g<3>"),
+    ("api/static/.well-known/mcp/server-card.json",
+     r'("version"\s*:\s*")([^"]+)(")',
+     r"\g<1>{v}\g<3>"),
+    # ⚠ 关键区分：`/.well-known/agent-card.json` 这个线上端点实际由
+    # api/trust_api.py 的 agent_card() 读 **docs/** 下的那份返回，
+    # api/static/ 那份是死代码（server.py:410 的 trust_api 分支先命中）。
+    # 2026-09-25 线上 curl 实测：docs 那份停在 4.3.0——A2A 发现协议里
+    # AI agent 读到的就是错版本号。两份都得登记，别只修死的那份。
+    ("docs/.well-known/agent-card.json",
+     r'("version"\s*:\s*")([^"]+)(")',
+     r"\g<1>{v}\g<3>"),
+    ("docs/.well-known/mcp/server-card.json",
+     r'("version"\s*:\s*")([^"]+)(")',
+     r"\g<1>{v}\g<3>"),
+    # llms-full.txt 是给 LLM 读的全文索引，AI agent 会直接抓。
+    # 锚定在 *Canonical* 那一行，避免误伤正文里出现的其它版本号。
+    ("api/static/llms-full.txt",
+     r'(?m)^(\*Canonical:.*?Version:\s*)(\d+\.\d+\.\d+)',
+     r"\g<1>{v}"),
+    # Anthropic 插件分发包：plugin.json 是插件市场读到的版本，
+    # SKILL.md frontmatter 里的 version 是技能清单版本，两者必须一致。
+    ("distribution/aishield-plugins/.claude-plugin/plugin.json",
+     r'("version"\s*:\s*")([^"]+)(")',
+     r"\g<1>{v}\g<3>"),
+    # 插件市场提交表单的现成值，与 plugin.json 必须一致。
+    ("distribution/aishield-plugins/FORM_VALUES.json",
+     r'("version"\s*:\s*")([^"]+)(")',
+     r"\g<1>{v}\g<3>"),
+    # 各分发渠道的技能清单 / 插件包。这些是独立上架的产物，
+    # 2026-09-25 实测分别停在 4.1.0 / 4.2.2 / 4.3.0 三个不同版本。
+    ("registry/SKILL.md",
+     r'(?m)^(\s*version:\s*")([^"]+)(")',
+     r"\g<1>{v}\g<3>"),
+    ("distribution/clawhub/SKILL.md",
+     r'(?m)^(\s*version:\s*)(\d+\.\d+\.\d+)(\s*)',
+     r"\g<1>{v}\g<3>"),
+    ("distribution/deepseek-harness/dsh-plugin/package.json",
+     r'("version"\s*:\s*")([^"]+)(")',
+     r"\g<1>{v}\g<3>"),
+    ("docs/llms-full.txt",
+     r'(?m)^(\*Canonical:.*?Version:\s*)(\d+\.\d+\.\d+)',
+     r"\g<1>{v}"),
+    # 项目自身 SBOM 的应用组件版本。SBOM 里其余组件是内部源文件，
+    # 版本号由 scripts/gen_project_sbom.py 从 setup.py 派生后统一盖章，
+    # 所以只锚定 application 组件那一个声明位即可。
+    ("docs/project-sbom.cyclonedx.json",
+     r'("name": "aishield",\r?\n\s+"version": ")([^"]+)(")',
+     r"\g<1>{v}\g<3>"),
+    ("distribution/aishield-plugins/skills/aishield-security-scan/SKILL.md",
+     r'(?m)^(\s*version:\s*")([^"]+)(")',
+     r"\g<1>{v}\g<3>"),
+    # README 里用户直接复制的安装命令，写死旧版本会误导升级路径。
+    ("mcp-server/README.md",
+     r'(aishield-mcp-server@)(\d+\.\d+\.\d+)',
+     r"\g<1>{v}"),
     ("smithery.yaml",
      r'(\nversion:\s*")([^"]+)(")',
      r"\g<1>{v}\g<3>"),

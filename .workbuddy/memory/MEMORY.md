@@ -2,7 +2,7 @@
 > 细节见 `automation-digest/YYYY-MM-DD.md` 与 `automations/*/memory.md`；本文只留可复用硬事实。
 
 ## 定位 / 版本
-Agent 原生 AI 工具安全扫描器（MCP/skill/GPTs/prompt），对齐 OWASP MCP Top10 + ASI01–10，零依赖可离线。`lm203688/aishield`(public)，npm **4.3.0**。
+Agent 原生 AI 工具安全扫描器（MCP/skill/GPTs/prompt），对齐 OWASP MCP Top10 + ASI01–10，零依赖可离线。`lm203688/aishield`(public)，npm **4.8.3**。
 **不变量：绝不 spawn 被扫配置里的命令**（自证 `scripts/prove_isolation.py`）。
 2026-09-24 重定位：研发导向的开源 agent 生态统一服务平台；5 支柱（发现/认证/组合/执行/鉴证）对齐 agent 生命周期，商业门禁降为「认证」之一。详情 `docs/aishield-direction-2026-09-research.md`。
 版本史（均已推 main）：4.5.0 五支柱 API；4.6.0 KYA SD-JWT Ed25519 + Leaderboard + Contributors + Sandbox 5 后端；4.7.0 Evidence Bundle 1.0（OCSF/STIX/ATT&CK + 双轮复测）+ Ship Gate 10 态机；4.7.1 MCP 45 工具**实装**（此前只改 manifest = 假绿）；4.8.0 个人 Agent 治理层 `eco/personal_agent.py`（PAI DID + Capability Ticket + 预算 4 档 + 8 因素风险分 + 行动链 + Connector 8 规则审核）+ 18 端点 + 8 MCP 工具；4.8.1 平台中立接入层 `eco/platform_registry.py`；4.8.2 海外平台真实接入 `connectors/{muse,grok_bot}`（**只接国外**：Muse / Grok Bot，国内 Coze 误建已删、仅留注册表条目）；4.8.3 NVIDIA 开发者平台接入 + Agent 基础设施开源扫描管道，MCP **66 工具**。
@@ -20,6 +20,14 @@ Agent 原生 AI 工具安全扫描器（MCP/skill/GPTs/prompt），对齐 OWASP 
 **235 = 静态 208 + 生成 8 + 雷达 19**（live 看 `/api/v1/health.rules_breakdown`）；Skill **262**（SKILL_EXTRA 27）。已门禁化 `scripts/rule_count_gate.py`（CI `ci.yml`，47 声明位）。坑：散文里 238 可能是 `rgba(238,69,96)`；分解行须拆 ROW_MARKERS/CELL_MARKERS。
 正则坑：中文字符类外是 `\w`，ASCII 边界须 `\b`；千位数字用 `\d[\d,]*\d{3,}`；「提及 x402 ≠ 执行 x402」。
 `scanner/mcp_manifest_scan.py` 处理 SEP-2640 manifest（scope/installCommands/明文 token/签名/过期 5 项），27 测试全绿。
+
+## 版本声明位（2026-09-25 全量收敛，勿再写字面量）
+`scripts/sync_version.py` **35 个声明位**（原先 22），`tests/test_version_declare.py` 9 测试强制「生产路径里出现产品版本字面量就必须登记」+「同主版本家族不得并存两个值」。
+**唯一事实源**：`api/server.py` 的 `API_VERSION`（原 6 处 4.3.0 已收敛）；`api/openapi_spec.py` **import** 它做示例值（不再写死）；`scripts/gen_project_sbom.py` 从 `setup.py` 正则取（原硬编码 4.2.2，曾致 SBOM 盖 4.3.0 / npm 4.8.3 三层矛盾）。
+**死代码坑**：`/.well-known/agent-card.json` 由 `api/trust_api.py:agent_card()` 读 **`docs/.well-known/agent-card.json`** 返回；`api/static/.well-known/agent-card.json` 永远不被服务（server.py 的 trust_api 分支先命中）。两份都得改，只改 static 那份等于白改。
+**历史保留约定**：带日期文档刻意保留原值（改之=篡改史实）——`docs/investor-strategy-2026-08.md`、`docs/agent-ecosystem-distribution.md`、`distribution/listings/SUBMIT.md`、`distribution/aishield-plugins/SUBMISSION.md`、`distribution/published.json`、`llms-full.txt` 正文的 `**Shipped in v4.2.0**` 变更日志标题。已在测试 `HISTORICAL_ALLOWLIST` 逐条注明理由；`project-sbom.cyclonedx.json` 整文件跳过（90 个内部源文件组件版本由生成器统一盖章，只锚 application 组件）。
+**CI 根因（已修）**：`unified-security-scan.yml` 原为 `python api/server.py & sleep 3 + curl -s`（不带 --fail，失败伪装成成功）→ 改专用端口 8731 + 30s 有界就绪探测 + `curl -sf` + 进程退出即打日志。`ci.yml` 本就有正确 retry 范式。
+**回归前提**：`tests/test_linkages.py` 用 `@unittest.skipUnless(_SERVER_UP)` 探 8450——本机起了 server 会把 skip 翻成 run 并冒出假 401 失败。跑全量前须停掉本机 server。当前 **1572/1572（23 skip）**。
 
 ## 基准（勿引用 96%/98%）
 `scripts/benchmark.py` 主口径 serious_only **45/50=90.0% 召回 / 0/45=0.0% 误报**；副口径 any_finding 覆盖 50/50。MIN_RECALL=0.85 / MIN_COVERAGE=1.00。is_doc 已按规则语义豁免（MCP06 + ASI*），指令面喂样用 `skills/payload_NN.md`。

@@ -169,6 +169,9 @@ def main():
         # 2026-09-19 在线扫描页 + 框架适配器 + SARIF 导出契约
         'tests.test_sarif_export',
         'tests.test_scan_inline_page',
+        # 2026-09-25 版本声明位覆盖门禁：防"门禁假绿"（api/server.py 曾 6 处 4.3.0
+        # 而 mcp.json 已 4.8.3，sync_version 报"全部一致"却对那 8 处失明）
+        'tests.test_version_declare',
         # 2026-09-19 AIShield Collector：本地持续观测（不 spawn / 不联网 / 指纹幂等 / 紧凑摘要）
         # 2026-09-22 MCP SEP-2640 manifest 扫描器：过度代理/供应链/凭据/签名/过期
         'tests.test_mcp_manifest_scan',

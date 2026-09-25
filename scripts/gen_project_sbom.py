@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import sys
 import uuid
@@ -21,7 +22,25 @@ TZ = timezone(timedelta(hours=8))
 _BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT_DEFAULT = os.path.join(_BASE, "sbom.cyclonedx.json")
 
-TOOL_VERSION = "4.2.2"
+
+def _product_version():
+    """产品版本取自 setup.py —— 唯一事实源。
+
+    此前这里硬编码 TOOL_VERSION = "4.2.2"，而 SBOM 产物里被盖上的版本号是
+    4.3.0、npm 实际已到 4.8.3：同一份 SBOM 三层版本互相矛盾。SBOM 的
+    metadata.tools.version 会被下游漏洞情报工具用来做版本关联，版本写错
+    等于把关联结论全部作废。
+    """
+    setup_py = os.path.join(_BASE, "setup.py")
+    with open(setup_py, encoding="utf-8") as fh:
+        for line in fh:
+            m = re.match(r'version\s*=\s*"([^"]+)"', line.strip())
+            if m:
+                return m.group(1)
+    raise RuntimeError("无法从 setup.py 解析 version")
+
+
+TOOL_VERSION = _product_version()
 PYTHON_REQUIRED = ">=3.10"
 
 

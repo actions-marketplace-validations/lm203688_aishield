@@ -53,14 +53,41 @@ jobs:
           python-version: '3.11'
 
       - name: Start AIShield Server
+        env:
+          # 本 workflow 专用端口。8450 会与并发 workflow / 其它隧道抢 bind，
+          # 端口被占时 server 静默启动失败，后续 curl 再空跑，整条门禁就红。
+          AISHIELD_PORT: '8731'
         run: |
-          python api/server.py &
-          sleep 3
-          curl -s http://localhost:8450/api/v1/health
+          set -uo pipefail
+          python api/server.py > server.log 2>&1 &
+          SERVER_PID=$!
+          # 有界就绪探测，最多 30s。原先 `sleep 3` 是一次性赌注：冷启动或
+          # 依赖加载稍慢一次就整条链路假失败，而 `curl -s` 不带 --fail，
+          # 拿到非 2xx 也不报错，等于把"没起来"伪装成"起来了"。
+          for i in $(seq 1 30); do
+            if curl -sf "http://127.0.0.1:${AISHIELD_PORT}/api/v1/health" \
+                 -o server-health.json 2>/dev/null; then
+              echo "AIShield server ready after ${i}s (pid ${SERVER_PID})"
+              cat server-health.json
+              exit 0
+            fi
+            # 进程已经退出了就是真失败，别等满 30s 再报"未就绪"
+            if ! kill -0 "$SERVER_PID" 2>/dev/null; then
+              echo "::error::AIShield server 启动即退出，日志如下"
+              cat server.log
+              exit 1
+            fi
+            sleep 1
+          done
+          echo "::error::AIShield server 30s 内未就绪，日志如下"
+          cat server.log
+          exit 1
 
       - name: Scan Repository
+        env:
+          AISHIELD_PORT: '8731'
         run: |
-          curl -s -X POST http://localhost:8450/api/v1/audit \
+          curl -sf -X POST "http://127.0.0.1:${AISHIELD_PORT}/api/v1/audit" \
             -H "Content-Type: application/json" \
             -d '{
               "tool_name": "aishield-repo",

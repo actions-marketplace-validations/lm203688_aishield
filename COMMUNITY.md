@@ -7,7 +7,7 @@
 
 | 渠道 | 状态 | 链接 / 标识 | 备注 |
 |---|---|---|---|
-| **npm** | ✅ 已上架 | `aishield-mcp-server` v4.3.0 | 主分发通道；`npm i -g aishield-mcp-server` |
+| **npm** | ✅ 已上架 | `aishield-mcp-server` v4.8.3 | 主分发通道；`npm i -g aishield-mcp-server` |
 | **Glama** | ✅ 已上架 | `lm203688/aishield` (gso85mvobx, MIT) | MCP server 目录 |
 | **Skills 市场** | ✅ 已上架 | `aishield-ops` skill（用户级） | 运营 / 竞品 / 推广资产 |
 | **Official MCP Registry** | ⚠️ 待核实 | 推送由 `publish-mcp-registry.yml` 自动完成 | 实测 `registry.modelcontextprotocol.io` 曾返 404，需复验 |

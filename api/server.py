@@ -40,6 +40,15 @@ from scanner.api_scanner import APIScanOrchestrator
 from proxy import gateway as proxy_gateway
 from trust_api import generate_attestation, verify_attestation, list_attestations, revoke_attestation, create_attestation_from_scan
 
+# ── 产品版本（唯一声明位）──
+# 历史上本文件散落着 7 处独立写死的版本字面量：/health、/api/v1 根、三处
+# powered_by 水印、MCP-over-HTTP initialize 的 serverInfo、以及 server-card
+# fallback。它们各自独立漂移，实测曾出现同一进程对外自报 "4.3.0" 而
+# mcp.json 已是 "4.8.3"——用户按 /health 的版本去查文档，查到的永远是旧版。
+# 现在收敛为一个常量，由 scripts/sync_version.py 门禁约束；新增任何
+# "用户能读到的版本"都必须引用它，不得再写字面量。
+API_VERSION = "4.8.3"
+
 # ── Eco Dispatcher ──
 try:
     from eco.dispatcher import init as _eco_init, dispatch_get as _eco_dispatch_get, dispatch_post as _eco_dispatch_post
@@ -619,7 +628,7 @@ class AIShieldHandler(BaseHTTPRequestHandler):
             else:
                 # Fallback: inline server card for deployments without the static file
                 json_data = json.dumps({
-                    "serverInfo": {"name": "AIShield", "version": "4.8.3",
+                    "serverInfo": {"name": "AIShield", "version": API_VERSION,
                         "description": "AI Agent Security Shield — OWASP MCP Top 10 aligned security scanning. 235 rules covering prompt injection, zero-width characters, Rug Pull, permission audit, and dependency monitoring."},
                     "url": "https://aishield.tools/mcp",
                     "provider": {"name": "AIShield", "url": "https://github.com/lm203688/aishield"},
@@ -950,7 +959,7 @@ class AIShieldHandler(BaseHTTPRequestHandler):
             _meta = _git_meta()
             self._send_json({
                 "status": "ok",
-                "version": "4.3.0",
+                "version": API_VERSION,
                 "owasp_standard": "OWASP MCP Top 10 (2025 v0.1)",
                 "rules_count": get_rule_count("mcp"),
                 # 规则构成明细：static 是发版时固化的常量，generated / radar
@@ -1071,7 +1080,7 @@ class AIShieldHandler(BaseHTTPRequestHandler):
         if path == "/api/v1":
             self._send_json({
                 "name": "AIShield API",
-                "version": "4.3.0",
+                "version": API_VERSION,
                 "description": "AI Agent Security & Trust Platform — Agent-First API",
                 "openapi": "/openapi.json",
                 "agent_setup": "/api/v1/agent/setup",
@@ -2295,7 +2304,7 @@ blockquote{{border-left:4px solid #3b82f6;padding-left:16px;margin-left:0;color:
                 "powered_by": {
                     "name": "AIShield",
                     "url": "https://aishield.tools",
-                    "version": "4.3.0",
+                    "version": API_VERSION,
                 },
             }
             
@@ -2341,7 +2350,7 @@ blockquote{{border-left:4px solid #3b82f6;padding-left:16px;margin-left:0;color:
         result["powered_by"] = {
             "name": "AIShield",
             "url": "https://aishield.tools",
-            "version": "4.3.0",
+            "version": API_VERSION,
         }
         self._send_json(result)
         _record_usage("prompt-check", self.client_address[0])
@@ -2358,7 +2367,7 @@ blockquote{{border-left:4px solid #3b82f6;padding-left:16px;margin-left:0;color:
         result["powered_by"] = {
             "name": "AIShield",
             "url": "https://aishield.tools",
-            "version": "4.3.0",
+            "version": API_VERSION,
         }
         self._send_json(result)
         _record_usage("banned-words", self.client_address[0])
@@ -2610,7 +2619,7 @@ blockquote{{border-left:4px solid #3b82f6;padding-left:16px;margin-left:0;color:
                     "capabilities": {"tools": {}},
                     "serverInfo": {
                         "name": "AIShield Security Scanner",
-                        "version": "4.3.0",
+                        "version": API_VERSION,
                     },
                 },
             })
