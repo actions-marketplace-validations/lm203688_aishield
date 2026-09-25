@@ -100,6 +100,94 @@ def _top_is_internal(mod_path):
     return top in _api_module_names()
 
 
+def _module_file(mod_path):
+    """`a.b.c` 或裸 `trust_api` 形式的模块对应的 .py 路径；找不到返回 None。"""
+    for p in _resolve_candidates(mod_path):
+        if p.endswith(".py") and os.path.isfile(p):
+            return p
+    return None
+
+
+def _assign_targets(node):
+    """从 Assign / AnnAssign 节点取出绑定的名字。"""
+    out = set()
+    if isinstance(node, ast.Assign):
+        for tg in node.targets:
+            if isinstance(tg, ast.Name):
+                out.add(tg.id)
+            elif isinstance(tg, (ast.Tuple, ast.List)):
+                for e in tg.elts:
+                    if isinstance(e, ast.Name):
+                        out.add(e.id)
+    elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+        out.add(node.target.id)
+    return out
+
+
+def _names_from_stmts(stmts):
+    """从一组语句里收集它们绑定的名字（不进入函数/类体）。"""
+    names = set()
+    for stmt in stmts:
+        if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            names.add(stmt.name)
+        elif isinstance(stmt, (ast.Assign, ast.AnnAssign)):
+            names.update(_assign_targets(stmt))
+        elif isinstance(stmt, ast.Import):
+            for alias in stmt.names:
+                names.add(alias.asname or alias.name.split(".")[0])
+        elif isinstance(stmt, ast.ImportFrom):
+            if any(a.name == "*" for a in stmt.names):
+                names.add("*")
+            for alias in stmt.names:
+                if alias.name != "*":
+                    names.add(alias.asname or alias.name)
+        elif isinstance(stmt, ast.Try):
+            # 模块级 try/except 是常见写法：
+            #   try:
+            #       from scanner.rules import get_rule_count
+            #       SCANNER_AVAILABLE = True
+            #   except Exception:
+            #       SCANNER_AVAILABLE = False
+            # 名字在 if-else 两侧都可能出现，body/handlers/orelse/finalbody 都要收。
+            names.update(_names_from_stmts(stmt.body))
+            for h in stmt.handlers:
+                names.update(_names_from_stmts(h.body))
+            names.update(_names_from_stmts(stmt.orelse))
+            names.update(_names_from_stmts(stmt.finalbody))
+        elif isinstance(stmt, (ast.If, ast.While, ast.For, ast.AsyncFor)):
+            names.update(_names_from_stmts(stmt.body))
+            names.update(_names_from_stmts(stmt.orelse))
+        elif isinstance(stmt, (ast.With, ast.AsyncWith)):
+            names.update(_names_from_stmts(stmt.body))
+    return names
+
+
+def _defined_names(path):
+    """AST 解析一个模块文件，返回它顶层定义的名字集合。
+
+    纯静态分析、绝不 import —— 这是有意的。用 importlib 去逐个导入 200 多个
+    模块会让门禁依赖本机装了哪些第三方包（browser-use / neo4j / kafka-python
+    都是可选依赖），并且执行这些模块的顶层副作用会污染后续测试。在干净 checkout
+    上「某模块缺可选依赖而导入失败」会被误判成「门禁不过」，把环境噪音当缺陷报。
+
+    返回集合里含 "*" 表示该模块有 `from x import *`，此时任何名字都放行。
+
+    两处实测踩过的坑：
+      1. 必须用 utf-8-sig 读 —— eco/a2a_gateway.py 带 UTF-8 BOM，用 utf-8 读会让
+         ast.parse 抛 `SyntaxError: invalid non-printable character U+FEFF`，于是
+         这个模块所有类名都被误报成"未定义"。
+      2. 名字不只出现在 tree.body 的直接子节点上 —— api/arena_core.py 的
+         SCANNER_AVAILABLE / _get_rule_count 定义在模块级 try/except 里，
+         只看 tree.body 会把 Try 节点整体当"不绑定任何名字"。
+    """
+    try:
+        with open(path, "r", encoding="utf-8-sig") as f:
+            tree = ast.parse(f.read())
+    except (SyntaxError, OSError):
+        return set()
+    return _names_from_stmts(tree.body)
+
+
 class TestInternalImportTargetsExist(unittest.TestCase):
     """每个指向仓库内部的 import 都必须能落盘解析到真实文件。"""
 
@@ -134,7 +222,9 @@ class TestInternalImportTargetsExist(unittest.TestCase):
                 path = os.path.join(dirpath, fn)
                 rel = os.path.relpath(path, ROOT).replace(os.sep, "/")
                 try:
-                    with open(path, "r", encoding="utf-8") as f:
+                    # utf-8-sig：eco/a2a_gateway.py 带 BOM，用 utf-8 读会让该文件
+                    # 静默解析失败，它里面的 import 就全部逃过检查。
+                    with open(path, "r", encoding="utf-8-sig") as f:
                         tree = ast.parse(f.read())
                 except (SyntaxError, OSError):
                     continue
@@ -211,27 +301,28 @@ class TestInternalImportTargetsExist(unittest.TestCase):
         `from eco import agent_gateway` 导入的是 eco/agent_gateway.py 这个子模块，
         而不是 eco/__init__.py 上的属性 —— 两种解析路径都要接受。
         """
-        import importlib
         problems = []
+        cache = {}
         for rel, mod, names, exempt in self._iter_imports():
             if not names or exempt or not _module_exists(mod):
+                continue
+            if mod not in cache:
+                src = _module_file(mod)
+                cache[mod] = _defined_names(src) if src else set()
+            defined = cache[mod]
+            if "*" in defined:
                 continue
             for name in names:
                 if name == "*":
                     continue
                 if _module_exists(mod + "." + name):
                     continue
-                try:
-                    m = importlib.import_module(mod)
-                except Exception as e:
-                    problems.append("  %s -> %s 无法导入: %s: %s"
-                                    % (rel, mod, type(e).__name__, str(e)[:70]))
+                if name in defined:
                     continue
-                if not hasattr(m, name):
-                    problems.append("  %s -> %s.%s 未定义" % (rel, mod, name))
+                problems.append("  %s -> %s.%s 未定义" % (rel, mod, name))
         self.assertEqual(
             problems, [],
-            msg="以下 from-import 的符号既不是子模块也不是已定义的名字：\n"
+            msg="以下 from-import 的符号既不是子模块也不是目标模块里已定义的名字：\n"
                 + "\n".join(sorted(set(problems))))
 
 
