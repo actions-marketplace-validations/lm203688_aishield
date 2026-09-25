@@ -69,8 +69,7 @@ Master index of all competitions, grants, and awards AIShield is targeting. All 
 
 | Priority | Competition | Type | Amount | Deadline | Win prob. | Status |
 |---|---|---|---:|---|---|---|
-| P2 | GitLab AI Hackathon 2027 | Hackathon | $65K pool | 2027-02-09 ~ 03-25 | 2-5% | Watching; requires Duo Agent Platform account |
-| P2 | AIxCC @ NeurIPS 2026 | AI security CTF | ~$1M pool | ~2026-10 | Depends on attendance | Watching (in-person required) |
+| P2 | GitLab AI Hackathon 2027 | Hackathon | $65K pool | 2027-02-09 ~ 03-25 (est; 2027 announcement not yet published) | 2-5% | Watching |
 
 ## Waiting for next cycle
 
@@ -107,6 +106,7 @@ Master index of all competitions, grants, and awards AIShield is targeting. All 
 **Other:**
 - Anthropic Claude Code Plugin Marketplace — see `../distribution/aishield-plugins/SUBMISSION.md`
 - Thinking Machines Safety Research Grants — direction mismatch (requires fine-tuning research), deadline was 3 days away
+- **"AIxCC @ NeurIPS 2026"** — not a real competition. AIxCC is a DARPA competition hosted at `aicyberchallenge.com`; the first cycle concluded its finals at DEFCON 2025 and is now in transition. NeurIPS 2026 hosts its own competitions under a separate track (acceptance deadline May 15 2026 AoE; organizer submission deadline Oct 31 2026 AoE) but no AIxCC edition is scheduled there. Row removed from "Prep work" on 2026-09-25 as a false-positive entry.
 
 ---
 
@@ -174,6 +174,29 @@ A recurring automation scans for competition window changes every 30 days (25th 
 - **Escalation:** If any deadline is within 14 days, prepend a `⚠️ URGENT` marker
 
 ### Monitoring log
+
+### 2026-09-25 automated scan
+
+Routine monthly scan (recurring automation `aishield-competition-window-scan`).
+
+- **Foresight 2026-10-31**: Application portal live at `foresight.org/grants/ai-science-safety-nodes-rfp/`; deadline re-confirmed as **31 October 2026, 23:59 PDT** (~**36 days** remaining). Cape Town xNode is now part of the hub network; FAQ unchanged, no mid-cycle feedback mechanism. **AI status: unchanged NO-GO** per the 2026-09-23 verdict above. No automated reminder triggered (not within 14 days).
+- **NetMind Arena (arena42.ai)**: Platform live. 7,867 agents registered, 8,520 credits in prize pool, 49 live competitions, 20 upcoming, 956 ended. `Weekly Credit League - Week 31` and `Agent World Cup 2026` currently pinned. Two Alibaba Wan2.7 contests (AI Video and AI Image) running. Bench leaderboard top slot at 2,000 score, 6 agents tied. **AIShield agent has not been re-evaluated since 2026-09-23; no leaderboard entry observed.** Realistic cash return remains $0 (see P1 rationale above). No new opportunity >$10K surfaced.
+- **OWASP Red Teaming Landscape 2027**: The 2026 cycle (submitted 2026-03-20, published at RSAC 2026 on 2026-03-25) is **closed**. The submission form at `genai.owasp.org/solution-submission-redteaming/` is now open **year-round**; entries are reviewed monthly and the landscape is republished **quarterly**. There is no separate "2027 call for submissions" with a fixed deadline — the earlier "2027-03 (est)" framing in this README is stale and should be read as "submit any time, next quarterly refresh ~Q1/Q2 2027". **AI status: still P0**, but the trigger to start drafting is now immediate, not "2026-11-01 CFS published".
+- **AIxCC "at NeurIPS 2026"**: **Correction — this entry does not describe a real competition.** AIxCC is a DARPA competition run at `aicyberchallenge.com`; the first cycle concluded its finals at DEFCON 2025 and is now in transition. NeurIPS 2026 hosts competitions under `neurips.cc/Conferences/2026/Dates` (acceptance deadline May 15 2026 AoE — passed; competition submission deadline Oct 31 2026 AoE for organizers), but **no AIxCC edition at NeurIPS has been announced**. The "Prep work (later deadlines)" row should be revised; see the "Not pursuing" update below. **No action required** — the previous P2 slot was based on a false positive.
+- **HK AI x Cybersecurity Challenge 2nd cycle**: Cycle 1 concluded with finals on 2026-08-23 (40 teams; 20 mainland, 18 HK, 2 overseas; HK$180K pool). Prize ceremony scheduled late September 2026. As of 2026-09-25, **no public announcement of a 2nd cycle** from DPO / HKCSPA / hksecai.hk. Continuing to watch; the README row "Next cycle 2027 spring" is unverified.
+- **火山引擎 Skill 安全攻防 2nd cycle**: Cycle 1 closed; champion reported via `zone.ci/secarticles/wx/547105.html`. As of 2026-09-25, **no 2nd-cycle announcement** at `skill-ctf.clsadp.com` or the 火山引擎 AI 安全 channel. Continuing to watch; the README row "2027 spring" is unverified.
+- **GitLab AI Hackathon 2027**: Previous cycle closed 2026-03-25. **2027 announcement not yet published** at `contributors.gitlab.com/ai-hackathon` or the GitLab community page. No change.
+
+**Escalation decisions for this scan:**
+
+- **Deadlines within 14 days:** none. Foresight (36 days out) is the earliest.
+- **New ≥$10K opportunity within 30 days:** none surfaced. Agent World Cup 2026 (NetMind) and Alibaba Wan2.7 contests are live but priced in credits that redeem to LLM API tokens, not cash; realistic cash value already captured in the P1 rationale.
+- **Cancelled / postponed:** none. The AIxCC row is a **correction, not a cancellation** — see below.
+
+### 2026-09-25 corrections (recorded for the next reader)
+
+1. **"AIxCC @ NeurIPS 2026" in "Prep work (later deadlines)"** is a false positive and will be removed. AIxCC is DARPA-only (`aicyberchallenge.com`), and no NeurIPS-hosted edition exists for 2026. Filed under "Not pursuing" below with the reason.
+2. **OWASP 2027 date framing.** The 2026-03-20 cycle closed. The landscape is now a **rolling quarterly publication**; the deadline column should be read as "always open" for the next quarterly refresh, not "2027-03 (est)".
 
 ### 2026-09-23 manual sweep (not the automated scan)
 
