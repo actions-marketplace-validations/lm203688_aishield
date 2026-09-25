@@ -1,0 +1,7 @@
+{
+  "signer_did": "did:aishield:trust-service",
+  "alg": "hmac-sha256",
+  "key_id": "key-1",
+  "verification": "server-side",
+  "note": "HMAC 密钥由 AIShield 信任服务持有；请调用 /api/v1/agent-card/verify 验证"
+}

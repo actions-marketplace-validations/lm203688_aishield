@@ -195,6 +195,17 @@ def main():
         'tests.test_personal_agent',
         # 2026-09-24 v4.8.1：平台中立接入层（40+ 平台注册表 + 治理缺口矩阵 + 推荐引擎）
         'tests.test_platform_registry',
+        # 2026-09-24 v4.8.2：海外平台真实接入（Meta Muse + xAI Grok Bot）
+        # OAuth + PAT 双通道、fail-closed 续期、preflight 敏感词升级、proxy 透传
+        'tests.test_connectors',
+        # 2026-09-25 v4.8.3：NVIDIA 开发者平台真实接入（NGC Catalog + NIM 推理 + NeMo 编排）
+        # NGC API Key 形态，复用个人 Agent 治理层 preflight + HMAC 行动链
+        'tests.test_nvidia_connector',
+        # 2026-09-25 v4.8.3：Agent 基础设施开源扫描管道
+        # scanner.engine → 封装（MCP 适配器骨架）→ 二次研发清单，支持 URL/本地/内存三态
+        'tests.test_agent_infra_scan',
+        # 2026-09-25 v4.8.3：三平台双形态联调（开发者身份形态 + MCP 桥形态）
+        'tests.test_dual_form_integration',
         'tests.test_arena_join_gate',
     ]
 

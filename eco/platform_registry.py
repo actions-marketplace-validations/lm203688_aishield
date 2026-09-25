@@ -130,6 +130,120 @@ PLATFORMS: dict[str, dict[str, Any]] = {
         "notes": "纯开发者 API；Grok Build（终端 coding agent）通过 API 走。",
     },
 
+    # ───────────────────────────────────────────────────────────────
+    # 2026-09-24 v4.8.2：agent 基础设施开源生态（laya / nasiko / agent-desktop）
+    # + NVIDIA 开发者平台 —— 围绕核心目标的多维接入底座
+    # ───────────────────────────────────────────────────────────────
+    "nvidia-dev": {
+        "id": "nvidia-dev",
+        "name": "NVIDIA Developer Platform (NGC / NIM / NeMo)",
+        "vendor": "NVIDIA",
+        "family": "developer",
+        # NGC Catalog / NIM / NeMo Microservices 多需海外或代理；部分镜像国内可下
+        "cny_accessible": "regional_only",
+        "access_paths": ["native_sdk", "connector_official", "mcp"],
+        "platform_url": "https://developer.nvidia.com",
+        "developer_url": "https://docs.nvidia.com",
+        # NIM / NeMo 推理与编排 API（OpenAI 兼容风格）
+        "api_base": "https://integrate.api.nvidia.com/v1",
+        "launched": "2024-01-01",
+        "pricing": "NGC 免费层 + NIM 按量；DGX / AI Factory 企业",
+        "payment": "按量 + 企业合约",
+        "governance": [
+            "enterprise_sso", "model_card_publish", "artifact_signing",
+        ],
+        "gaps": [
+            "portable_personal_identity",
+            "cumulative_budget_governance",
+            "user_level_dispute_receipt",
+            "target_site_risk_scoring",
+            "connector_independent_review",
+        ],
+        "notes": (
+            "NVIDIA 开发者平台（NGC Catalog / NIM 微服务 / NeMo / AI Blueprint）"
+            "是 agent 基础设施的核心算力与模型底座。AIShield 可经 native_sdk "
+            "封装其推理/编排 API，或经 MCP 把 NIM 微服务当工具暴露；大陆需代理访问。"
+        ),
+    },
+
+    "laya": {
+        "id": "laya",
+        "name": "Laya (本地决策/护栏模型)",
+        "vendor": "OSS",
+        "family": "infrastructure",
+        "cny_accessible": "reachable",  # 开源，本地可跑
+        "access_paths": ["mcp", "native_sdk"],
+        "platform_url": "https://github.com/lm203688/laya",
+        "developer_url": "https://github.com/lm203688/laya",
+        "launched": "2026-09-22",
+        "pricing": "开源 (MIT)",
+        "payment": "免费",
+        "governance": ["local_inference", "zero_cost_guardrail"],
+        "gaps": [
+            "portable_personal_identity",
+            "cumulative_budget_governance",
+            "user_level_dispute_receipt",
+            "connector_independent_review",
+        ],
+        "notes": (
+            "Laya 是本地零成本决策/护栏模型（ModernBERT + 决策头），已以 MCP "
+            "server 形式接入 AIShield 作本地初筛层。属 agent 基础设施类项目，"
+            "AIShield 通过开源扫描 + 封装双层接入生态。"
+        ),
+    },
+
+    "nasiko": {
+        "id": "nasiko",
+        "name": "Nasiko (agent 基础设施)",
+        "vendor": "OSS",
+        "family": "infrastructure",
+        "cny_accessible": "reachable",
+        "access_paths": ["mcp", "connector_official"],
+        "platform_url": "https://github.com/search?q=nasiko+agent+infrastructure",
+        "developer_url": "https://github.com/search?q=nasiko+agent+infrastructure",
+        "launched": "2026-01-01",
+        "pricing": "开源",
+        "payment": "免费",
+        "governance": ["agent_runtime"],
+        "gaps": [
+            "portable_personal_identity",
+            "cumulative_budget_governance",
+            "user_level_dispute_receipt",
+            "target_site_risk_scoring",
+            "connector_independent_review",
+        ],
+        "notes": (
+            "Nasiko 是 agent 基础设施类开源项目。AIShield 将其纳入 agent 基础设施 "
+            "开源扫描目标，通过封装（MCP 适配器）与二次研发接入生态。"
+        ),
+    },
+
+    "agent-desktop": {
+        "id": "agent-desktop",
+        "name": "Agent Desktop (桌面 agent 基础设施)",
+        "vendor": "OSS",
+        "family": "infrastructure",
+        "cny_accessible": "reachable",
+        "access_paths": ["mcp", "native_sdk"],
+        "platform_url": "https://github.com/search?q=agent-desktop+infrastructure",
+        "developer_url": "https://github.com/search?q=agent-desktop+infrastructure",
+        "launched": "2026-01-01",
+        "pricing": "开源",
+        "payment": "免费",
+        "governance": ["desktop_agent_runtime"],
+        "gaps": [
+            "portable_personal_identity",
+            "cumulative_budget_governance",
+            "user_level_dispute_receipt",
+            "target_site_risk_scoring",
+            "connector_independent_review",
+        ],
+        "notes": (
+            "Agent Desktop 是桌面端 agent 基础设施开源项目。AIShield 将其纳入 "
+            "agent 基础设施开源扫描目标，通过封装与二次研发接入生态。"
+        ),
+    },
+
     "openai-chatgpt-agent": {
         "id": "openai-chatgpt-agent",
         "name": "ChatGPT Agent",

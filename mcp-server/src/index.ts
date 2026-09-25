@@ -20,7 +20,7 @@ import { z } from 'zod';
 
 // 版本单一真源。由 scripts/sync_version.py 统一维护，CI 的版本一致性门禁会校验它，
 // 因此这里不再手写数字 —— 硬编码的 '3.0.0' 曾与已发布的 4.2.x 差了一个大版本。
-const SERVER_VERSION = '4.8.1';
+const SERVER_VERSION = '4.8.3';
 
 const API_BASE = process.env.AISHIELD_API_URL || 'https://api.aishield.tools';
 const API_KEY = process.env.AISHIELD_API_KEY || '';
@@ -1581,6 +1581,192 @@ server.tool(
   + ``,
   {},
   () => callEcoGet('/api/v1/platforms/gap-matrix')
+);
+
+// ══════════════════════════════════════════════════════════════
+// Connectors Tools (v4.8.2, 2026-09-24)
+// 海外平台真实接入：Meta Muse + xAI Grok Bot
+// 治理层前置（预算 + 敏感词 + 行动溯源）；OAuth/PAT 双通道
+// 大陆需 HTTPS_PROXY；mock 模式通过服务端 AISHIELD_*_SECRET_KEY 配置
+// ══════════════════════════════════════════════════════════════
+
+server.tool(
+  'aishield_connector_catalog',
+  `列出 AIShield 已实现接入的个人 Agent / 开发者平台。
+
+当前支持：
+  - meta-muse       Meta Muse（海外，muse.ai，OAuth，需代理）
+  - xai-grok-bot    xAI Grok Bot（海外，api.x.ai，OpenAI 兼容，OAuth + PAT）
+  - nvidia-dev      NVIDIA 开发者平台（NGC Catalog + NIM 推理 + NeMo 编排，NGC API Key）
+
+每个平台都有 preflight 敏感词升级、4-tier 预算 verdict、HMAC 行动链；
+meta-muse / xai-grok-bot 走 OAuth+PAT 双通道，nvidia-dev 走 NGC API Key。`,
+  {},
+  () => callEcoGet('/api/v1/connectors')
+);
+
+server.tool(
+  'aishield_connector_self_check',
+  `诊断指定平台的接入状态：可达性、密钥配置、存储状态。
+
+大陆环境需要 HTTPS_PROXY 环境变量；返回的 checks 会包含当前 proxy 摘要。`,
+  {
+    platform: z.enum(['meta-muse', 'xai-grok-bot', 'nvidia-dev']).describe('平台 ID'),
+  },
+  ({ platform }) => callEcoGet(`/api/v1/connectors/${encodeURIComponent(platform)}/self-check`)
+);
+
+server.tool(
+  'aishield_connector_authorize',
+  `生成 OAuth 授权 URL（用户浏览器打开完成授权；回跳 ?code=...&state=...）。
+
+典型流程：
+  1. 调用本工具拿 authorize_url + state
+  2. 用户在浏览器打开授权 URL → 平台 → 回跳 redirect_uri?code=...
+  3. 调用 aishield_connector_exchange_code 换 token
+  4. 调用 aishield_connector_register_agent 注册 agent
+
+需要预配置 client_secret（服务端 AISHIELD_MUSE_SECRET_KEY 或 AISHIELD_GROK_SECRET_KEY）。`,
+  {
+    platform: z.enum(['meta-muse', 'xai-grok-bot']).describe('平台 ID'),
+    client_id: z.string().describe('OAuth 应用 client_id（用户在平台官方处创建）'),
+    redirect_uri: z.string().optional().describe('OAuth 回调地址（需在平台登记）'),
+    scopes: z.array(z.string()).optional().describe('权限范围；省略时使用平台默认'),
+  },
+  ({ platform, client_id, redirect_uri, scopes }) =>
+    callEco(`/api/v1/connectors/${encodeURIComponent(platform)}/oauth/authorize`,
+            { client_id, redirect_uri, scopes })
+);
+
+server.tool(
+  'aishield_connector_exchange_code',
+  `OAuth 授权码换 access_token + refresh_token。`,
+  {
+    platform: z.enum(['meta-muse', 'xai-grok-bot']).describe('平台 ID'),
+    code: z.string().describe('回调拿到的授权码'),
+    client_id: z.string().describe('OAuth client_id'),
+    redirect_uri: z.string().optional(),
+  },
+  ({ platform, code, client_id, redirect_uri }) =>
+    callEco(`/api/v1/connectors/${encodeURIComponent(platform)}/oauth/token`,
+            { code, client_id, redirect_uri })
+);
+
+server.tool(
+  'aishield_connector_register_agent',
+  `把个人 Agent 登记为 PAI 实例（跨平台可携带身份）。
+
+meta-muse / xai-grok-bot:
+  auth="pat" 时传 credentials: {"pat": "***"}（Grok Bot 官方推荐）。
+  auth="oauth" 或省略时可通过 tokens 参数直接传 access_token。
+  传 platform_agent_id 表示平台侧 agent ID。
+
+nvidia-dev:
+  鉴权形态是 NGC API Key，不是 OAuth。传 agent_instance_id + api_key。
+  不要传 platform_agent_id / credentials。
+
+PAI DID 由 personal_agent 层自动生成，同一 user_id 在多个平台的 agent
+共享同一 parent_did。`,
+  {
+    platform: z.enum(['meta-muse', 'xai-grok-bot', 'nvidia-dev']).describe('平台 ID'),
+    user_id: z.string().describe('AIShield 用户 ID（自然人）'),
+    agent_name: z.string().describe('Agent 名称，如 "Alice 的 Muse 助理"'),
+    platform_agent_id: z.string().optional().describe('平台侧 agent ID（Muse / Grok Bot）'),
+    agent_instance_id: z.string().optional().describe('PAI agent instance_id（nvidia-dev 必填）'),
+    api_key: z.string().optional().describe('NGC API Key（nvidia-dev 可选，也可稍后单独设置）'),
+    client_id: z.string().optional().describe('OAuth client_id（可选）'),
+    auth: z.enum(['pat', 'oauth']).optional().default('oauth').describe('认证方式'),
+    credentials: z.object({
+      pat: z.string().optional().describe('Grok Bot PAT（auth=pat 时必填）'),
+      access_token: z.string().optional(),
+      refresh_token: z.string().optional(),
+      expires_at: z.number().optional(),
+      refresh_expires_at: z.number().optional(),
+      scope: z.string().optional(),
+    }).optional(),
+    capabilities: z.array(z.string()).optional(),
+    platform_tier: z.string().optional(),
+  },
+  ({ platform, ...body }) =>
+    callEco(`/api/v1/connectors/${encodeURIComponent(platform)}/agents/register`, body)
+);
+
+server.tool(
+  'aishield_connector_run',
+  `在指定平台的 Agent 上执行动作（chat / run_task / tool_call 等）。
+
+治理层已内置：
+  - preflight 预算 + 8 因素风险 + 敏感词升级
+  - 4-tier verdict：allow / confirm / block / denied
+    · denied: 硬拒，override 无效
+    · block:  需 override=true 强制放行（如"帮我转账"）
+    · confirm: 需 override=true 二次确认
+    · allow:  直接放行
+  - HMAC 行动链记录（90 天离线可验证）
+  - 支付类金额自动 reserve + commit
+
+nvidia-dev 的 action 取值：nim_chat（NIM 推理）/ ngc_catalog（NGC 模型检索）/ nemo_job（NeMo 训练编排）。`,
+  {
+    platform: z.enum(['meta-muse', 'xai-grok-bot', 'nvidia-dev']).describe('平台 ID'),
+    agent_instance_id: z.string().describe('已注册的 PAI agent instance_id'),
+    user_id: z.string().describe('AIShield 用户 ID'),
+    prompt: z.string().describe('发送给 Agent 的内容/指令'),
+    action: z.enum(['chat', 'chat_completions', 'run_task', 'tool_call', 'get_agent', 'get_state', 'nim_chat', 'ngc_catalog', 'nemo_job']).default('chat'),
+    bot_id: z.string().optional().describe('平台侧 agent ID（可选，默认 agent_instance_id）'),
+    model: z.string().optional().describe('模型名（Grok 如 "grok-3"；NVIDIA 如 "meta/llama-3.1-8b-instruct"）'),
+    currency: z.enum(['CNY', 'USD']).optional().default('CNY').describe('币种，Grok / NVIDIA 默认 USD'),
+    amount: z.number().optional().describe('本次预估金额；缺省时从 prompt 提取'),
+    override: z.boolean().optional().default(false).describe('true 时强制 block/confirm'),
+  },
+  ({ platform, ...body }) =>
+    callEco(`/api/v1/connectors/${encodeURIComponent(platform)}/actions/run`, body)
+);
+
+// ══════════════════════════════════════════════════════════════
+// Agent Infra Scan Tools (v4.8.3, 2026-09-25)
+// Agent 基础设施开源生态扫描管道：扫描 → 封装 → 二次研发清单
+// 目标类：laya / nasiko / agent-desktop / nvidia-dev 等 infrastructure|developer 平台
+// 输入三态：repo_url（在线，走 api.github.com）/ local_path / files（内存，离线）
+// ══════════════════════════════════════════════════════════════
+
+server.tool(
+  'aishield_agent_infra_targets',
+  `列出 AIShield 平台注册表中所有 agent 基础设施 / 开发者平台类目标
+（family = infrastructure | developer），供开源扫描管道选靶。
+
+包含 nvidia-dev、laya、nasiko、agent-desktop 等；
+每个目标带 access_paths / cny_accessible / governance 缺口信息。
+
+用于回答："有哪些 agent 基础设施开源项目值得扫描 + 封装成 MCP 适配器？"`,
+  {},
+  () => callEcoGet('/api/v1/agent-infra/targets')
+);
+
+server.tool(
+  'aishield_agent_infra_scan',
+  `扫描一个 agent 基础设施开源项目，产出三层交付物：
+
+  1. report          安全扫描结果（复用 AIShield scanner：findings / 评分 / 建议）
+  2. mcp_adapter_skeleton  自动生成 MCP 封装适配器骨架（Python 代码，含治理 preflight 接入点）
+  3. secondary_rd_checklist 二次研发清单（按风险类别派生的工作项）
+
+输入三态（三选一）：
+  - repo_url   GitHub 仓库 URL（在线；本环境走 api.github.com）
+  - local_path 本地目录路径（离线）
+  - files      内存文件字典 {"path": "content"}（完全离线、确定性，用于测试）
+
+返回 ok=true 时含 report / mcp_adapter_skeleton / secondary_rd_checklist。`,
+  {
+    name: z.string().describe('目标名称，如 "laya"'),
+    repo_url: z.string().optional().describe('GitHub 仓库 URL（在线扫描）'),
+    local_path: z.string().optional().describe('本地目录路径（离线扫描）'),
+    files: z.record(z.string()).optional().describe('内存文件字典 {"path":"content"}（离线、确定性）'),
+    platform_id: z.string().optional().describe('关联的 AIShield 平台 ID（如 "laya" / "nasiko"）'),
+    tool_type: z.string().optional().default('mcp').describe('工具类型，默认 "mcp"'),
+  },
+  ({ name, repo_url, local_path, files, platform_id, tool_type }) =>
+    callEco('/api/v1/agent-infra/scan',
+            { name, repo_url, local_path, files, platform_id, tool_type })
 );
 
 // ── Start ──

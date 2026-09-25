@@ -171,6 +171,30 @@ HMAC-SHA256 chained audit + OCSF 1.1 event classes + STIX 2.1 observables + ATT&
 | `aishield_platform_recommend` | Score-ranked recommendation given user_country, capabilities_needed, budget, developer_level. |
 | `aishield_platform_gap_matrix` | Cross-platform governance gap matrix — one dict per platform with covered/gaps/provision_map. |
 
+### Connectors — 海外平台真实接入 (v4.8.2, 2026-09-24)
+
+Meta Muse、xAI Grok Bot 与 NVIDIA Developer Platform 的真实 REST 接入，前置 AIShield 治理层。
+大陆需 `HTTPS_PROXY`；PAT / OAuth / NGC API Key 三通道；4-tier verdict；HMAC 行动链。
+
+| Tool | Description |
+|---|---|
+| `aishield_connector_catalog` | List supported platforms (meta-muse, xai-grok-bot, nvidia-dev). |
+| `aishield_connector_self_check` | Diagnostic: reachability, secret config, stored credentials, proxy summary. |
+| `aishield_connector_authorize` | Build OAuth authorize URL (user opens browser; redirect_uri gets `?code=...`). Muse / Grok Bot only — nvidia-dev uses an NGC API Key. |
+| `aishield_connector_exchange_code` | Exchange auth code for access_token + refresh_token. |
+| `aishield_connector_register_agent` | Register a personal agent instance (PAT / OAuth / NGC API Key); ties it to a PAI DID. Pass `agent_instance_id` + `api_key` for nvidia-dev. |
+| `aishield_connector_run` | Execute an agent action (chat / run_task / tool_call / nim_chat / ngc_catalog / nemo_job). Preflight budget + sensitive-keyword + risk; 4-tier verdict (allow / confirm / block / denied); override for block/confirm only; HMAC action chain record. |
+
+### Agent Infra Scan — 开源基础设施扫描 (v4.8.3, 2026-09-25)
+
+把 agent 基础设施类开源项目纳入生态：开源扫描 → 封装（MCP 适配器骨架）→
+二次研发清单，三层交付物一次产出。
+
+| Tool | Description |
+|---|---|
+| `aishield_agent_infra_targets` | List all agent-infrastructure / developer-platform scan targets (`family=infrastructure|developer`: nvidia-dev, laya, nasiko, agent-desktop, …). |
+| `aishield_agent_infra_scan` | Scan one project and return `report` + `mcp_adapter_skeleton` + `secondary_rd_checklist`. Input is one of `repo_url` / `local_path` / `files` (in-memory dict, fully offline and deterministic). |
+
 ### Ship Gate (10-state release lifecycle)
 
 | Tool | Description |
